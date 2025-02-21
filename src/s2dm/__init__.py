@@ -1,4 +1,5 @@
 import logging
+
 from rich.logging import RichHandler
 
 __author__ = """Daniel Alvarez-Coello"""
