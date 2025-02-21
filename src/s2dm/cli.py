@@ -2,12 +2,15 @@ import logging
 from pathlib import Path
 
 import rich_click as click
+from rich.pretty import pprint
 from rich.traceback import install
+
+from s2dm.iris import get_iris, write_yaml
 
 from . import __version__, log
 
 
-@click.command(context_settings={"auto_envvar_prefix": "s2dm"})
+@click.group(context_settings={"auto_envvar_prefix": "s2dm"})
 @click.option(
     "-l",
     "--log-level",
@@ -26,7 +29,15 @@ def cli(log_level: str, log_file: Path | None) -> None:
 
     log.setLevel(log_level)
     if log_level == "DEBUG":
-        install(show_locals=True)
+        _ = install(show_locals=True)
 
-    log.info("Running s2dm")
-    log.debug("Debugging infos")
+
+@cli.command
+@click.option("--schema", "-s", type=click.Path(exists=True), required=True, help="The graphql schema file")
+@click.option("--namespace", "-n", required=True, help="The namespace")
+@click.option("--output", "-o", type=click.Path(dir_okay=False, writable=True, path_type=Path), help="Output YAML")
+def iris(schema: Path, namespace: str, output: Path) -> None:
+    """Generate IRIs from a GraphQL schema."""
+    result = get_iris(schema, namespace)
+    pprint(result)
+    write_yaml(result, output)
