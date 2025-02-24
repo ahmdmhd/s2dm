@@ -76,6 +76,3 @@ Use `ruff format` to format all files in the currenct directory
   ```
 
 ## Tools
-
-
-

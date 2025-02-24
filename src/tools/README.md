@@ -49,6 +49,9 @@ The tools can currently export a given model into:
 * vspec - `tools/to_vspec.py`
 * SHACL - `tools/to_shacl.py`
 
+### SHACL exporter
+> TODO: Add description and example.
+
 ## Composer 
 Instead of modeling a huge monolithic model, GraphQL schemas can be specified in multiple small ones (aka., sub graphs).
 Then, specific elements from different sub models can be stiched together to form the composed model with the structure needed.

@@ -4,7 +4,7 @@ If you want to contribute to the data modeling approach itself, then see the [Co
 
 > TODO: Work in progress...
 
-## Basic building blocks 
+## Basic building blocks
 We re use following established artifacts:
 * For the specification of data structures and possible operations on that data, S2DM re uses the [GraphQL Schema Definition Language (SDL)](https://graphql.org/learn/schema/).
 The full feature set is available in the [official GraphQL specification](https://spec.graphql.org).
@@ -84,7 +84,7 @@ type Window {
   openness: Int @deprecated(reason: "Use `position`.")
 }
 ```
-To avoid breaking changes, GraphQL does not support the deprecation of types. 
+To avoid breaking changes, GraphQL does not support the deprecation of types.
 To deprecate a complete type, simply deprecate all the fields or values inside.
 ```graphql
 type SomeDeprecatedObjectType {
