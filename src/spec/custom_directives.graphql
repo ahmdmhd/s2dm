@@ -1,0 +1,3 @@
+directive @range(min: Float, max: Float) on FIELD_DEFINITION
+
+directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
