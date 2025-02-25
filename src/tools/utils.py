@@ -85,7 +85,7 @@ def get_all_named_types(schema: GraphQLSchema) -> list[GraphQLNamedType]:
         schema (GraphQLSchema): The GraphQL schema to extract named types from.
     Returns:
         list[GraphQLNamedType]: A list of all named types in the schema.
-    """
+    """    
     return [
         type_
         for type_ in schema.type_map.values()

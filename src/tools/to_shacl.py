@@ -1,9 +1,11 @@
 import logging
+from pathlib import Path
 
 import click
 from graphql import GraphQLNonNull, GraphQLScalarType
 from rdflib import RDF, BNode, Graph, Literal, Namespace
-from utils import get_all_named_types, get_all_object_types, get_cardinality, load_schema
+
+from tools.utils import get_all_named_types, get_all_object_types, get_cardinality, load_schema
 
 SH = Namespace("http://www.w3.org/ns/shacl#")
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
@@ -15,7 +17,8 @@ def get_xsd_datatype(gql_scalar: GraphQLScalarType) -> str:
     return XSD[GRAPHQL_SCALAR_TO_XSD[gql_scalar.name]]
 
 
-def translate_to_shacl(schema_data, shapes_namespace, shapes_namespace_prefix, model_namespace, model_namespace_prefix):
+def translate_to_shacl(schema, shapes_namespace, shapes_namespace_prefix, model_namespace, model_namespace_prefix):
+    schema_data = load_schema(schema)
     shacl_graph = Graph()
 
     shapes_namespace = Namespace(shapes_namespace)
@@ -68,29 +71,25 @@ def translate_to_shacl(schema_data, shapes_namespace, shapes_namespace_prefix, m
 
 
 @click.command()
-@click.argument("graphql_schema_file", type=click.Path(exists=True))
-@click.argument("output_file", type=click.Path())
-@click.argument("serialization_format", type=str, default="turtle")
+@click.argument("schema", type=click.Path(exists=True), required=True)
+@click.argument("output", type=click.Path(dir_okay=False, writable=True, path_type=Path), required=True)
+@click.argument("serialization_format", type=str, default="ttl")
 @click.argument("shapes_namespace", type=str, default="http://example.org/shapes#")
 @click.argument("shapes_namespace_prefix", type=str, default="shapes")
 @click.argument("model_namespace", type=str, default="http://example.org/ontology#")
 @click.argument("model_namespace_prefix", type=str, default="model")
 def main(
-    graphql_schema_file,
-    output_file,
-    serialization_format,
-    shapes_namespace,
-    shapes_namespace_prefix,
-    model_namespace,
-    model_namespace_prefix,
+    schema: Path,
+    output: Path,
+    serialization_format: str,
+    shapes_namespace: str,
+    shapes_namespace_prefix: str,
+    model_namespace: str,
+    model_namespace_prefix: str,
 ):
-    schema = load_schema(graphql_schema_file)
-    shacl_graph = translate_to_shacl(
-        schema, shapes_namespace, shapes_namespace_prefix, model_namespace, model_namespace_prefix
-    )
-
-    shacl_graph.serialize(destination=output_file, format=serialization_format)
-
+    shacl_graph = translate_to_shacl(schema, shapes_namespace, shapes_namespace_prefix, 
+                                     model_namespace, model_namespace_prefix)
+    shacl_graph.serialize(destination=output, format=serialization_format)
 
 if __name__ == "__main__":
     main()
