@@ -146,8 +146,8 @@ def get_cardinality(field: GraphQLField) -> tuple[int, int]:
 
 def validate_field(field: GraphQLField) -> bool:
     """
-    Check whether a GraphQL field is valid. 
-    For example: If the field has a 'cardinality' directive, 
+    Check whether a GraphQL field is valid.
+    For example: If the field has a 'cardinality' directive,
     this must not contradict the non nullability of the field.
     """
     # TODO: Add a check to avoid discrepancy between GraphQL not null and SHACL min cardinality

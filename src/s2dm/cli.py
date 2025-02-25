@@ -33,7 +33,9 @@ def cli(log_level: str, log_file: Path | None) -> None:
 
 
 @cli.command
-@click.option("--schema", "-s", type=click.Path(exists=True), required=True, help="The graphql schema file")
+@click.option(
+    "--schema", "-s", type=click.Path(exists=True), required=True, help="The GraphQL schema file written in SDL"
+)
 @click.option("--namespace", "-n", required=True, help="The namespace")
 @click.option("--output", "-o", type=click.Path(dir_okay=False, writable=True, path_type=Path), help="Output YAML")
 def iris(schema: Path, namespace: str, output: Path) -> None:
@@ -41,3 +43,42 @@ def iris(schema: Path, namespace: str, output: Path) -> None:
     result = get_iris(schema, namespace)
     pprint(result)
     write_yaml(result, output)
+
+
+@cli.command
+@click.option(
+    "--schema", "-s", type=click.Path(exists=True), required=True, help="The GraphQL schema file written in SDL"
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    required=True,
+    help="Output SHACL file",
+)
+@click.option(
+    "--serialization-format", "-f", type=str, default="ttl", help="Serialization format for the RDF data of the SHACL"
+)
+@click.option(
+    "--shapes-namespace", "-sn", type=str, default="http://example.org/shapes#", help="The namespace for SHACL shapes"
+)
+@click.option("--shapes-namespace-prefix", "-snpref", type=str, default="shapes", help="The prefix for SHACL shapes")
+@click.option(
+    "--model-namespace",
+    "-mn",
+    type=str,
+    default="http://example.org/ontology#",
+    help="The namespace for the data model",
+)
+@click.option("--model-namespace-prefix", "-mnpref", type=str, default="model", help="The prefix for the data model")
+def shacl(
+    schema: Path,
+    output: Path,
+    serialization_format: str,
+    shapes_namespace: str,
+    shapes_namespace_prefix: str,
+    model_namespace: str,
+    model_namespace_prefix: str,
+) -> None:
+    """Generate SHACL shapes from a GraphQL schema."""
+    pass
