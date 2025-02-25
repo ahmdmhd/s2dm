@@ -39,7 +39,7 @@ Among the limitations, is the fact that VSS uses a custom file extension `.vspec
 The language used in `vspec`, as of December 2024, does not support cross references.
 Thus, it is not possible to model multiple inter-connected domains.
 
-> If you want to learn more about the current limitations of `VSS`, please visit these resources: 
+> If you want to learn more about the current limitations of `VSS`, please visit these resources:
 > * [Defining the COVESA data modeling strategy and its associated artifacts](https://wiki.covesa.global/display/WIK4/Defining+the+COVESA+data+modeling+strategy+and+its+associated+artifacts)
 > * [Towards a Vehicle DATA specification](https://wiki.covesa.global/download/attachments/98271360/COVESA_Towards%20vehicle%20DATA%20specification_AMM_04.2024.pdf?version=1&modificationDate=1714758174348&api=v2)
 > * [Vehicle DATA Specification](https://wiki.covesa.global/display/WIK4/Vehicle+DATA+Specification)
@@ -165,7 +165,7 @@ For example:
 | `Climate`          | Get the fan speed per zone. |
 
 
-### Other ideas: 
+### Other ideas:
 > TODO: Conversational tools, versioning, etc.
 
 
@@ -176,11 +176,11 @@ Refer to the [examples folder](/examples/).
 ## Special considerations
 
 ### Special cross references
-GraphQL schema language excels in defining the structure of data models in a clear and understandable way. It provides robust elements such as types, fields within types, nested objects, and enumerations. 
-These features allow for a well-organized and precise representation of data structures. 
+GraphQL schema language excels in defining the structure of data models in a clear and understandable way. It provides robust elements such as types, fields within types, nested objects, and enumerations.
+These features allow for a well-organized and precise representation of data structures.
 However, it has limitations such as restricted cross-references, where linking fields to other fields directly is not possible.
 
-Let us assume our model has the concepts `Window.position`, `AC.temperature`, `AC.isOn`, `Sunroof.position`. 
+Let us assume our model has the concepts `Window.position`, `AC.temperature`, `AC.isOn`, `Sunroof.position`.
 In the `GraphQL` schema language, it is not possible to say that the `Person.perceivedTemperature` can be modified by acting on these properties.
 ```graphql
 type Person {
@@ -196,7 +196,7 @@ type Person {
 type PerceivedTemperature {
     temperature: Int
     modifiableBy: [perceivedTemperatureModifiersEnum]
-} 
+}
 
 enum perceivedTemperatureModifiersEnum {
     ns:Window.position

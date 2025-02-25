@@ -26,7 +26,7 @@ graph LR
 
 ## Exporter
 A model done with the GraphQL SDL represents an specification.
-The actual implementation of it is out of the scope. 
+The actual implementation of it is out of the scope.
 However, to facilitate the implementation, the exporter tool parses the specified model and creates the artifact that is needed by the system in the physical layer.
 
 ```mermaid
@@ -52,7 +52,7 @@ The tools can currently export a given model into:
 ### SHACL exporter
 > TODO: Add description and example.
 
-## Composer 
+## Composer
 Instead of modeling a huge monolithic model, GraphQL schemas can be specified in multiple small ones (aka., sub graphs).
 Then, specific elements from different sub models can be stiched together to form the composed model with the structure needed.
 To learn more about it, please refer to the [official documentation of the GraphQL Schema Definition Language](https://graphql.org/learn/federation/).
