@@ -1,19 +1,21 @@
 import logging
 import os
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from graphql import (
     GraphQLString,
     build_schema,
+    is_list_type,
+    is_non_null_type,
 )
 from graphql.type import GraphQLField, GraphQLNamedType, GraphQLObjectType, GraphQLSchema
 from graphql.utilities import print_schema
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
 
-
-def read_file(file_path: str) -> str:
+def read_file(file_path: Path) -> str:
     """
     Read the content of a file.
     Args:
@@ -30,7 +32,7 @@ def read_file(file_path: str) -> str:
         return file.read()
 
 
-def load_schema(graphql_schema_file) -> GraphQLSchema:
+def load_schema(graphql_schema_file: Path) -> GraphQLSchema:
     """
     Load and build a GraphQL schema from a file.
     This function reads a GraphQL schema definition from a file, converts it
@@ -44,8 +46,14 @@ def load_schema(graphql_schema_file) -> GraphQLSchema:
     custom_directives_file = os.path.join(os.path.dirname(__file__), "..", "spec", "custom_directives.graphql")
     custom_directives_str = read_file(custom_directives_file)
 
+    # Read common types from file
+    common_types_file = os.path.join(os.path.dirname(__file__), "..", "spec", "common_types.graphql")
+    common_types_str = read_file(common_types_file)
+
     # Build schema with custom directives
-    schema_str = custom_directives_str + "\n" + read_file(graphql_schema_file)
+    # TODO: Improve this part with schema merge function with a whole directory.
+    # TODO: For example: with Ariadne https://ariadnegraphql.org/docs/modularization#defining-schema-in-graphql-files
+    schema_str = custom_directives_str + "\n" + common_types_str + "\n" + read_file(graphql_schema_file)
 
     schema = build_schema(schema_str)  # Convert GraphQL SDL to a GraphQLSchema object
     logging.info("Successfully loaded the given GraphQL schema file.")
@@ -80,12 +88,14 @@ def ensure_query(schema: GraphQLSchema) -> GraphQLSchema:
 
 def get_all_named_types(schema: GraphQLSchema) -> list[GraphQLNamedType]:
     """
-    Extracts all named types from the provided GraphQL schema.
+    Extracts all named types (ScalarType, ObjectType, InterfaceType, UnionType, EnumType, and InputObjectType)
+    from the provided GraphQL schema.
+
     Args:
         schema (GraphQLSchema): The GraphQL schema to extract named types from.
     Returns:
         list[GraphQLNamedType]: A list of all named types in the schema.
-    """    
+    """
     return [
         type_
         for type_ in schema.type_map.values()
@@ -116,7 +126,6 @@ def get_directive_arguments(field: GraphQLField, directive_name: str) -> dict[st
     Logs:
         Logs a debug message if the specified directive is not found in the field.
     """
-
     if field.ast_node and field.ast_node.directives:
         for directive in field.ast_node.directives:
             if directive.name.value == directive_name:
@@ -125,30 +134,98 @@ def get_directive_arguments(field: GraphQLField, directive_name: str) -> dict[st
     return {}
 
 
-def get_cardinality(field: GraphQLField) -> tuple[int, int]:
+@dataclass
+class Cardinality:
+    min: int
+    max: int
+
+
+@dataclass
+class FieldCaseMetadata:
+    description: str
+    value_cardinality: Cardinality
+    list_cardinality: Cardinality
+
+
+class FieldCase(Enum):
+    """Enum representing the different cases of a field in a GraphQL schema."""
+    DEFAULT = FieldCaseMetadata(description="A singular element that can also be null. EXAMPLE -> field: NamedType",
+                                value_cardinality=Cardinality(min=0, max=1), list_cardinality=Cardinality(min=None, max=None))
+    NON_NULL = FieldCaseMetadata(description="A singular element that cannot be null. EXAMPLE -> field: NamedType!",
+                                 value_cardinality=Cardinality(min=1, max=1), list_cardinality=Cardinality(min=None, max=None))
+    LIST = FieldCaseMetadata(description="An array of elements. The array itself can be null. EXAMPLE -> field: [NamedType]",
+                             value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=0, max=1))
+    NON_NULL_LIST = FieldCaseMetadata(description="An array of elements. The array itself cannot be null. EXAMPLE -> field: [NamedType]!",
+                                      value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=1, max=1))
+    LIST_NON_NULL = FieldCaseMetadata(description="An array of elements. The array itself can be null but the elements cannot. EXAMPLE -> field: [NamedType!]",
+                                      value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=0, max=1))
+    NON_NULL_LIST_NON_NULL = FieldCaseMetadata(description="List and elements in the list cannot be null. EXAMPLE -> field: [NamedType!]!",
+                                               value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=1, max=1))
+    SET = FieldCaseMetadata(description="A set of elements. EXAMPLE -> field: [NamedType] @noDuplicates",
+                            value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=0, max=1))
+    SET_NON_NULL = FieldCaseMetadata(description="A set of elements. The elements cannot be null. EXAMPLE -> field: [NamedType!] @noDuplicates",
+                                     value_cardinality=Cardinality(min=0, max=1), list_cardinality=Cardinality(min=0, max=1))
+
+
+def get_field_case(field: GraphQLField) -> FieldCase:
     """
-    Retrieve the cardinality of a given GraphQL field.
-    This function extracts the 'cardinality' directive arguments from the provided
-    GraphQL field and returns a tuple containing the minimum and maximum values.
-    Args:
-        field (GraphQLField): The GraphQL field from which to extract the cardinality.
+    Determine the case of a field in a GraphQL schema.
+
     Returns:
-        tuple[int, int]: A tuple containing the minimum and maximum cardinality values.
-                         If the 'min' or 'max' values are not found, None is returned
-                         in their place.
+        FieldCase: The case of the field as one of the 6 possible cases that are possible with the GraphQL SDL.
+        without custom directives.
     """
+    if is_non_null_type(field.type):
+        if is_list_type(field.type.of_type):
+            if is_non_null_type(field.type.of_type.of_type):
+                return FieldCase.NON_NULL_LIST_NON_NULL
+            return FieldCase.NON_NULL_LIST
+        return FieldCase.NON_NULL
+    if is_list_type(field.type):
+        if is_non_null_type(field.type.of_type):
+            return FieldCase.LIST_NON_NULL
+        return FieldCase.LIST
+    return FieldCase.DEFAULT
 
-    cardinality = get_directive_arguments(field, "cardinality")
-    min_value = cardinality.get("min", None)  # Provide a default value if 'min' is not found
-    max_value = cardinality.get("max", None)  # Provide a default value if 'max' is not found
-    return min_value, max_value
 
-
-def validate_field(field: GraphQLField) -> bool:
+def get_field_case_extended(field: GraphQLField) -> FieldCase:
     """
-    Check whether a GraphQL field is valid.
-    For example: If the field has a 'cardinality' directive,
-    this must not contradict the non nullability of the field.
+    Same as get_field_case but extended to include the custom cases labeled with directives.
+
+    Current extensions:
+    @noDuplicates
+    - SET = LIST + @noDuplicates
+    - SET_NON_NULL = LIST_NON_NULL + @noDuplicates
+
+    Returns:
+        FieldCase: The case of the field as one of (6 base + custom ones).
     """
-    # TODO: Add a check to avoid discrepancy between GraphQL not null and SHACL min cardinality
+    base_case = get_field_case(field)
+    if has_directive(field, "noDuplicates"):
+        if base_case == FieldCase.LIST:
+            return FieldCase.SET
+        elif base_case == FieldCase.LIST_NON_NULL:
+            return FieldCase.SET_NON_NULL
+        else:
+            raise ValueError(
+                f"Wrong output type and/or modifiers specified for the field:\n"
+                f"{field.ast_node.name.value}: {field.type}\n"
+                f"Please, correct the GraphQL schema."
+            )
+    else:
+        return base_case
+
+
+def has_directive(element: GraphQLObjectType | GraphQLField, directive_name: str) -> bool:
+    """Check whether a GraphQL element (field, object type) has a particular specified directive."""
+    if element.ast_node and element.ast_node.directives:
+        for directive in element.ast_node.directives:
+            if directive.name.value == directive_name:
+                return True
+    return False
+
+
+def has_valid_cardinality(field: GraphQLField) -> bool:
+    """Check possible missmatch between GraphQL not null and custom @cardinality directive."""
+    # TODO: Add a check to avoid discrepancy between GraphQL not null and custom @cardinality directive.
     pass

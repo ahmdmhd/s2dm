@@ -18,12 +18,12 @@ enum ThreeColumnsInCabinEnum {
 }
 
 # Object types
-type InCabinArea2x2 {
+type InCabinArea2x2 @instanceTag {
   row: TwoRowsInCabinEnum
   column: TwoColumnsInCabinEnum
 }
 
-type InCabinArea2x3 {
+type InCabinArea2x3 @instanceTag {
   row: TwoRowsInCabinEnum
   column: ThreeColumnsInCabinEnum
 }

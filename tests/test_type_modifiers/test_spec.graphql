@@ -1,0 +1,53 @@
+type TestTypeModifiers {
+    # field.case.DEFAULT
+    defaultScalar: Boolean
+    default: ExampleType
+    
+    # field.case.NON_NULL
+    nonNullScalar: Boolean!
+    nonNull: ExampleType!
+
+    # field.case.LIST
+    listScalar: [Boolean]
+    list: [ExampleType]
+
+    # field.case.NON_NULL_LIST
+    nonNullListScalar: [Boolean]!
+    nonNullList: [ExampleType]!
+    
+    # field.case.LIST_NON_NULL
+    listNonNullScalar: [Boolean!]
+    listNonNull: [ExampleType!]
+    
+    # field.case.NON_NULL_LIST_NON_NULL
+    nonNullListNonNullScalar: [Boolean!]!
+    nonNullListNonNull: [ExampleType!]!
+
+    # field.case.SET
+    setScalar: [Boolean] @noDuplicates
+    set: [ExampleType] @noDuplicates
+
+    # field.case.LIST_NON_NULL
+    setNonNullScalar: [Boolean!] @noDuplicates
+    setNonNull: [ExampleType!] @noDuplicates 
+}
+
+type ExampleType {
+    instanceTag: ExampleTypeInstance
+    dummyField: Boolean
+}
+
+type ExampleTypeInstance @instanceTag {
+    letter: LetterEnum
+    number: NumberEnum
+}
+
+enum LetterEnum {
+    A
+    B
+}
+
+enum NumberEnum {
+    ONE
+    TWO
+}
