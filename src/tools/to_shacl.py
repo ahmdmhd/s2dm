@@ -6,19 +6,22 @@ from graphql import (
     GraphQLField,
     GraphQLObjectType,
     GraphQLScalarType,
+    GraphQLSchema,
     get_named_type,
+    is_list_type,
 )
 from rdflib import RDF, BNode, Graph, Literal, Namespace
 
 from tools.utils import (
     FieldCase,
     get_all_expanded_instance_tags,
-    get_all_objects_with_directive,
     get_all_named_types,
     get_all_object_types,
+    get_all_objects_with_directive,
     get_field_case_extended,
     has_directive,
     load_schema,
+    print_field_sdl,
 )
 
 SUPPORTED_FIELD_CASES = {
@@ -49,7 +52,7 @@ def get_xsd_datatype(scalar: GraphQLScalarType) -> str:
 
 
 def translate_to_shacl(
-    schema: Path, shapes_namespace: str, shapes_namespace_prefix: str, model_namespace: str, model_namespace_prefix: str
+    schema_path: Path, shapes_namespace: str, shapes_namespace_prefix: str, model_namespace: str, model_namespace_prefix: str
 ) -> Graph:
     """Translate a GraphQL schema to SHACL."""
     # Set the global variables for the namespaces to avoid passing them as arguments multiple times
@@ -59,19 +62,19 @@ def translate_to_shacl(
     MODEL_NAMESPACE = Namespace(model_namespace)
     MODEL_NAMESPACE_PREFIX = Namespace(model_namespace_prefix)
 
-    schema_data = load_schema(schema)
+    schema = load_schema(schema_path)
     graph = Graph()
     graph.bind("sh", SH)
     graph.bind("xsd", XSD)
     graph.bind(SHAPES_NAMESPACE_PREFIX, SHAPES_NAMESPACE)
     graph.bind(MODEL_NAMESPACE_PREFIX, MODEL_NAMESPACE)
 
-    named_types = get_all_named_types(schema_data)
+    named_types = get_all_named_types(schema)
     object_types = get_all_object_types(named_types)
     logging.debug(f"Object types: {object_types}")
     instance_tag_objects = get_all_objects_with_directive(object_types, "instanceTag")
     logging.debug(f"Instance Tag Objects: {instance_tag_objects}")
-    INSTANCE_TAGS = get_all_expanded_instance_tags(schema_data)
+    INSTANCE_TAGS = get_all_expanded_instance_tags(schema)
     logging.debug(f"Expanded tags from spec: {INSTANCE_TAGS}")
     
     for object_type in object_types:
@@ -81,13 +84,12 @@ def translate_to_shacl(
         if has_directive(object_type, "instanceTag"):
             logging.debug(f"Skipping object type '{object_type.name}' with directive 'instanceTag'.")
             continue
-
-        process_object_type(object_type, graph)
+        process_object_type(object_type, graph, schema)
 
     return graph
 
 
-def process_object_type(object_type: GraphQLObjectType, graph: Graph):
+def process_object_type(object_type: GraphQLObjectType, graph: Graph, schema: GraphQLSchema):
     """Process a GraphQL object type and generate the corresponding SHACL triples."""
     logging.info(f"Processing object type '{object_type.name}'.")
     shape_node = SHAPES_NAMESPACE[object_type.name]
@@ -98,19 +100,63 @@ def process_object_type(object_type: GraphQLObjectType, graph: Graph):
         graph.add((shape_node, SH.description, Literal(object_type.description)))
 
     for field_name, field in object_type.fields.items():
-        process_field(field_name, field, shape_node, graph)
+        process_field(field_name, field, shape_node, graph, schema)
+
+def get_instance_tag_object(object: GraphQLObjectType) -> GraphQLObjectType | None:
+    """Get the object type of the instance tag (if exists)."""
+    if "instanceTag" in object.fields:
+        instance_tag_field = object.fields["instanceTag"]
+        instance_tag_output_type = get_named_type(instance_tag_field.type)
+        if isinstance(instance_tag_output_type, GraphQLObjectType):
+            return instance_tag_output_type
+        else:
+            # TODO: Move this validation step to a validation function for instance tags.
+            raise ValueError(f"Instance tag field '{instance_tag_output_type}' is not an object type.")
+    return None
 
 
-def process_field(field_name, field: GraphQLField, shape_node, graph: Graph):
+def get_expanded_instances(object: GraphQLObjectType) -> list:
+    pass
+
+
+def create_property_shape_with_literal(field_name, field: GraphQLField, shape_node, graph: Graph, value_cardinality=None):
+    property_path = MODEL_NAMESPACE[f"{field_name}"]
+    property_node = BNode()
+    graph.add((shape_node, SH.property, property_node))
+    graph.add((property_node, SH.name, Literal(field_name)))
+    graph.add((property_node, SH.path, property_path))
+    graph.add((property_node, SH.nodeKind, SH.Literal))
+    graph.add((property_node, SH.datatype, get_xsd_datatype(get_named_type(field.type))))
+    if value_cardinality.min:
+        graph.add((property_node, SH.minCount, Literal(value_cardinality.min, datatype=XSD.integer)))
+    if value_cardinality.max:
+        graph.add((property_node, SH.maxCount, Literal(value_cardinality.max, datatype=XSD.integer)))
+
+def create_property_shape_with_iri(property_name, output_type_name, shape_node, graph: Graph, value_cardinality=None):
+    property_node = BNode()
+    property_path = MODEL_NAMESPACE["has"]
+    graph.add((shape_node, SH.property, property_node))
+    graph.add((property_node, SH.name, Literal(property_name)))
+    graph.add((property_node, SH.path, property_path))
+    graph.add((property_node, SH.nodeKind, SH.IRI))
+    graph.add((property_node, SH.node, SHAPES_NAMESPACE[output_type_name]))
+    graph.add((property_node, SH["class"], MODEL_NAMESPACE[output_type_name]))
+    if value_cardinality.min:
+        graph.add((property_node, SH.minCount, Literal(value_cardinality.min, datatype=XSD.integer)))
+    if value_cardinality.max:
+        graph.add((property_node, SH.maxCount, Literal(value_cardinality.max, datatype=XSD.integer)))
+    
+
+
+
+
+def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph, schema: GraphQLSchema):
     """Process a field of a GraphQL object type and generate the corresponding SHACL triples."""
     field_case = get_field_case_extended(field)
 
     # Log the field definition as it appears in the GraphQL SDL
-    field_sdl = f"{field_name}: {field.type}"
-    if field.ast_node and field.ast_node.directives:
-        directives = " ".join([f"@{directive.name.value}" for directive in field.ast_node.directives])
-        field_sdl += f" {directives}"
-    logging.info(f"Processing field... '{field_sdl}'")
+    #field_sdl = get_sdl_str(field)
+    logging.info(f"Processing field... '{print_field_sdl(field)}'")
     logging.debug(f"Field case: {field_case}")
 
     if field_case not in SUPPORTED_FIELD_CASES:
@@ -121,39 +167,24 @@ def process_field(field_name, field: GraphQLField, shape_node, graph: Graph):
         logging.info(f"Skipping field '{field_name}'")
         return
     else:
-        # Add a new property blank node to the shape node
-        property_node = BNode()
-        graph.add((shape_node, SH.property, property_node))
-        graph.add((property_node, SH.name, Literal(field_name)))
-        if field.description:
-            graph.add((property_node, SH.description, Literal(field.description)))
-
-        field_named_type = get_named_type(field.type)  # GraphQL type without modifiers [] or !
-
-        # Assign field_name as the property path if the field is a scalar type, otherwise use 'has'
-        property_path = (
-            MODEL_NAMESPACE[f"{field_name}"]
-            if isinstance(field_named_type, GraphQLScalarType)
-            else MODEL_NAMESPACE["has"]
-        )
-        graph.add((property_node, SH.path, property_path))
-
-        if isinstance(field_named_type, GraphQLScalarType):
-            # Triples specific to scalar types
-            graph.add((property_node, SH.nodeKind, SH.Literal))
-            graph.add((property_node, SH.datatype, get_xsd_datatype(field_named_type)))
-        else:
-            # Triples specific to other types (e.g., Object types, Enum types. etc.)
-            graph.add((property_node, SH.nodeKind, SH.IRI))
-            graph.add((property_node, SH.node, SHAPES_NAMESPACE[field_named_type.name]))
-            graph.add((property_node, SH["class"], MODEL_NAMESPACE[field_named_type.name]))
-
-        # TODO: Parse the min and max in the @cardinality directive, implement consitency checking first
+        # TODO: Parse the min and max in the @cardinality directive, implement consistency checking first
         value_cardinality = field_case.value.value_cardinality
-        if value_cardinality.min:
-            graph.add((property_node, SH.minCount, Literal(value_cardinality.min, datatype=XSD.integer)))
-        if value_cardinality.max:
-            graph.add((property_node, SH.maxCount, Literal(value_cardinality.max, datatype=XSD.integer)))
+        
+        unwrapped_field_type = get_named_type(field.type)  # GraphQL type without modifiers [] or !
+        logging.debug(f"Unwrapped field type: {unwrapped_field_type}")
+        if isinstance(unwrapped_field_type, GraphQLScalarType):
+            create_property_shape_with_literal(field_name, field, shape_node, graph, value_cardinality)
+        else:
+            if not is_list_type(field.type):
+                create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+            else:
+                instance_tag_object = get_instance_tag_object(unwrapped_field_type)
+                if instance_tag_object:
+                    instance_tags = INSTANCE_TAGS[instance_tag_object]
+                    for tag in instance_tags:
+                        create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                else:
+                    raise ValueError(f"Unhandled field type: {unwrapped_field_type}")
 
 
 @click.command()

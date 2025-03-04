@@ -1,0 +1,101 @@
+@prefix model: <http://example.ns/model#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shapes: <http://example.ns/shapes#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+shapes:TestTypeModifiers a sh:NodeShape ;
+    sh:name "TestTypeModifiers" ;
+    sh:property [ sh:class model:ExampleType ;
+            sh:name "ExampleType.A.ONE" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:name "ExampleType.B.TWO" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:name "ExampleType.A.TWO" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:name "ExampleType.B.ONE" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:name "ExampleType" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:name "nonNullScalar" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:nonNullScalar ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:name "ExampleType.B.ONE" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:datatype xsd:boolean ;
+            sh:name "setScalar" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:setScalar ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:name "ExampleType.A.ONE" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:name "ExampleType" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:name "defaultScalar" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:defaultScalar ],
+        [ sh:class model:ExampleType ;
+            sh:maxCount 1 ;
+            sh:name "ExampleType.B.TWO" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleType ;
+            sh:name "ExampleType.A.TWO" ;
+            sh:node shapes:ExampleType ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:name "setNonNullScalar" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:setNonNullScalar ] ;
+    sh:targetClass model:TestTypeModifiers .
+
+shapes:ExampleType a sh:NodeShape ;
+    sh:name "ExampleType" ;
+    sh:property [ sh:class model:ExampleTypeInstance ;
+            sh:maxCount 1 ;
+            sh:name "ExampleTypeInstance" ;
+            sh:node shapes:ExampleTypeInstance ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:name "dummyField" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:dummyField ] ;
+    sh:targetClass model:ExampleType .
+

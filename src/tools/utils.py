@@ -262,3 +262,11 @@ def has_valid_cardinality(field: GraphQLField) -> bool:
     """Check possible missmatch between GraphQL not null and custom @cardinality directive."""
     # TODO: Add a check to avoid discrepancy between GraphQL not null and custom @cardinality directive.
     pass
+
+def print_field_sdl(field: GraphQLField) -> str:
+    """Print the field definition as it appears in the GraphQL SDL."""
+    field_sdl = f"{field.ast_node.name.value}: {field.type}"
+    if field.ast_node and field.ast_node.directives:
+        directives = " ".join([f"@{directive.name.value}" for directive in field.ast_node.directives])
+        field_sdl += f" {directives}"
+    return field_sdl

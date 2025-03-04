@@ -29,6 +29,29 @@ GraphQL supports a few built-in scalars such as `Int`, `Float`, `String`, `Boole
 It is possible to define custom ones.
 The file `/spec/custom_scalars.graphql` contains custom scalars that could be referenced in the model.
 
+### Custom directives
+
+
+#### @instanceTag
+```gql
+directive @instanceTag on OBJECT
+```
+> TODO: Add description and example
+#### @cardinality
+```gql
+directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
+```
+> TODO: Add description and example
+#### @range
+```gql
+directive @range(min: Float, max: Float) on FIELD_DEFINITION
+```
+> TODO: Add description and example
+#### @noDuplicates
+```gql
+directive @noDuplicates on FIELD_DEFINITION
+```
+> TODO: Add description and example
 ### Common enumeration sets
 In some cases, it is practical to refer to a particular set of values that might fit to multiple use cases.
 For example, the zone inside the cabin of a car could be re used by the `Door` and the `Window`
@@ -49,6 +72,7 @@ enum InCabinSide {
     PASSENGER_SIDE
 }
 ```
+
 Then, it can be referenced from:
 ```graphql
 Window {
