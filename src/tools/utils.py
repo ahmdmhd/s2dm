@@ -2,10 +2,12 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
+from itertools import product
 from pathlib import Path
 from typing import Any
 
 from graphql import (
+    GraphQLEnumType,
     GraphQLString,
     build_schema,
     is_list_type,
@@ -113,6 +115,37 @@ def get_all_object_types(named_types: list[GraphQLNamedType]) -> list[GraphQLObj
     """
     return [type_ for type_ in named_types if isinstance(type_, GraphQLObjectType)]
 
+def get_all_objects_with_directive(objects: list[GraphQLObjectType], directive_name: str) -> list[GraphQLObjectType]:
+    # TODO: Extend this function to return all objects that have any directive is directive_name is None
+    return [o for o in objects if has_directive(o, directive_name)]
+
+def get_all_expanded_instance_tags(schema: GraphQLSchema) -> dict[GraphQLObjectType, list[str]]:
+    all_expanded_instance_tags: dict[GraphQLObjectType, list[str]] = {}
+    for object in get_all_objects_with_directive(get_all_object_types(get_all_named_types(schema)), "instanceTag"):
+        all_expanded_instance_tags[object] = expand_instance_tag(object)
+    
+    return all_expanded_instance_tags
+
+def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
+    expanded_tags = []
+    if not has_directive(object, "instanceTag"):
+        raise ValueError(f"Object '{object.name}' does not have an instance tag directive.")
+    else:
+        tags_per_enum_field = []
+        for field_name, field in object.fields.items():
+            if not isinstance(field.type, GraphQLEnumType):
+                # TODO: Move this check to a validation function for the @instanceTag directive
+                raise TypeError(f"Field '{field_name}' in object '{object.name}' is not an enum.")
+            tags_per_enum_field.append(list(field.type.values.keys()))
+        logging.debug(f"Tags per enum field: {tags_per_enum_field}")
+        
+        # Combine tags from different enum fields
+        for combination in product(*tags_per_enum_field):
+            expanded_tags.append(".".join(combination))  # <-- Character separator can be changed HERE
+
+        logging.debug(f"Expanded tags: {expanded_tags}")
+
+        return expanded_tags
 
 def get_directive_arguments(field: GraphQLField, directive_name: str) -> dict[str, Any]:
     """
