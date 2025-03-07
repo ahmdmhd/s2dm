@@ -6,6 +6,7 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+from ariadne import load_schema_from_path
 from graphql import (
     GraphQLEnumType,
     GraphQLString,
@@ -34,16 +35,11 @@ def read_file(file_path: Path) -> str:
         return file.read()
 
 
-def load_schema(graphql_schema_file: Path) -> GraphQLSchema:
-    """
-    Load and build a GraphQL schema from a file.
-    This function reads a GraphQL schema definition from a file, converts it
-    into a GraphQLSchema object, and ensures that the schema supports queries.
-    Args:
-        graphql_schema_file (str): The path to the GraphQL schema file.
-    Returns:
-        GraphQLSchema: The constructed GraphQL schema object.
-    """
+def load_schema(graphql_schema_path: Path) -> GraphQLSchema:
+    """ Load and build a GraphQL schema from a file or folder."""
+    # Load and merge schemas from the directory
+    schema_str = load_schema_from_path(graphql_schema_path)
+
     # Read custom directives from file
     custom_directives_file = os.path.join(os.path.dirname(__file__), "..", "spec", "custom_directives.graphql")
     custom_directives_str = read_file(custom_directives_file)
@@ -55,7 +51,7 @@ def load_schema(graphql_schema_file: Path) -> GraphQLSchema:
     # Build schema with custom directives
     # TODO: Improve this part with schema merge function with a whole directory.
     # TODO: For example: with Ariadne https://ariadnegraphql.org/docs/modularization#defining-schema-in-graphql-files
-    schema_str = custom_directives_str + "\n" + common_types_str + "\n" + read_file(graphql_schema_file)
+    schema_str = custom_directives_str + "\n" + common_types_str + "\n" + schema_str
 
     schema = build_schema(schema_str)  # Convert GraphQL SDL to a GraphQLSchema object
     logging.info("Successfully loaded the given GraphQL schema file.")
