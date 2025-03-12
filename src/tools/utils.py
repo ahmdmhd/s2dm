@@ -193,7 +193,7 @@ class FieldCase(Enum):
     SET = FieldCaseMetadata(description="A set of elements. EXAMPLE -> field: [NamedType] @noDuplicates",
                             value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=0, max=1))
     SET_NON_NULL = FieldCaseMetadata(description="A set of elements. The elements cannot be null. EXAMPLE -> field: [NamedType!] @noDuplicates",
-                                     value_cardinality=Cardinality(min=0, max=1), list_cardinality=Cardinality(min=0, max=1))
+                                     value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=0, max=1))
 
 
 def get_field_case(field: GraphQLField) -> FieldCase:

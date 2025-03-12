@@ -174,17 +174,18 @@ def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph,
         logging.debug(f"Unwrapped field type: {unwrapped_field_type}")
         if isinstance(unwrapped_field_type, GraphQLScalarType):
             create_property_shape_with_literal(field_name, field, shape_node, graph, value_cardinality)
-        else:
-            if not is_list_type(field.type):
+        elif is_list_type(field.type):
+            instance_tag_object = get_instance_tag_object(unwrapped_field_type)
+            if not instance_tag_object:
                 create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                return
             else:
-                instance_tag_object = get_instance_tag_object(unwrapped_field_type)
-                if instance_tag_object:
-                    instance_tags = INSTANCE_TAGS[instance_tag_object]
-                    for tag in instance_tags:
-                        create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
-                else:
-                    raise ValueError(f"Unhandled field type: {unwrapped_field_type}")
+                instance_tags = INSTANCE_TAGS[instance_tag_object]
+                for tag in instance_tags:
+                    create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                return
+        else:
+            create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
 
 
 @click.command()
