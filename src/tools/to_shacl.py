@@ -167,25 +167,29 @@ def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph,
         logging.info(f"Skipping field '{field_name}'")
         return
     else:
-        # TODO: Parse the min and max in the @cardinality directive, implement consistency checking first
-        value_cardinality = field_case.value.value_cardinality
-        
-        unwrapped_field_type = get_named_type(field.type)  # GraphQL type without modifiers [] or !
-        logging.debug(f"Unwrapped field type: {unwrapped_field_type}")
-        if isinstance(unwrapped_field_type, GraphQLScalarType):
-            create_property_shape_with_literal(field_name, field, shape_node, graph, value_cardinality)
-        elif is_list_type(field.type):
-            instance_tag_object = get_instance_tag_object(unwrapped_field_type)
-            if not instance_tag_object:
-                create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
-                return
-            else:
-                instance_tags = INSTANCE_TAGS[instance_tag_object]
-                for tag in instance_tags:
-                    create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
-                return
+        if field_name == "instanceTag":  # TODO: Consider handling the instanceTag field differently instead of skipping it
+            logging.debug(f"Skipping field '{field_name}'. It is a reserved field and its likely already processed as expanded instances.")
+            return
         else:
-            create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+            # TODO: Parse the min and max in the @cardinality directive, implement consistency checking first
+            value_cardinality = field_case.value.value_cardinality
+            
+            unwrapped_field_type = get_named_type(field.type)  # GraphQL type without modifiers [] or !
+            logging.debug(f"Unwrapped field type: {unwrapped_field_type}")
+            if isinstance(unwrapped_field_type, GraphQLScalarType):
+                create_property_shape_with_literal(field_name, field, shape_node, graph, value_cardinality)
+            elif is_list_type(field.type):
+                instance_tag_object = get_instance_tag_object(unwrapped_field_type)
+                if not instance_tag_object:
+                    create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                    return
+                else:
+                    instance_tags = INSTANCE_TAGS[instance_tag_object]
+                    for tag in instance_tags:
+                        create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                    return
+            else:
+                create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
 
 
 @click.command()

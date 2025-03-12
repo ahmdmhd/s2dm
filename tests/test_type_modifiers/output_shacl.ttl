@@ -6,96 +6,57 @@
 shapes:TestTypeModifiers a sh:NodeShape ;
     sh:name "TestTypeModifiers" ;
     sh:property [ sh:class model:ExampleType ;
-            sh:name "ExampleType.A.ONE" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:name "ExampleType.B.TWO" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
-            sh:name "ExampleType.A.TWO" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:name "ExampleType.B.ONE" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:name "ExampleType" ;
             sh:node shapes:ExampleType ;
             sh:nodeKind sh:IRI ;
             sh:path model:has ],
-        [ sh:datatype xsd:boolean ;
-            sh:maxCount 1 ;
+        [ sh:class model:ExampleTypeWithInstances ;
             sh:minCount 1 ;
-            sh:name "nonNullScalar" ;
-            sh:nodeKind sh:Literal ;
-            sh:path model:nonNullScalar ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
-            sh:name "ExampleType.B.ONE" ;
-            sh:node shapes:ExampleType ;
+            sh:name "ExampleTypeWithInstances.B.ONE" ;
+            sh:node shapes:ExampleTypeWithInstances ;
             sh:nodeKind sh:IRI ;
             sh:path model:has ],
         [ sh:datatype xsd:boolean ;
-            sh:name "setScalar" ;
-            sh:nodeKind sh:Literal ;
-            sh:path model:setScalar ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
-            sh:name "ExampleType.A.ONE" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
-            sh:name "ExampleType" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:datatype xsd:boolean ;
-            sh:maxCount 1 ;
-            sh:name "defaultScalar" ;
-            sh:nodeKind sh:Literal ;
-            sh:path model:defaultScalar ],
-        [ sh:class model:ExampleType ;
-            sh:maxCount 1 ;
-            sh:name "ExampleType.B.TWO" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:class model:ExampleType ;
-            sh:name "ExampleType.A.TWO" ;
-            sh:node shapes:ExampleType ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:datatype xsd:boolean ;
-            sh:maxCount 1 ;
+            sh:minCount 1 ;
             sh:name "setNonNullScalar" ;
             sh:nodeKind sh:Literal ;
-            sh:path model:setNonNullScalar ] ;
+            sh:path model:setNonNullScalar ],
+        [ sh:class model:ExampleTypeWithInstances ;
+            sh:minCount 1 ;
+            sh:name "ExampleTypeWithInstances.A.TWO" ;
+            sh:node shapes:ExampleTypeWithInstances ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleTypeWithInstances ;
+            sh:minCount 1 ;
+            sh:name "ExampleTypeWithInstances.B.TWO" ;
+            sh:node shapes:ExampleTypeWithInstances ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ],
+        [ sh:class model:ExampleTypeWithInstances ;
+            sh:minCount 1 ;
+            sh:name "ExampleTypeWithInstances.A.ONE" ;
+            sh:node shapes:ExampleTypeWithInstances ;
+            sh:nodeKind sh:IRI ;
+            sh:path model:has ] ;
     sh:targetClass model:TestTypeModifiers .
 
 shapes:ExampleType a sh:NodeShape ;
     sh:name "ExampleType" ;
-    sh:property [ sh:class model:ExampleTypeInstance ;
+    sh:property [ sh:datatype xsd:boolean ;
             sh:maxCount 1 ;
-            sh:name "ExampleTypeInstance" ;
-            sh:node shapes:ExampleTypeInstance ;
-            sh:nodeKind sh:IRI ;
-            sh:path model:has ],
-        [ sh:datatype xsd:boolean ;
-            sh:maxCount 1 ;
-            sh:name "dummyField" ;
+            sh:name "someField" ;
             sh:nodeKind sh:Literal ;
-            sh:path model:dummyField ] ;
+            sh:path model:someField ] ;
     sh:targetClass model:ExampleType .
+
+shapes:ExampleTypeWithInstances a sh:NodeShape ;
+    sh:name "ExampleTypeWithInstances" ;
+    sh:property [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:name "anotherField" ;
+            sh:nodeKind sh:Literal ;
+            sh:path model:anotherField ] ;
+    sh:targetClass model:ExampleTypeWithInstances .
 
