@@ -51,7 +51,33 @@ directive @range(min: Float, max: Float) on FIELD_DEFINITION
 ```gql
 directive @noDuplicates on FIELD_DEFINITION
 ```
-> TODO: Add description and example
+Considering the following generic object:
+```gql
+type MyObject {
+    field: <outputType>
+}
+```
+By default, the GraphQL SDL let us express the following six combinations for output types in fields:
+
+
+| Case | Description | `outputType`|
+|----------|----------|----------|
+| **Nullable Singular Field**   | A singular element that can also be null.   | `NamedType`   |
+| **Non-Nullable Singular Field**   | A singular element that cannot be null.   | `NamedType!`   |
+| **Nullable List Field**   | An array of elements. The array itself can be null.   | `[NamedType]`   |
+| **Non-Nullable List Field**   | An array of elements. The array itself cannot be null.   | `[NamedType]!`   |
+| **Nullable List of Non-Nullable Elements**   | An array of elements. The array itself can be null but the elements cannot.   | `[NamedType!]`   |
+| **Non-Nullable List of Non-Nullable Elements**   | List and elements in the list cannot be null.   | `[NamedType!]!`   |
+
+Implicitly, lists here refer to an array of values that could be duplicated.
+In order to explicitly say that the intended content of the array should function as a set of unique values instead, the custom directive @noDuplicates is introduced.
+```gql
+type Person {
+    nicknamesList: [String]  # Array with possible duplicate values
+    nicknamesSet: [String] @noDuplicates  # Set of unique values
+}
+```
+
 ### Common enumeration sets
 In some cases, it is practical to refer to a particular set of values that might fit to multiple use cases.
 For example, the zone inside the cabin of a car could be re used by the `Door` and the `Window`

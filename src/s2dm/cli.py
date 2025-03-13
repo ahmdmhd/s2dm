@@ -5,7 +5,7 @@ import rich_click as click
 from rich.pretty import pprint
 from rich.traceback import install
 
-from s2dm.iris import get_iris, write_yaml
+from iris import get_iris, write_yaml
 from tools.to_shacl import translate_to_shacl
 
 from . import __version__, log
