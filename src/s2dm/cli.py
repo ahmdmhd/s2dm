@@ -126,7 +126,7 @@ def shacl(
 def vspec(schema: Path, output: Path) -> None:
     """Generate VSPEC from a given GraphQL schema."""
     result = translate_to_vspec(schema)
-    print(result)
+    output.write_text(result)
 
 # IRIs
 # ----------
