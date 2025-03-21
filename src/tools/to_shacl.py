@@ -30,7 +30,7 @@ SUPPORTED_FIELD_CASES = {
     FieldCase.SET,
     FieldCase.SET_NON_NULL,
 }
-print(f"SUPPORTED_FIELD_CASES {SUPPORTED_FIELD_CASES}")
+logging.debug(f"export shacl supports these field cases:\n{SUPPORTED_FIELD_CASES}")
 
 # Namespaces and prefixes
 SH = Namespace("http://www.w3.org/ns/shacl#")
@@ -52,7 +52,11 @@ def get_xsd_datatype(scalar: GraphQLScalarType) -> str:
 
 
 def translate_to_shacl(
-    schema_path: Path, shapes_namespace: str, shapes_namespace_prefix: str, model_namespace: str, model_namespace_prefix: str
+    schema_path: Path,
+    shapes_namespace: str,
+    shapes_namespace_prefix: str,
+    model_namespace: str,
+    model_namespace_prefix: str,
 ) -> Graph:
     """Translate a GraphQL schema to SHACL."""
     # Set the global variables for the namespaces to avoid passing them as arguments multiple times
@@ -76,7 +80,7 @@ def translate_to_shacl(
     logging.debug(f"Instance Tag Objects: {instance_tag_objects}")
     INSTANCE_TAGS = get_all_expanded_instance_tags(schema)
     logging.debug(f"Expanded tags from spec: {INSTANCE_TAGS}")
-    
+
     for object_type in object_types:
         if object_type.name == "Query":
             logging.debug("Skipping Query object type.")
@@ -102,6 +106,7 @@ def process_object_type(object_type: GraphQLObjectType, graph: Graph, schema: Gr
     for field_name, field in object_type.fields.items():
         process_field(field_name, field, shape_node, graph, schema)
 
+
 def get_instance_tag_object(object: GraphQLObjectType) -> GraphQLObjectType | None:
     """Get the object type of the instance tag (if exists)."""
     if "instanceTag" in object.fields:
@@ -119,7 +124,9 @@ def get_expanded_instances(object: GraphQLObjectType) -> list:
     pass
 
 
-def create_property_shape_with_literal(field_name, field: GraphQLField, shape_node, graph: Graph, value_cardinality=None):
+def create_property_shape_with_literal(
+    field_name, field: GraphQLField, shape_node, graph: Graph, value_cardinality=None
+):
     property_path = MODEL_NAMESPACE[f"{field_name}"]
     property_node = BNode()
     graph.add((shape_node, SH.property, property_node))
@@ -131,6 +138,7 @@ def create_property_shape_with_literal(field_name, field: GraphQLField, shape_no
         graph.add((property_node, SH.minCount, Literal(value_cardinality.min, datatype=XSD.integer)))
     if value_cardinality.max:
         graph.add((property_node, SH.maxCount, Literal(value_cardinality.max, datatype=XSD.integer)))
+
 
 def create_property_shape_with_iri(property_name, output_type_name, shape_node, graph: Graph, value_cardinality=None):
     property_node = BNode()
@@ -145,17 +153,14 @@ def create_property_shape_with_iri(property_name, output_type_name, shape_node, 
         graph.add((property_node, SH.minCount, Literal(value_cardinality.min, datatype=XSD.integer)))
     if value_cardinality.max:
         graph.add((property_node, SH.maxCount, Literal(value_cardinality.max, datatype=XSD.integer)))
-    
 
 
-
-
-def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph, schema: GraphQLSchema):
+def process_field(field_name: str, field: GraphQLField, shape_node, graph: Graph, schema: GraphQLSchema):
     """Process a field of a GraphQL object type and generate the corresponding SHACL triples."""
     field_case = get_field_case_extended(field)
 
     # Log the field definition as it appears in the GraphQL SDL
-    #field_sdl = get_sdl_str(field)
+    # field_sdl = get_sdl_str(field)
     logging.info(f"Processing field... '{print_field_sdl(field)}'")
     logging.debug(f"Field case: {field_case}")
 
@@ -167,13 +172,18 @@ def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph,
         logging.info(f"Skipping field '{field_name}'")
         return
     else:
-        if field_name == "instanceTag":  # TODO: Consider handling the instanceTag field differently instead of skipping it
-            logging.debug(f"Skipping field '{field_name}'. It is a reserved field and its likely already processed as expanded instances.")
+        if (
+            field_name == "instanceTag"
+        ):  # TODO: Consider handling the instanceTag field differently instead of skipping it
+            logging.debug(
+                f"Skipping field '{field_name}'. It is a reserved field and its likely already "
+                f"processed as expanded instances."
+            )
             return
         else:
             # TODO: Parse the min and max in the @cardinality directive, implement consistency checking first
             value_cardinality = field_case.value.value_cardinality
-            
+
             unwrapped_field_type = get_named_type(field.type)  # GraphQL type without modifiers [] or !
             logging.debug(f"Unwrapped field type: {unwrapped_field_type}")
             if isinstance(unwrapped_field_type, GraphQLScalarType):
@@ -181,15 +191,25 @@ def process_field(field_name:str, field: GraphQLField, shape_node, graph: Graph,
             elif is_list_type(field.type):
                 instance_tag_object = get_instance_tag_object(unwrapped_field_type)
                 if not instance_tag_object:
-                    create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                    create_property_shape_with_iri(
+                        unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality
+                    )
                     return
                 else:
                     instance_tags = INSTANCE_TAGS[instance_tag_object]
                     for tag in instance_tags:
-                        create_property_shape_with_iri(f"{unwrapped_field_type.name}.{tag}", unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                        create_property_shape_with_iri(
+                            f"{unwrapped_field_type.name}.{tag}",
+                            unwrapped_field_type.name,
+                            shape_node,
+                            graph,
+                            value_cardinality,
+                        )
                     return
             else:
-                create_property_shape_with_iri(unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality)
+                create_property_shape_with_iri(
+                    unwrapped_field_type.name, unwrapped_field_type.name, shape_node, graph, value_cardinality
+                )
 
 
 @click.command()

@@ -36,7 +36,7 @@ For example, in the figure shown above, schemas `1`, `2`, ..., `N` are merged in
 > TODO: Mechanisms to assess the integrity of the model. Examples: unique names, proper use of directives, completeness of types used within the model, correct construction of unique identifiers, etc.
 
 ### Arbitrary selection of concepts
-> TODO: Mecahanism to arbitrarily select a sub set of the specification with only the desired concepts. Example: via the use of GraphQL introspection. 
+> TODO: Mecahanism to arbitrarily select a sub set of the specification with only the desired concepts. Example: via the use of GraphQL introspection.
 
 ## Exporters
 ### General information about exporters
@@ -66,7 +66,7 @@ The tools can currently export a given model into:
 ### SHACL exporter
 This exporter translates the given GraphQL schema to [SHACL](https://www.w3.org/TR/shacl/).
 
-The [Shapes Constraint Language (SHACL)](https://www.w3.org/TR/shacl/) is a framework used to validate data in [Resource Description Framework (RDF)](https://www.w3.org/RDF/) format. 
+The [Shapes Constraint Language (SHACL)](https://www.w3.org/TR/shacl/) is a framework used to validate data in [Resource Description Framework (RDF)](https://www.w3.org/RDF/) format.
 In other words, if you work with the RDF graph data model and triple stores (i.e., RDF-based graph databases), SHACL is used to validate a certain RDF data graph.
 Think of it as a set of rules or criteria that your data needs to meet. If you're working with data that follows certain structures or patterns, SHACL helps make sure everything is in the right place and follows the right format. It's like having a checklist to ensure your data is accurate and consistent, making it easier to work with and understand. This is especially useful in fields like data management and semantic web technologies, where data integrity is crucial.
 
@@ -92,11 +92,11 @@ graph LR
 
 Since every resource is uniquely identified in RDF, the set of triples resembles a graph.
 Abstract concepts define the most generic `Terminology` (aka., `TBox`).
-For example, `Person` and `Vehicle`. 
+For example, `Person` and `Vehicle`.
 More specific concepts constitute the `Categories` (aka., `CBox`) of a domain.
 For example, `CarOccupant` and `Car`.
 Finally, the actual data (aka., `ABox`) is connected to the upper concepts that provide context.
-For example, `Max` and `BMW_X1`. 
+For example, `Max` and `BMW_X1`.
 
 ```mermaid
 graph RL
@@ -112,7 +112,7 @@ graph RL
     BMW_X1
     Max
   end
-  
+
   Vehicle --hasOccupant--> Person
   CarOccupant --subClassOf--> Person
   Car --subClassOf--> Vehicle
@@ -135,7 +135,7 @@ For any field that resolves in scalar:
 
 For any field that resolves in a named type:
 - nodeKind is sh:IRI
-- name is the named type name from the GraphQL schema 
+- name is the named type name from the GraphQL schema
 - path is the generic "model:has"
 - class is the named type name from the GraphQL schema
 - node is the named type shape
@@ -205,7 +205,7 @@ graph LR
   BlankNode -- has --> Door.ROW2.DRIVERSIDE
   BlankNode -- has --> Door.ROW2.PASSENGERSIDE
 ```
-This graph structure is not currently supported. 
+This graph structure is not currently supported.
 Here, there are two cardinalities: one for the list, and another for the elements in the list.
 
 Please, refer to the CLI help for usage reference.

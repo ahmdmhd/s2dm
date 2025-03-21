@@ -36,7 +36,7 @@ def read_file(file_path: Path) -> str:
 
 
 def load_schema(graphql_schema_path: Path) -> GraphQLSchema:
-    """ Load and build a GraphQL schema from a file or folder."""
+    """Load and build a GraphQL schema from a file or folder."""
     # Load and merge schemas from the directory
     schema_str = load_schema_from_path(graphql_schema_path)
 
@@ -111,16 +111,19 @@ def get_all_object_types(named_types: list[GraphQLNamedType]) -> list[GraphQLObj
     """
     return [type_ for type_ in named_types if isinstance(type_, GraphQLObjectType)]
 
+
 def get_all_objects_with_directive(objects: list[GraphQLObjectType], directive_name: str) -> list[GraphQLObjectType]:
     # TODO: Extend this function to return all objects that have any directive is directive_name is None
     return [o for o in objects if has_directive(o, directive_name)]
+
 
 def get_all_expanded_instance_tags(schema: GraphQLSchema) -> dict[GraphQLObjectType, list[str]]:
     all_expanded_instance_tags: dict[GraphQLObjectType, list[str]] = {}
     for object in get_all_objects_with_directive(get_all_object_types(get_all_named_types(schema)), "instanceTag"):
         all_expanded_instance_tags[object] = expand_instance_tag(object)
-    
+
     return all_expanded_instance_tags
+
 
 def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
     expanded_tags = []
@@ -134,7 +137,7 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
                 raise TypeError(f"Field '{field_name}' in object '{object.name}' is not an enum.")
             tags_per_enum_field.append(list(field.type.values.keys()))
         logging.debug(f"Tags per enum field: {tags_per_enum_field}")
-        
+
         # Combine tags from different enum fields
         for combination in product(*tags_per_enum_field):
             expanded_tags.append(".".join(combination))  # <-- Character separator can be changed HERE
@@ -142,6 +145,7 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
         logging.debug(f"Expanded tags: {expanded_tags}")
 
         return expanded_tags
+
 
 def get_directive_arguments(field: GraphQLField, directive_name: str) -> dict[str, Any]:
     """
@@ -178,22 +182,50 @@ class FieldCaseMetadata:
 
 class FieldCase(Enum):
     """Enum representing the different cases of a field in a GraphQL schema."""
-    DEFAULT = FieldCaseMetadata(description="A singular element that can also be null. EXAMPLE -> field: NamedType",
-                                value_cardinality=Cardinality(min=0, max=1), list_cardinality=Cardinality(min=None, max=None))
-    NON_NULL = FieldCaseMetadata(description="A singular element that cannot be null. EXAMPLE -> field: NamedType!",
-                                 value_cardinality=Cardinality(min=1, max=1), list_cardinality=Cardinality(min=None, max=None))
-    LIST = FieldCaseMetadata(description="An array of elements. The array itself can be null. EXAMPLE -> field: [NamedType]",
-                             value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=0, max=1))
-    NON_NULL_LIST = FieldCaseMetadata(description="An array of elements. The array itself cannot be null. EXAMPLE -> field: [NamedType]!",
-                                      value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=1, max=1))
-    LIST_NON_NULL = FieldCaseMetadata(description="An array of elements. The array itself can be null but the elements cannot. EXAMPLE -> field: [NamedType!]",
-                                      value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=0, max=1))
-    NON_NULL_LIST_NON_NULL = FieldCaseMetadata(description="List and elements in the list cannot be null. EXAMPLE -> field: [NamedType!]!",
-                                               value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=1, max=1))
-    SET = FieldCaseMetadata(description="A set of elements. EXAMPLE -> field: [NamedType] @noDuplicates",
-                            value_cardinality=Cardinality(min=0, max=None), list_cardinality=Cardinality(min=0, max=1))
-    SET_NON_NULL = FieldCaseMetadata(description="A set of elements. The elements cannot be null. EXAMPLE -> field: [NamedType!] @noDuplicates",
-                                     value_cardinality=Cardinality(min=1, max=None), list_cardinality=Cardinality(min=0, max=1))
+
+    DEFAULT = FieldCaseMetadata(
+        description="A singular element that can also be null. EXAMPLE -> field: NamedType",
+        value_cardinality=Cardinality(min=0, max=1),
+        list_cardinality=Cardinality(min=None, max=None),
+    )
+    NON_NULL = FieldCaseMetadata(
+        description="A singular element that cannot be null. EXAMPLE -> field: NamedType!",
+        value_cardinality=Cardinality(min=1, max=1),
+        list_cardinality=Cardinality(min=None, max=None),
+    )
+    LIST = FieldCaseMetadata(
+        description="An array of elements. The array itself can be null. EXAMPLE -> field: [NamedType]",
+        value_cardinality=Cardinality(min=0, max=None),
+        list_cardinality=Cardinality(min=0, max=1),
+    )
+    NON_NULL_LIST = FieldCaseMetadata(
+        description="An array of elements. The array itself cannot be null. EXAMPLE -> field: [NamedType]!",
+        value_cardinality=Cardinality(min=0, max=None),
+        list_cardinality=Cardinality(min=1, max=1),
+    )
+    LIST_NON_NULL = FieldCaseMetadata(
+        description=(
+            "An array of elements. The array itself can be null but the elements cannot. "
+            "EXAMPLE -> field: [NamedType!]"
+        ),
+        value_cardinality=Cardinality(min=1, max=None),
+        list_cardinality=Cardinality(min=0, max=1),
+    )
+    NON_NULL_LIST_NON_NULL = FieldCaseMetadata(
+        description="List and elements in the list cannot be null. EXAMPLE -> field: [NamedType!]!",
+        value_cardinality=Cardinality(min=1, max=None),
+        list_cardinality=Cardinality(min=1, max=1),
+    )
+    SET = FieldCaseMetadata(
+        description="A set of elements. EXAMPLE -> field: [NamedType] @noDuplicates",
+        value_cardinality=Cardinality(min=0, max=None),
+        list_cardinality=Cardinality(min=0, max=1),
+    )
+    SET_NON_NULL = FieldCaseMetadata(
+        description="A set of elements. The elements cannot be null. EXAMPLE -> field: [NamedType!] @noDuplicates",
+        value_cardinality=Cardinality(min=1, max=None),
+        list_cardinality=Cardinality(min=0, max=1),
+    )
 
 
 def get_field_case(field: GraphQLField) -> FieldCase:
@@ -258,6 +290,7 @@ def has_valid_cardinality(field: GraphQLField) -> bool:
     """Check possible missmatch between GraphQL not null and custom @cardinality directive."""
     # TODO: Add a check to avoid discrepancy between GraphQL not null and custom @cardinality directive.
     pass
+
 
 def print_field_sdl(field: GraphQLField) -> str:
     """Print the field definition as it appears in the GraphQL SDL."""
