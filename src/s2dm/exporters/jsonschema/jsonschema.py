@@ -1,8 +1,9 @@
-import logging
 import json
+import logging
 from pathlib import Path
 
-from s2dm.exporters.utils import load_schema, build_schema_str
+from s2dm.exporters.utils import load_schema
+
 from .transformer import transform_to_json_schema
 
 log = logging.getLogger(__name__)

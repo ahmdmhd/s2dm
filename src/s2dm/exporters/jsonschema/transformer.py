@@ -1,23 +1,24 @@
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from graphql import (
-    GraphQLSchema, 
-    GraphQLObjectType, 
-    GraphQLScalarType,
     GraphQLEnumType,
+    GraphQLField,
     GraphQLInputObjectType,
     GraphQLInterfaceType,
-    GraphQLUnionType,
+    GraphQLObjectType,
+    GraphQLScalarType,
+    GraphQLSchema,
     GraphQLType,
-    GraphQLField,
-    is_scalar_type,
-    is_object_type,
+    GraphQLUnionType,
     is_enum_type,
     is_input_object_type,
     is_interface_type,
-    is_union_type,
     is_list_type,
-    is_non_null_type
+    is_non_null_type,
+    is_object_type,
+    is_scalar_type,
+    is_union_type,
 )
 
 from .traverser import get_referenced_types
@@ -41,7 +42,7 @@ GRAPHQL_SCALAR_TO_JSON_SCHEMA = {
 }
 
 
-def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | None = None) -> Dict[str, Any]:
+def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | None = None) -> dict[str, Any]:
     """
     Transform a GraphQL schema to JSON Schema format.
     
@@ -104,7 +105,7 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | Non
     return json_schema
 
 
-def transform_graphql_type(graphql_type: GraphQLType) -> Optional[Dict[str, Any]]:
+def transform_graphql_type(graphql_type: GraphQLType) -> dict[str, Any] | None:
     """
     Transform a single GraphQL type to JSON Schema definition.
     
@@ -131,7 +132,7 @@ def transform_graphql_type(graphql_type: GraphQLType) -> Optional[Dict[str, Any]
         return None
 
 
-def transform_scalar_type(scalar_type: GraphQLScalarType) -> Dict[str, Any]:
+def transform_scalar_type(scalar_type: GraphQLScalarType) -> dict[str, Any]:
     """
     Transform a GraphQL scalar type to JSON Schema.
     
@@ -155,7 +156,7 @@ def transform_scalar_type(scalar_type: GraphQLScalarType) -> Dict[str, Any]:
     return definition
 
 
-def transform_object_type(object_type: GraphQLObjectType) -> Dict[str, Any]:
+def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
     """
     Transform a GraphQL object type to JSON Schema.
     
@@ -191,7 +192,7 @@ def transform_object_type(object_type: GraphQLObjectType) -> Dict[str, Any]:
     return definition
 
 
-def transform_field(field: GraphQLField) -> Dict[str, Any]:
+def transform_field(field: GraphQLField) -> dict[str, Any]:
     """
     Transform a GraphQL field to JSON Schema property.
     
@@ -215,7 +216,7 @@ def transform_field(field: GraphQLField) -> Dict[str, Any]:
     return definition
 
 
-def get_field_type_definition(field_type: GraphQLType) -> Dict[str, Any]:
+def get_field_type_definition(field_type: GraphQLType) -> dict[str, Any]:
     """
     Get JSON Schema definition for a GraphQL field type.
     
@@ -287,7 +288,7 @@ def get_field_type_definition(field_type: GraphQLType) -> Dict[str, Any]:
     return {"type": "string"}
 
 
-def process_directives(directives: List[Any]) -> Dict[str, Any]:
+def process_directives(directives: list[Any]) -> dict[str, Any]:
     """
     Process GraphQL directives and convert them to JSON Schema extensions.
     
@@ -335,7 +336,7 @@ def process_directives(directives: List[Any]) -> Dict[str, Any]:
     return extensions
 
 
-def get_directive_arguments(directive: Any) -> Dict[str, Any]:
+def get_directive_arguments(directive: Any) -> dict[str, Any]:
     """
     Extract arguments from a GraphQL directive.
     
@@ -358,7 +359,7 @@ def get_directive_arguments(directive: Any) -> Dict[str, Any]:
     return args
 
 
-def transform_enum_type(enum_type: GraphQLEnumType) -> Dict[str, Any]:
+def transform_enum_type(enum_type: GraphQLEnumType) -> dict[str, Any]:
     """
     Transform a GraphQL enum type to JSON Schema.
     
@@ -383,7 +384,7 @@ def transform_enum_type(enum_type: GraphQLEnumType) -> Dict[str, Any]:
     }
 
 
-def transform_input_object_type(input_type: GraphQLInputObjectType) -> Dict[str, Any]:
+def transform_input_object_type(input_type: GraphQLInputObjectType) -> dict[str, Any]:
     """
     Transform a GraphQL input object type to JSON Schema.
     
@@ -428,7 +429,7 @@ def transform_input_object_type(input_type: GraphQLInputObjectType) -> Dict[str,
     return definition
 
 
-def transform_interface_type(interface_type: GraphQLInterfaceType) -> Dict[str, Any]:
+def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, Any]:
     """
     Transform a GraphQL interface type to JSON Schema.
     
@@ -458,7 +459,7 @@ def transform_interface_type(interface_type: GraphQLInterfaceType) -> Dict[str, 
     return definition
 
 
-def transform_union_type(union_type: GraphQLUnionType) -> Dict[str, Any]:
+def transform_union_type(union_type: GraphQLUnionType) -> dict[str, Any]:
     """
     Transform a GraphQL union type to JSON Schema.
     
