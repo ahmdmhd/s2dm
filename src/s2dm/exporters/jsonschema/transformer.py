@@ -39,7 +39,7 @@ GRAPHQL_SCALAR_TO_JSON_SCHEMA = {
 }
 
 
-def transform_to_json_schema(graphql_schema: GraphQLSchema) -> Dict[str, Any]:
+def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | None = None) -> Dict[str, Any]:
     """
     Transform a GraphQL schema to JSON Schema format.
     
@@ -48,19 +48,28 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema) -> Dict[str, Any]:
     
     Args:
         graphql_schema: The GraphQL schema object to transform
+        root_node: Optional root node type name for the JSON schema
         
     Returns:
         Dict[str, Any]: JSON Schema representation
     """
     log.info("Starting GraphQL to JSON Schema transformation")
     
-    json_schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "type": "object",
-        "title": "GraphQL Schema",
-        "description": "JSON Schema generated from GraphQL schema",
-        "$defs": {}
-    }
+    if root_node:
+        json_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": root_node,
+            "$ref": f"#/$defs/{root_node}",
+            "$defs": {}
+        }
+    else:
+        json_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "title": "GraphQL Schema",
+            "description": "JSON Schema generated from GraphQL schema",
+            "$defs": {}
+        }
     
     type_map = graphql_schema.type_map
     excluded_types = {"Query", "Mutation", "Subscription"}

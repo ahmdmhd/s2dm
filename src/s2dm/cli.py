@@ -226,9 +226,15 @@ def vspec(schema: Path, output: Path) -> None:
 @export.command
 @schema_option
 @output_option
-def jsonschema(schema: Path, output: Path) -> None:
+@click.option(
+    "--node",
+    "-n",
+    type=str,
+    help="Root node name for the JSON schema",
+)
+def jsonschema(schema: Path, output: Path, node: str | None) -> None:
     """Generate JSON Schema from a given GraphQL schema."""
-    result = translate_to_jsonschema(schema)
+    result = translate_to_jsonschema(schema, node)
     _ = output.write_text(result)
 
 
