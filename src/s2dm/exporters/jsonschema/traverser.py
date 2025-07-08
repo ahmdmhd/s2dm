@@ -3,26 +3,26 @@ Graph traversal utilities for GraphQL schema analysis.
 """
 
 import logging
-from typing import Set
+
 from graphql import (
-    GraphQLSchema,
-    GraphQLObjectType,
-    GraphQLInterfaceType,
-    GraphQLUnionType,
     GraphQLInputObjectType,
+    GraphQLInterfaceType,
+    GraphQLObjectType,
+    GraphQLSchema,
     GraphQLType,
-    is_object_type,
-    is_interface_type,
-    is_union_type,
+    GraphQLUnionType,
     is_input_object_type,
-    is_non_null_type,
+    is_interface_type,
     is_list_type,
+    is_non_null_type,
+    is_object_type,
+    is_union_type,
 )
 
 log = logging.getLogger(__name__)
 
 
-def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> Set[str]:
+def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[str]:
     """
     Find all GraphQL types referenced from the root node through graph traversal.
     
@@ -33,8 +33,8 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> Set[s
     Returns:
         Set[str]: Set of referenced type names
     """
-    visited: Set[str] = set()
-    referenced: Set[str] = set()
+    visited: set[str] = set()
+    referenced: set[str] = set()
     
     def visit_type(type_name: str) -> None:
         if type_name in visited:
