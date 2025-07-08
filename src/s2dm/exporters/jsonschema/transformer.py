@@ -20,6 +20,8 @@ from graphql import (
     is_non_null_type
 )
 
+from .traverser import get_referenced_types
+
 log = logging.getLogger(__name__)
 
 # GraphQL scalar to JSON Schema type mapping
@@ -74,11 +76,17 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | Non
     type_map = graphql_schema.type_map
     excluded_types = {"Query", "Mutation", "Subscription"}
     
-    # Filter out built-in types (those starting with __) and root operation types
-    user_defined_types = {
-        name: type_def for name, type_def in type_map.items() 
-        if not name.startswith('__') and name not in excluded_types
-    }
+    if root_node:
+        reachable_types = get_referenced_types(graphql_schema, root_node)
+        user_defined_types = {
+            name: type_def for name, type_def in type_map.items() 
+            if name in reachable_types
+        }
+    else:
+        user_defined_types = {
+            name: type_def for name, type_def in type_map.items() 
+            if not name.startswith('__') and name not in excluded_types
+        }
     
     log.info(f"Found {len(user_defined_types)} user-defined types to transform")
     
