@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 
+from graphql import GraphQLSchema
 from s2dm.exporters.utils import load_schema
 
 from .transformer import transform_to_json_schema
@@ -9,22 +10,18 @@ from .transformer import transform_to_json_schema
 log = logging.getLogger(__name__)
 
 
-def translate_to_jsonschema(schema_path: Path, root_node: str | None = None) -> str:
+def transform(graphql_schema: GraphQLSchema, root_node: str | None = None) -> str:
     """
-    Translate a GraphQL schema to JSON Schema format.
+    Transform a GraphQL schema object to JSON Schema format.
     
     Args:
-        schema_path: Path to a GraphQL schema file or directory containing schema files
+        graphql_schema: The GraphQL schema object to transform
         root_node: Optional root node type name for the JSON schema
         
     Returns:
         str: JSON Schema representation as a string
     """
-    log.info(f"Translating GraphQL schema to JSON Schema: {schema_path}")
-    
-    # Load the GraphQL schema from the file or directory
-    graphql_schema = load_schema(schema_path)
-    log.info(f"Successfully loaded GraphQL schema with {len(graphql_schema.type_map)} types")
+    log.info(f"Transforming GraphQL schema to JSON Schema with {len(graphql_schema.type_map)} types")
     
     if root_node:
         if root_node not in graphql_schema.type_map:
@@ -40,3 +37,24 @@ def translate_to_jsonschema(schema_path: Path, root_node: str | None = None) -> 
     log.info("Successfully converted GraphQL schema to JSON Schema")
     
     return json_schema_str
+
+
+def translate_to_jsonschema(schema_path: Path, root_node: str | None = None) -> str:
+    """
+    Translate a GraphQL schema file to JSON Schema format.
+    
+    Args:
+        schema_path: Path to a GraphQL schema file or directory containing schema files
+        root_node: Optional root node type name for the JSON schema
+        
+    Returns:
+        str: JSON Schema representation as a string
+    """
+    log.info(f"Loading GraphQL schema from: {schema_path}")
+    
+    # Load the GraphQL schema from the file or directory
+    graphql_schema = load_schema(schema_path)
+    log.info(f"Successfully loaded GraphQL schema with {len(graphql_schema.type_map)} types")
+    
+    # Transform using the core function
+    return transform(graphql_schema, root_node)
