@@ -1,11 +1,13 @@
 import logging
-from typing import Any
+from typing import Any, cast
 
 from graphql import (
     GraphQLEnumType,
     GraphQLField,
     GraphQLInputObjectType,
     GraphQLInterfaceType,
+    GraphQLList,
+    GraphQLNonNull,
     GraphQLObjectType,
     GraphQLScalarType,
     GraphQLSchema,
@@ -58,6 +60,7 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | Non
     """
     log.info("Starting GraphQL to JSON Schema transformation")
     
+    json_schema: dict[str, Any]
     if root_node:
         json_schema = {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -78,10 +81,10 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_node: str | Non
     excluded_types = {"Query", "Mutation", "Subscription"}
     
     if root_node:
-        reachable_types = get_referenced_types(graphql_schema, root_node)
+        referenced_types = get_referenced_types(graphql_schema, root_node)
         user_defined_types = {
             name: type_def for name, type_def in type_map.items() 
-            if name in reachable_types
+            if name in referenced_types
         }
     else:
         user_defined_types = {
@@ -116,17 +119,17 @@ def transform_graphql_type(graphql_type: GraphQLType) -> dict[str, Any] | None:
         Optional[Dict[str, Any]]: JSON Schema definition or None if not transformable
     """
     if is_scalar_type(graphql_type):
-        return transform_scalar_type(graphql_type)
+        return transform_scalar_type(cast(GraphQLScalarType, graphql_type))
     elif is_object_type(graphql_type):
-        return transform_object_type(graphql_type)
+        return transform_object_type(cast(GraphQLObjectType, graphql_type))
     elif is_enum_type(graphql_type):
-        return transform_enum_type(graphql_type)
+        return transform_enum_type(cast(GraphQLEnumType, graphql_type))
     elif is_input_object_type(graphql_type):
-        return transform_input_object_type(graphql_type)
+        return transform_input_object_type(cast(GraphQLInputObjectType, graphql_type))
     elif is_interface_type(graphql_type):
-        return transform_interface_type(graphql_type)
+        return transform_interface_type(cast(GraphQLInterfaceType, graphql_type))
     elif is_union_type(graphql_type):
-        return transform_union_type(graphql_type)
+        return transform_union_type(cast(GraphQLUnionType, graphql_type))
     else:
         log.warning(f"Unsupported GraphQL type: {type(graphql_type)}")
         return None
@@ -166,7 +169,7 @@ def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
     Returns:
         Dict[str, Any]: JSON Schema definition
     """
-    definition = {
+    definition: dict[str, Any] = {
         "type": "object",
         "description": object_type.description or f"GraphQL object type: {object_type.name}",
         "properties": {},
@@ -175,7 +178,7 @@ def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
     
     # Process directives
     if hasattr(object_type, 'ast_node') and object_type.ast_node and object_type.ast_node.directives:
-        directive_extensions = process_directives(object_type.ast_node.directives)
+        directive_extensions = process_directives(list(object_type.ast_node.directives))
         definition.update(directive_extensions)
     
     # Process fields
@@ -210,7 +213,7 @@ def transform_field(field: GraphQLField) -> dict[str, Any]:
     
     # Process field directives
     if hasattr(field, 'ast_node') and field.ast_node and field.ast_node.directives:
-        directive_extensions = process_directives(field.ast_node.directives)
+        directive_extensions = process_directives(list(field.ast_node.directives))
         definition.update(directive_extensions)
     
     return definition
@@ -228,15 +231,16 @@ def get_field_type_definition(field_type: GraphQLType) -> dict[str, Any]:
     """
     # Handle NonNull wrapper. e.g. `Type!`
     if is_non_null_type(field_type):
-        return get_field_type_definition(field_type.of_type)
+        return get_field_type_definition(cast(GraphQLNonNull[Any], field_type).of_type)
     
     # Handle List wrapper
     if is_list_type(field_type):
-        item_definition = get_field_type_definition(field_type.of_type)
+        list_type = cast(GraphQLList[Any], field_type)
+        item_definition = get_field_type_definition(list_type.of_type)
         
         # Check if the list items are nullable (not wrapped in NonNull). e.g. `[Type]`
         # This handles cases like [Type] where items can be null: [Type, null, Type, ...]
-        if not is_non_null_type(field_type.of_type):
+        if not is_non_null_type(list_type.of_type):
             # For nullable items, allow the item type or null
             if "$ref" in item_definition:
                 # For object/union references, use oneOf
@@ -261,13 +265,15 @@ def get_field_type_definition(field_type: GraphQLType) -> dict[str, Any]:
     
     # Handle scalar types
     if is_scalar_type(field_type):
-        json_type = GRAPHQL_SCALAR_TO_JSON_SCHEMA.get(field_type.name, "string")
+        scalar_type = cast(GraphQLScalarType, field_type)
+        json_type = GRAPHQL_SCALAR_TO_JSON_SCHEMA.get(scalar_type.name, "string")
         return {"type": json_type}
     
     # Handle enum types
     if is_enum_type(field_type):
+        enum_type = cast(GraphQLEnumType, field_type)
         enum_values = []
-        for value in field_type.values:
+        for value in enum_type.values:
             if hasattr(value, 'name'):
                 enum_values.append(value.name)
             else:
@@ -279,11 +285,13 @@ def get_field_type_definition(field_type: GraphQLType) -> dict[str, Any]:
     
     # Handle object types (references)
     if is_object_type(field_type) or is_input_object_type(field_type) or is_interface_type(field_type):
-        return {"$ref": f"#/$defs/{field_type.name}"}
+        named_type = cast(GraphQLObjectType | GraphQLInputObjectType | GraphQLInterfaceType, field_type)
+        return {"$ref": f"#/$defs/{named_type.name}"}
     
     # Handle union types
     if is_union_type(field_type):
-        return {"$ref": f"#/$defs/{field_type.name}"}
+        union_type = cast(GraphQLUnionType, field_type)
+        return {"$ref": f"#/$defs/{union_type.name}"}
     
     return {"type": "string"}
 
@@ -394,7 +402,7 @@ def transform_input_object_type(input_type: GraphQLInputObjectType) -> dict[str,
     Returns:
         Dict[str, Any]: JSON Schema definition
     """
-    definition = {
+    definition: dict[str, Any] = {
         "type": "object",
         "description": input_type.description or f"GraphQL input type: {input_type.name}",
         "properties": {},
@@ -439,7 +447,7 @@ def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, 
     Returns:
         Dict[str, Any]: JSON Schema definition
     """
-    definition = {
+    definition: dict[str, Any] = {
         "type": "object",
         "description": interface_type.description or f"GraphQL interface type: {interface_type.name}",
         "properties": {},
