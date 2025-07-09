@@ -3,10 +3,13 @@ Graph traversal utilities for GraphQL schema analysis.
 """
 
 import logging
+from typing import Any, cast
 
 from graphql import (
     GraphQLInputObjectType,
     GraphQLInterfaceType,
+    GraphQLList,
+    GraphQLNonNull,
     GraphQLObjectType,
     GraphQLSchema,
     GraphQLType,
@@ -56,13 +59,13 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[s
         
         # Traverse based on type kind
         if is_object_type(type_def):
-            visit_object_type(type_def)
+            visit_object_type(cast(GraphQLObjectType, type_def))
         elif is_interface_type(type_def):
-            visit_interface_type(type_def)
+            visit_interface_type(cast(GraphQLInterfaceType, type_def))
         elif is_union_type(type_def):
-            visit_union_type(type_def)
+            visit_union_type(cast(GraphQLUnionType, type_def))
         elif is_input_object_type(type_def):
-            visit_input_object_type(type_def)
+            visit_input_object_type(cast(GraphQLInputObjectType, type_def))
         # Scalar and enum types don't reference other types
     
     def visit_object_type(obj_type: GraphQLObjectType) -> None:
@@ -87,7 +90,10 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[s
     def visit_field_type(field_type: GraphQLType) -> None:
         unwrapped_type = field_type
         while is_non_null_type(unwrapped_type) or is_list_type(unwrapped_type):
-            unwrapped_type = unwrapped_type.of_type
+            if is_non_null_type(unwrapped_type):
+                unwrapped_type = cast(GraphQLNonNull[Any], unwrapped_type).of_type
+            elif is_list_type(unwrapped_type):
+                unwrapped_type = cast(GraphQLList[Any], unwrapped_type).of_type
         
         if hasattr(unwrapped_type, 'name'):
             visit_type(unwrapped_type.name)
