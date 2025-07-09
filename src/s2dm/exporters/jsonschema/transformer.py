@@ -4,7 +4,6 @@ from typing import Any, cast
 from graphql import (
     GraphQLEnumType,
     GraphQLField,
-    GraphQLInputObjectType,
     GraphQLInterfaceType,
     GraphQLList,
     GraphQLNonNull,
@@ -14,7 +13,6 @@ from graphql import (
     GraphQLType,
     GraphQLUnionType,
     is_enum_type,
-    is_input_object_type,
     is_interface_type,
     is_list_type,
     is_non_null_type,
@@ -124,8 +122,6 @@ def transform_graphql_type(graphql_type: GraphQLType) -> dict[str, Any] | None:
         return transform_object_type(cast(GraphQLObjectType, graphql_type))
     elif is_enum_type(graphql_type):
         return transform_enum_type(cast(GraphQLEnumType, graphql_type))
-    elif is_input_object_type(graphql_type):
-        return transform_input_object_type(cast(GraphQLInputObjectType, graphql_type))
     elif is_interface_type(graphql_type):
         return transform_interface_type(cast(GraphQLInterfaceType, graphql_type))
     elif is_union_type(graphql_type):
@@ -272,20 +268,11 @@ def get_field_type_definition(field_type: GraphQLType) -> dict[str, Any]:
     # Handle enum types
     if is_enum_type(field_type):
         enum_type = cast(GraphQLEnumType, field_type)
-        enum_values = []
-        for value in enum_type.values:
-            if hasattr(value, 'name'):
-                enum_values.append(value.name)
-            else:
-                enum_values.append(str(value))
-        return {
-            "type": "string",
-            "enum": enum_values
-        }
+        return {"$ref": f"#/$defs/{enum_type.name}"}
     
     # Handle object types (references)
-    if is_object_type(field_type) or is_input_object_type(field_type) or is_interface_type(field_type):
-        named_type = cast(GraphQLObjectType | GraphQLInputObjectType | GraphQLInterfaceType, field_type)
+    if is_object_type(field_type) or is_interface_type(field_type):
+        named_type = cast(GraphQLObjectType | GraphQLInterfaceType, field_type)
         return {"$ref": f"#/$defs/{named_type.name}"}
     
     # Handle union types
@@ -392,49 +379,6 @@ def transform_enum_type(enum_type: GraphQLEnumType) -> dict[str, Any]:
     }
 
 
-def transform_input_object_type(input_type: GraphQLInputObjectType) -> dict[str, Any]:
-    """
-    Transform a GraphQL input object type to JSON Schema.
-    
-    Args:
-        input_type: The GraphQL input object type
-        
-    Returns:
-        Dict[str, Any]: JSON Schema definition
-    """
-    definition: dict[str, Any] = {
-        "type": "object",
-        "description": input_type.description or f"GraphQL input type: {input_type.name}",
-        "properties": {},
-        "required": []
-    }
-    
-    for field_name, field in input_type.fields.items():
-        field_definition = get_field_type_definition(field.type)
-        
-        if field.description:
-            field_definition["description"] = field.description
-        
-        # Add default value if present and serializable
-        if field.default_value is not None:
-            try:
-                # Test if the value is JSON serializable
-                import json
-                json.dumps(field.default_value)
-                field_definition["default"] = field.default_value
-            except (TypeError, ValueError):
-                # Skip non-serializable default values
-                pass
-        
-        definition["properties"][field_name] = field_definition
-        
-        if is_non_null_type(field.type):
-            definition["required"].append(field_name)
-    
-    if not definition["required"]:
-        del definition["required"]
-    
-    return definition
 
 
 def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, Any]:
