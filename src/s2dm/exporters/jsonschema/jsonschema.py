@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from graphql import GraphQLSchema
+
 from s2dm.exporters.utils import load_schema
 
 from .transformer import transform_to_json_schema
