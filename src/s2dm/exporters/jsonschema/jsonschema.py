@@ -14,48 +14,48 @@ log = logging.getLogger(__name__)
 def transform(graphql_schema: GraphQLSchema, root_node: str | None = None) -> str:
     """
     Transform a GraphQL schema object to JSON Schema format.
-    
+
     Args:
         graphql_schema: The GraphQL schema object to transform
         root_node: Optional root node type name for the JSON schema
-        
+
     Returns:
         str: JSON Schema representation as a string
     """
     log.info(f"Transforming GraphQL schema to JSON Schema with {len(graphql_schema.type_map)} types")
-    
+
     if root_node:
         if root_node not in graphql_schema.type_map:
             raise ValueError(f"Root node '{root_node}' not found in schema")
         log.info(f"Using root node: {root_node}")
-    
+
     # Transform the GraphQL schema to JSON Schema
     json_schema = transform_to_json_schema(graphql_schema, root_node)
-    
+
     # Convert to JSON string
     json_schema_str = json.dumps(json_schema, indent=2)
-    
+
     log.info("Successfully converted GraphQL schema to JSON Schema")
-    
+
     return json_schema_str
 
 
 def translate_to_jsonschema(schema_path: Path, root_node: str | None = None) -> str:
     """
     Translate a GraphQL schema file to JSON Schema format.
-    
+
     Args:
         schema_path: Path to a GraphQL schema file or directory containing schema files
         root_node: Optional root node type name for the JSON schema
-        
+
     Returns:
         str: JSON Schema representation as a string
     """
     log.info(f"Loading GraphQL schema from: {schema_path}")
-    
+
     # Load the GraphQL schema from the file or directory
     graphql_schema = load_schema(schema_path)
     log.info(f"Successfully loaded GraphQL schema with {len(graphql_schema.type_map)} types")
-    
+
     # Transform using the core function
     return transform(graphql_schema, root_node)
