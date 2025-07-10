@@ -9,7 +9,7 @@ from s2dm.exporters.jsonschema.jsonschema import transform
 
 
 class TestBasicTransformation:    
-    def test_basic_schema_structure(self):
+    def test_basic_schema_structure(self) -> None:
         """Test that basic schema structure is generated correctly."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -25,7 +25,7 @@ class TestBasicTransformation:
         assert "$defs" in schema
         assert "Vehicle" in schema["$defs"]
     
-    def test_object_type_transformation(self):
+    def test_object_type_transformation(self) -> None:
         """Test that GraphQL object types are correctly transformed."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -58,7 +58,7 @@ class TestBasicTransformation:
 
 
 class TestRootNodeFiltering:
-    def test_root_node_reference(self):
+    def test_root_node_reference(self) -> None:
         """Test that specifying a root node creates a $ref to that node."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -74,7 +74,7 @@ class TestRootNodeFiltering:
         assert schema["$ref"] == "#/$defs/Vehicle"
         assert "Vehicle" in schema["$defs"]
     
-    def test_root_node_filters_types(self):
+    def test_root_node_filters_types(self) -> None:
         """Test that root node filtering only includes reachable types."""
         schema_str = """
             type Query { vehicle: Vehicle, engine: Engine }
@@ -94,7 +94,7 @@ class TestRootNodeFiltering:
         # Should NOT include UnrelatedType
         assert "UnrelatedType" not in schema["$defs"]
     
-    def test_invalid_root_node_raises_error(self):
+    def test_invalid_root_node_raises_error(self) -> None:
         """Test that specifying an invalid root node raises an error."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -107,7 +107,7 @@ class TestRootNodeFiltering:
 
 
 class TestGraphQLTypeHandling:    
-    def test_scalar_types(self):
+    def test_scalar_types(self) -> None:
         """Test that GraphQL scalar types are correctly mapped."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -133,7 +133,7 @@ class TestGraphQLTypeHandling:
         assert props["isElectric"]["type"] == "boolean"
         assert props["id"]["type"] == "string"
     
-    def test_enum_types(self):
+    def test_enum_types(self) -> None:
         """Test that GraphQL enum types are correctly transformed."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -161,7 +161,7 @@ class TestGraphQLTypeHandling:
         vehicle_def = schema["$defs"]["Vehicle"]
         assert vehicle_def["properties"]["fuelType"]["$ref"] == "#/$defs/FuelType"
     
-    def test_union_types(self):
+    def test_union_types(self) -> None:
         """Test that GraphQL union types are correctly transformed."""
         schema_str = """
             type Query { searchResults: VehicleSearchResult }
@@ -183,7 +183,7 @@ class TestGraphQLTypeHandling:
         assert "#/$defs/Car" in refs
         assert "#/$defs/Truck" in refs
     
-    def test_interface_types(self):
+    def test_interface_types(self) -> None:
         """Test that GraphQL interface types are correctly transformed."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -219,7 +219,7 @@ class TestGraphQLTypeHandling:
 
 
 class TestEdgeCases:    
-    def test_nullable_and_non_null_fields(self):
+    def test_nullable_and_non_null_fields(self) -> None:
         """Test handling of nullable and non-null fields."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -242,7 +242,7 @@ class TestEdgeCases:
         assert "make" not in vehicle_def["required"]
         assert "model" not in vehicle_def["required"]
     
-    def test_list_types(self):
+    def test_list_types(self) -> None:
         """Test handling of GraphQL list types."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -279,7 +279,7 @@ class TestEdgeCases:
             # Non-nullable items use direct reference
             assert items["$ref"] == "#/$defs/MaintenanceRecord"
     
-    def test_nested_types(self):
+    def test_nested_types(self) -> None:
         """Test handling of nested object types."""
         schema_str = """
             type Query { vehicle: Vehicle }
@@ -316,7 +316,7 @@ class TestEdgeCases:
         assert seat_def["properties"]["vehicle"]["$ref"] == "#/$defs/Vehicle"
     
     
-    def test_recursive_types(self):
+    def test_recursive_types(self) -> None:
         """Test handling of recursive/self-referencing types."""
         schema_str = """
             type Query { component: VehicleComponent }
@@ -340,7 +340,7 @@ class TestEdgeCases:
 
 
 class TestComplexSchemas:    
-    def test_vehicle_fleet_schema(self):
+    def test_vehicle_fleet_schema(self) -> None:
         """Test with a realistic vehicle fleet management schema."""
         schema_str = """
             type Query {
