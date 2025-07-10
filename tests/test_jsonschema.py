@@ -419,7 +419,7 @@ class TestDirectives:
     def test_range_directive_on_field(self) -> None:
         schema_str = """
             directive @range(min: Float, max: Float) on FIELD_DEFINITION
-            
+
             type Query { vehicle: Vehicle }
             type Vehicle {
                 id: ID!
@@ -439,7 +439,7 @@ class TestDirectives:
         assert "maximum" in year_prop
         assert year_prop["minimum"] == 1900.0
         assert year_prop["maximum"] == 2030.0
-        
+
         assert "minimum" in price_prop
         assert "maximum" in price_prop
         assert price_prop["minimum"] == 0.0
@@ -448,7 +448,7 @@ class TestDirectives:
     def test_no_duplicates_directive(self) -> None:
         schema_str = """
             directive @noDuplicates on FIELD_DEFINITION
-            
+
             type Query { vehicle: Vehicle }
             type Vehicle {
                 id: ID!
@@ -466,7 +466,7 @@ class TestDirectives:
     def test_cardinality_directive_on_field(self) -> None:
         schema_str = """
             directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
-            
+
             type Query { vehicle: Vehicle }
             type Vehicle {
                 id: ID!
@@ -488,7 +488,7 @@ class TestDirectives:
         schema_str = """
             directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
             directive @noDuplicates on FIELD_DEFINITION
-            
+
             type Query { vehicle: Vehicle }
             type Vehicle {
                 id: ID!
@@ -508,7 +508,7 @@ class TestDirectives:
     def test_metadata_directive(self) -> None:
         schema_str = """
             directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
-            
+
             type Query { vehicle: Vehicle }
             type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
                 id: ID!
