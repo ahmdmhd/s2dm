@@ -20,6 +20,7 @@ from graphql import (
     is_scalar_type,
     is_union_type,
 )
+from graphql.language.ast import FloatValueNode, IntValueNode
 
 from .traverser import get_referenced_types
 
@@ -331,15 +332,20 @@ def get_directive_arguments(directive: Any) -> dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary of argument names to values
     """
-    args = {}
+    args: dict[str, Any] = {}
 
     if hasattr(directive, "arguments") and directive.arguments:
         for arg in directive.arguments:
             arg_name = arg.name.value
             if hasattr(arg.value, "value"):
-                args[arg_name] = arg.value.value
+                if isinstance(arg.value, IntValueNode):
+                    args[arg_name] = int(arg.value.value)
+                elif isinstance(arg.value, FloatValueNode):
+                    args[arg_name] = float(arg.value.value)
+                else:
+                    args[arg_name] = arg.value.value
             else:
-                args[arg_name] = str(arg.value)
+                args[arg_name] = arg.value
 
     return args
 
