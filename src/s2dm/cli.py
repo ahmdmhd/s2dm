@@ -22,6 +22,8 @@ from s2dm.exporters.utils import (
     search_schema,
 )
 from s2dm.exporters.vspec import translate_to_vspec
+from s2dm.tools.constraint_checker import ConstraintChecker
+from s2dm.tools.graphql_inspector import GraphQLInspector
 
 schema_option = click.option(
     "--schema",
