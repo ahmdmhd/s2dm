@@ -413,3 +413,184 @@ class TestComplexSchemas:
 
         seat_def = schema["$defs"]["Seat"]
         assert seat_def["properties"]["position"]["$ref"] == "#/$defs/SeatPosition"
+
+
+class TestDirectives:
+    def test_range_directive_on_field(self) -> None:
+        schema_str = """
+            directive @range(min: Float, max: Float) on FIELD_DEFINITION
+            
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                year: Int! @range(min: 1900, max: 2030)
+                price: Float @range(min: 0.0, max: 999999.99)
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        year_prop = vehicle_def["properties"]["year"]
+        price_prop = vehicle_def["properties"]["price"]
+
+        assert "minimum" in year_prop
+        assert "maximum" in year_prop
+        assert year_prop["minimum"] == 1900.0
+        assert year_prop["maximum"] == 2030.0
+        
+        assert "minimum" in price_prop
+        assert "maximum" in price_prop
+        assert price_prop["minimum"] == 0.0
+        assert price_prop["maximum"] == 999999.99
+
+    def test_no_duplicates_directive(self) -> None:
+        schema_str = """
+            directive @noDuplicates on FIELD_DEFINITION
+            
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                features: [String!]! @noDuplicates
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        features_prop = vehicle_def["properties"]["features"]
+        assert features_prop.get("uniqueItems") is True
+
+    def test_cardinality_directive_on_field(self) -> None:
+        schema_str = """
+            directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
+            
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                features: [String!]! @cardinality(min: 1, max: 5)
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        features_prop = vehicle_def["properties"]["features"]
+        assert "minItems" in features_prop
+        assert "maxItems" in features_prop
+        assert features_prop["minItems"] == 1
+        assert features_prop["maxItems"] == 5
+
+    def test_multiple_directives_on_field(self) -> None:
+        schema_str = """
+            directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
+            directive @noDuplicates on FIELD_DEFINITION
+            
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                tags: [String!]! @cardinality(min: 1, max: 10) @noDuplicates
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        tags_prop = vehicle_def["properties"]["tags"]
+        assert tags_prop.get("uniqueItems") is True
+        assert "minItems" in tags_prop
+        assert "maxItems" in tags_prop
+
+    def test_metadata_directive(self) -> None:
+        schema_str = """
+            directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
+            
+            type Query { vehicle: Vehicle }
+            type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
+                id: ID!
+                speed: Float @metadata(comment: "Current speed", vssType: "sensor")
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        # Check that metadata is preserved in some form
+        vehicle_def = schema["$defs"]["Vehicle"]
+        assert "description" in vehicle_def or "comment" in vehicle_def
+
+
+class TestErrorHandling:
+    def test_unsupported_graphql_type_handling(self) -> None:
+        schema_str = """
+            type Query { data: String }
+            input InputType { field: String }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "InputType" not in schema["$defs"]
+
+    def test_empty_schema_handling(self) -> None:
+        schema_str = """
+            type Query { hello: String }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
+        assert "$defs" in schema
+
+
+class TestAdvancedFeatures:
+    def test_field_descriptions(self) -> None:
+        schema_str = """
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                "The make of the vehicle"
+                make: String!
+                "The model year of the vehicle"
+                year: Int
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        make_prop = vehicle_def["properties"]["make"]
+        year_prop = vehicle_def["properties"]["year"]
+
+        assert "description" in make_prop
+        assert make_prop["description"] == "The make of the vehicle"
+        assert "description" in year_prop
+        assert year_prop["description"] == "The model year of the vehicle"
+
+    def test_union_type_as_field_type(self) -> None:
+        schema_str = """
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                id: ID!
+                transport: Transport
+            }
+            union Transport = Car | Bike
+            type Car { wheels: Int! }
+            type Bike { wheels: Int! }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        transport_prop = vehicle_def["properties"]["transport"]
+        assert transport_prop["$ref"] == "#/$defs/Transport"
+
+        transport_def = schema["$defs"]["Transport"]
+        assert "oneOf" in transport_def
