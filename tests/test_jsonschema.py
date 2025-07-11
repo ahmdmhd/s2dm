@@ -20,7 +20,7 @@ class TestBasicTransformation:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
+        assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         assert "type" in schema
         assert "$defs" in schema
         assert "Vehicle" in schema["$defs"]
@@ -514,7 +514,7 @@ class TestErrorHandling:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
+        assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         assert "$defs" in schema
 
 

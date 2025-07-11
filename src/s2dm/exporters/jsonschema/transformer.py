@@ -57,22 +57,22 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_type: str | Non
     """
     log.info("Starting GraphQL to JSON Schema transformation")
 
-    json_schema: dict[str, Any]
+    json_schema: dict[str, Any] = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": {},
+    }
+
     if root_type:
-        json_schema = {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+        json_schema.update({
             "title": root_type,
             "$ref": f"#/$defs/{root_type}",
-            "$defs": {},
-        }
+        })
     else:
-        json_schema = {
-            "$schema": "http://json-schema.org/draft-07/schema#",
+        json_schema.update({
             "type": "object",
             "title": "GraphQL Schema",
             "description": "JSON Schema generated from GraphQL schema",
-            "$defs": {},
-        }
+        })
 
     type_map = graphql_schema.type_map
     excluded_types = {"Query", "Mutation", "Subscription"}
