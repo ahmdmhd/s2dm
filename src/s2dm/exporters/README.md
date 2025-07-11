@@ -282,7 +282,7 @@ This exporter translates the given GraphQL schema to [JSON Schema](https://json-
 #### Key Features
 
 - **Complete GraphQL Type Support**: Handles all GraphQL types including scalars, objects, enums, unions, interfaces, and lists
-- **Root Node Filtering**: Use the `--node` flag to export only a specific type and its dependencies
+- **Root Type Filtering**: Use the `--root-type` flag to export only a specific type and its dependencies
 - **Directive Support**: Converts S2DM directives like `@cardinality`, `@range`, and `@noDuplicates` to JSON Schema constraints
 - **Reference-based Output**: Uses JSON Schema `$ref` for type references, creating clean and maintainable schemas
 
@@ -338,8 +338,7 @@ The JSON Schema exporter produces:
           "items": {"type": "string"}
         },
         "fuelType": {"$ref": "#/$defs/FuelType"}
-      },
-      "required": ["vin", "make", "year", "engine", "features"]
+      }
     },
     "Engine": {
       "type": "object",
@@ -363,12 +362,12 @@ The JSON Schema exporter produces:
 }
 ```
 
-#### Root Node Filtering
+#### Root Type Filtering
 
-Use the `--node` flag to export only a specific type and its dependencies:
+Use the `--root-type` flag to export only a specific type and its dependencies:
 
 ```bash
-s2dm export jsonschema --schema schema.graphql --output vehicle.json --node Vehicle
+s2dm export jsonschema --schema schema.graphql --output vehicle.json --root-type Vehicle
 ```
 
 This creates a JSON Schema that references the Vehicle type as the root:

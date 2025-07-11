@@ -44,12 +44,7 @@ class TestBasicTransformation:
         vehicle_def = schema["$defs"]["Vehicle"]
         assert vehicle_def["type"] == "object"
         assert "properties" in vehicle_def
-        assert "required" in vehicle_def
-
-        assert "id" in vehicle_def["required"]
-        assert "make" in vehicle_def["required"]
-        assert "model" not in vehicle_def["required"]
-        assert "year" not in vehicle_def["required"]
+        assert "required" not in vehicle_def
 
         assert vehicle_def["properties"]["id"]["type"] == "string"
         assert vehicle_def["properties"]["make"]["type"] == "string"
@@ -208,8 +203,7 @@ class TestGraphQLTypeHandling:
         assert vehicle_def["type"] == "object"
         assert "id" in vehicle_def["properties"]
         assert "make" in vehicle_def["properties"]
-        assert "id" in vehicle_def["required"]
-        assert "make" in vehicle_def["required"]
+        assert "required" not in vehicle_def
 
         car_def = schema["$defs"]["Car"]
         assert car_def["type"] == "object"
@@ -219,29 +213,6 @@ class TestGraphQLTypeHandling:
 
 
 class TestEdgeCases:
-    def test_nullable_and_non_null_fields(self) -> None:
-        """Test handling of nullable and non-null fields."""
-        schema_str = """
-            type Query { vehicle: Vehicle }
-            type Vehicle {
-                vin: String!
-                make: String
-                year: Int!
-                model: String
-            }
-        """
-        graphql_schema = build_schema(schema_str)
-
-        result = transform(graphql_schema)
-        schema = json.loads(result)
-
-        vehicle_def = schema["$defs"]["Vehicle"]
-
-        assert "vin" in vehicle_def["required"]
-        assert "year" in vehicle_def["required"]
-        assert "make" not in vehicle_def["required"]
-        assert "model" not in vehicle_def["required"]
-
     def test_list_types(self) -> None:
         """Test handling of GraphQL list types."""
         schema_str = """
@@ -263,10 +234,9 @@ class TestEdgeCases:
 
         assert props["features"]["type"] == "array"
         assert props["features"]["items"]["type"] == "string"
-        assert "features" in vehicle_def["required"]
+        assert "required" not in vehicle_def
 
         assert props["optionalExtras"]["type"] == "array"
-        assert "optionalExtras" not in vehicle_def["required"]
 
         # Check list of objects (nullable items use oneOf)
         assert props["maintenanceRecords"]["type"] == "array"

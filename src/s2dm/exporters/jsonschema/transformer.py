@@ -162,7 +162,6 @@ def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
         "type": "object",
         "description": object_type.description or f"GraphQL object type: {object_type.name}",
         "properties": {},
-        "required": [],
     }
 
     # Process directives
@@ -174,12 +173,6 @@ def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
     for field_name, field in object_type.fields.items():
         field_definition = transform_field(field)
         definition["properties"][field_name] = field_definition
-
-        if is_non_null_type(field.type):
-            definition["required"].append(field_name)
-
-    if not definition["required"]:
-        del definition["required"]
 
     return definition
 
@@ -383,18 +376,11 @@ def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, 
         "type": "object",
         "description": interface_type.description or f"GraphQL interface type: {interface_type.name}",
         "properties": {},
-        "required": [],
     }
 
     for field_name, field in interface_type.fields.items():
         field_definition = transform_field(field)
         definition["properties"][field_name] = field_definition
-
-        if is_non_null_type(field.type):
-            definition["required"].append(field_name)
-
-    if not definition["required"]:
-        del definition["required"]
 
     return definition
 
