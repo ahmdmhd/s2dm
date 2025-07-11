@@ -279,8 +279,6 @@ s2dm shacl --help
 
 This exporter translates the given GraphQL schema to [JSON Schema](https://json-schema.org/) format.
 
-JSON Schema is a vocabulary that allows you to annotate and validate JSON documents. It's widely used for API documentation, data validation, and configuration file validation. JSON Schema provides a contract for what JSON data is required for a given application and how it can be modified.
-
 #### Key Features
 
 - **Complete GraphQL Type Support**: Handles all GraphQL types including scalars, objects, enums, unions, interfaces, and lists
