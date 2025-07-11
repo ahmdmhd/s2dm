@@ -142,8 +142,10 @@ def transform_scalar_type(scalar_type: GraphQLScalarType) -> dict[str, Any]:
 
     definition = {
         "type": json_type,
-        "description": scalar_type.description or f"GraphQL scalar type: {scalar_type.name}",
     }
+
+    if scalar_type.description:
+        definition["description"] = scalar_type.description
 
     return definition
 
@@ -160,9 +162,11 @@ def transform_object_type(object_type: GraphQLObjectType) -> dict[str, Any]:
     """
     definition: dict[str, Any] = {
         "type": "object",
-        "description": object_type.description or f"GraphQL object type: {object_type.name}",
         "properties": {},
     }
+
+    if object_type.description:
+        definition["description"] = object_type.description
 
     # Process directives
     if hasattr(object_type, "ast_node") and object_type.ast_node and object_type.ast_node.directives:
@@ -355,11 +359,15 @@ def transform_enum_type(enum_type: GraphQLEnumType) -> dict[str, Any]:
         else:
             enum_values.append(str(value))
 
-    return {
+    definition = {
         "type": "string",
         "enum": enum_values,
-        "description": enum_type.description or f"GraphQL enum type: {enum_type.name}",
     }
+
+    if enum_type.description:
+        definition["description"] = enum_type.description
+
+    return definition
 
 
 def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, Any]:
@@ -374,9 +382,11 @@ def transform_interface_type(interface_type: GraphQLInterfaceType) -> dict[str, 
     """
     definition: dict[str, Any] = {
         "type": "object",
-        "description": interface_type.description or f"GraphQL interface type: {interface_type.name}",
         "properties": {},
     }
+
+    if interface_type.description:
+        definition["description"] = interface_type.description
 
     for field_name, field in interface_type.fields.items():
         field_definition = transform_field(field)
@@ -395,7 +405,11 @@ def transform_union_type(union_type: GraphQLUnionType) -> dict[str, Any]:
     Returns:
         Dict[str, Any]: JSON Schema definition
     """
-    return {
+    definition = {
         "oneOf": [{"$ref": f"#/$defs/{member_type.name}"} for member_type in union_type.types],
-        "description": union_type.description or f"GraphQL union type: {union_type.name}",
     }
+
+    if union_type.description:
+        definition["description"] = union_type.description
+
+    return definition
