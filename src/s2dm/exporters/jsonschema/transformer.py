@@ -412,7 +412,7 @@ def transform_union_type(union_type: GraphQLUnionType) -> dict[str, Any]:
     Returns:
         Dict[str, Any]: JSON Schema definition
     """
-    definition = {
+    definition: dict[str, Any] = {
         "oneOf": [{"$ref": f"#/$defs/{member_type.name}"} for member_type in union_type.types],
     }
 
