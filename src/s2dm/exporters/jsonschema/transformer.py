@@ -63,16 +63,20 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_type: str | Non
     }
 
     if root_type:
-        json_schema.update({
-            "title": root_type,
-            "$ref": f"#/$defs/{root_type}",
-        })
+        json_schema.update(
+            {
+                "title": root_type,
+                "$ref": f"#/$defs/{root_type}",
+            }
+        )
     else:
-        json_schema.update({
-            "type": "object",
-            "title": "GraphQL Schema",
-            "description": "JSON Schema generated from GraphQL schema",
-        })
+        json_schema.update(
+            {
+                "type": "object",
+                "title": "GraphQL Schema",
+                "description": "JSON Schema generated from GraphQL schema",
+            }
+        )
 
     type_map = graphql_schema.type_map
     excluded_types = {"Query", "Mutation", "Subscription"}
