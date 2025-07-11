@@ -24,13 +24,13 @@ from graphql import (
 from s2dm import log
 
 
-def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[str]:
+def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[str]:
     """
-    Find all GraphQL types referenced from the root node through graph traversal.
+    Find all GraphQL types referenced from the root type through graph traversal.
 
     Args:
         graphql_schema: The GraphQL schema
-        root_node: The root node to start traversal from
+        root_type: The root type to start traversal from
 
     Returns:
         Set[str]: Set of referenced type names
@@ -97,7 +97,7 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[s
         if hasattr(unwrapped_type, "name"):
             visit_type(unwrapped_type.name)
 
-    visit_type(root_node)
+    visit_type(root_type)
 
-    log.info(f"Found {len(referenced)} referenced types from root node '{root_node}'")
+    log.info(f"Found {len(referenced)} referenced types from root type '{root_type}'")
     return referenced
