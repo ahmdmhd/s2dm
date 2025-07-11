@@ -319,7 +319,7 @@ The JSON Schema exporter produces:
 
 ```json
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "title": "GraphQL Schema",
   "description": "JSON Schema generated from GraphQL schema",
@@ -374,7 +374,7 @@ This creates a JSON Schema that references the Vehicle type as the root:
 
 ```json
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Vehicle",
   "$ref": "#/$defs/Vehicle",
   "$defs": {
