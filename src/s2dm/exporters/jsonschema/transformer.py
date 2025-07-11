@@ -1,4 +1,3 @@
-import logging
 from typing import Any, cast
 
 from graphql import (
@@ -22,11 +21,10 @@ from graphql import (
 )
 from graphql.language.ast import FloatValueNode, IntValueNode
 
+from s2dm import log
+
 from .traverser import get_referenced_types
 
-log = logging.getLogger(__name__)
-
-# GraphQL scalar to JSON Schema type mapping
 GRAPHQL_SCALAR_TO_JSON_SCHEMA = {
     "String": "string",
     "Int": "integer",
@@ -146,10 +144,6 @@ def transform_scalar_type(scalar_type: GraphQLScalarType) -> dict[str, Any]:
         "type": json_type,
         "description": scalar_type.description or f"GraphQL scalar type: {scalar_type.name}",
     }
-
-    # Add custom scalar metadata
-    # if scalar_type.name not in ["String", "Int", "Float", "Boolean", "ID"]:
-    #     definition["x-graphql-scalar"] = scalar_type.name
 
     return definition
 

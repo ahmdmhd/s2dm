@@ -2,7 +2,6 @@
 Graph traversal utilities for GraphQL schema analysis.
 """
 
-import logging
 from typing import Any, cast
 
 from graphql import (
@@ -22,7 +21,7 @@ from graphql import (
     is_union_type,
 )
 
-log = logging.getLogger(__name__)
+from s2dm import log
 
 
 def get_referenced_types(graphql_schema: GraphQLSchema, root_node: str) -> set[str]:

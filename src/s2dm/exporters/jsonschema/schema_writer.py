@@ -1,7 +1,6 @@
-import logging
 from pathlib import Path
 
-log = logging.getLogger(__name__)
+from s2dm import log
 
 
 def write_aggregated_schema(aggregated_schema: str, output_path: Path) -> None:
