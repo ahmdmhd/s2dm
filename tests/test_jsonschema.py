@@ -489,9 +489,10 @@ class TestDirectives:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        # Check that metadata is preserved in some form
         vehicle_def = schema["$defs"]["Vehicle"]
-        assert "description" in vehicle_def or "comment" in vehicle_def
+        assert "x-metadata" in vehicle_def
+        assert vehicle_def["x-metadata"]["comment"] == "Vehicle entity"
+        assert vehicle_def["x-metadata"]["vssType"] == "branch"
 
 
 class TestErrorHandling:
