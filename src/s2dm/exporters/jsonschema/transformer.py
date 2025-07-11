@@ -95,9 +95,12 @@ def transform_to_json_schema(graphql_schema: GraphQLSchema, root_type: str | Non
             if json_schema_def:
                 json_schema["$defs"][type_name] = json_schema_def
                 log.debug(f"Transformed type: {type_name}")
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError) as e:
             log.error(f"Failed to transform type {type_name}: {e}")
-            continue
+            raise
+        except Exception as e:
+            log.error(f"Unexpected error transforming type {type_name}: {e}")
+            raise
 
     log.info(f"Successfully transformed {len(json_schema['$defs'])} types")
     return json_schema
