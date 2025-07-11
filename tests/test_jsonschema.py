@@ -102,7 +102,7 @@ class TestRootNodeFiltering:
         """
         graphql_schema = build_schema(schema_str)
 
-        with pytest.raises(ValueError, match="Root node 'NonExistent' not found in schema"):
+        with pytest.raises(ValueError, match="Root type 'NonExistent' not found in schema"):
             transform(graphql_schema, "NonExistent")
 
 
