@@ -1,14 +1,12 @@
 import json
-import logging
 from pathlib import Path
 
 from graphql import GraphQLSchema
 
+from s2dm import log
 from s2dm.exporters.utils import load_schema
 
 from .transformer import transform_to_json_schema
-
-log = logging.getLogger(__name__)
 
 
 def transform(graphql_schema: GraphQLSchema, root_node: str | None = None) -> str:
@@ -29,10 +27,8 @@ def transform(graphql_schema: GraphQLSchema, root_node: str | None = None) -> st
             raise ValueError(f"Root node '{root_node}' not found in schema")
         log.info(f"Using root node: {root_node}")
 
-    # Transform the GraphQL schema to JSON Schema
     json_schema = transform_to_json_schema(graphql_schema, root_node)
 
-    # Convert to JSON string
     json_schema_str = json.dumps(json_schema, indent=2)
 
     log.info("Successfully converted GraphQL schema to JSON Schema")
@@ -53,9 +49,7 @@ def translate_to_jsonschema(schema_path: Path, root_node: str | None = None) -> 
     """
     log.info(f"Loading GraphQL schema from: {schema_path}")
 
-    # Load the GraphQL schema from the file or directory
     graphql_schema = load_schema(schema_path)
     log.info(f"Successfully loaded GraphQL schema with {len(graphql_schema.type_map)} types")
 
-    # Transform using the core function
     return transform(graphql_schema, root_node)
