@@ -438,7 +438,7 @@ Given this GraphQL schema:
 ```graphql
 type Vehicle {
   id: ID!              # Non-null
-  name: String!        # Non-null  
+  name: String!        # Non-null
   description: String  # Nullable
   year: Int           # Nullable
   category: VehicleCategory  # Nullable enum

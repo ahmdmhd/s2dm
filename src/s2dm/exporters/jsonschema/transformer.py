@@ -152,7 +152,9 @@ class JsonSchemaTransformer:
         elif is_union_type(graphql_type):
             return self.transform_union_type(cast(GraphQLUnionType, graphql_type))
         else:
-            log.warning(f"Unsupported GraphQL type: {type(graphql_type)} found in element {graphql_type} of the given GraphQL schema")
+            log.warning(
+                f"Unsupported GraphQL type: {type(graphql_type)} found in element {graphql_type} of the given schema"
+            )
             return None
 
     def transform_scalar_type(self, scalar_type: GraphQLScalarType) -> dict[str, Any]:
