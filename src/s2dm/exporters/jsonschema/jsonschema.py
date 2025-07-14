@@ -6,7 +6,7 @@ from graphql import GraphQLSchema
 from s2dm import log
 from s2dm.exporters.utils import load_schema
 
-from .transformer import transform_to_json_schema
+from .transformer import JsonSchemaTransformer
 
 
 def transform(graphql_schema: GraphQLSchema, root_type: str | None = None) -> str:
@@ -27,7 +27,8 @@ def transform(graphql_schema: GraphQLSchema, root_type: str | None = None) -> st
             raise ValueError(f"Root type '{root_type}' not found in schema")
         log.info(f"Using root type: {root_type}")
 
-    json_schema = transform_to_json_schema(graphql_schema, root_type)
+    transformer = JsonSchemaTransformer(graphql_schema, root_type)
+    json_schema = transformer.transform()
 
     json_schema_str = json.dumps(json_schema, indent=2)
 

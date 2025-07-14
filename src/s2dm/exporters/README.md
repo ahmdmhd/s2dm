@@ -291,27 +291,32 @@ This exporter translates the given GraphQL schema to [JSON Schema](https://json-
 Consider the following GraphQL schema:
 
 ```gql
+directive @instanceTag on OBJECT
+
 type Vehicle {
-  vin: String!
-  make: String!
-  model: String
-  year: Int!
-  engine: Engine!
-  features: [String!]!
-  fuelType: FuelType
+    id: ID!
+    door: Door!
 }
 
-type Engine {
-  displacement: Float
-  horsepower: Int
-  efficiency: Float @range(min: 0.0, max: 1.0)
+type Door {
+    locked: Boolean!
+    instanceTag: InCabinArea2x3
 }
 
-enum FuelType {
-  GASOLINE
-  DIESEL
-  ELECTRIC
-  HYBRID
+enum TwoRowsInCabinEnum {
+    ROW1
+    ROW2
+}
+
+enum ThreeColumnsInCabinEnum {
+    DRIVERSIDE
+    MIDDLE
+    PASSENGERSIDE
+}
+
+type InCabinArea2x3 @instanceTag {
+    row: TwoRowsInCabinEnum
+    column: ThreeColumnsInCabinEnum
 }
 ```
 
@@ -320,45 +325,68 @@ The JSON Schema exporter produces:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "title": "GraphQL Schema",
-  "description": "JSON Schema generated from GraphQL schema",
   "$defs": {
     "Vehicle": {
-      "type": "object",
-      "description": "GraphQL object type: Vehicle",
+      "additionalProperties": false,
       "properties": {
-        "vin": {"type": "string"},
-        "make": {"type": "string"},
-        "model": {"type": "string"},
-        "year": {"type": "integer"},
-        "engine": {"$ref": "#/$defs/Engine"},
-        "features": {
-          "type": "array",
-          "items": {"type": "string"}
+        "id": {
+          "type": "string"
         },
-        "fuelType": {"$ref": "#/$defs/FuelType"}
-      }
-    },
-    "Engine": {
-      "type": "object",
-      "description": "GraphQL object type: Engine",
-      "properties": {
-        "displacement": {"type": "number"},
-        "horsepower": {"type": "integer"},
-        "efficiency": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0
+        "door": {
+          "Row1": {
+            "additionalProperties": false,
+            "properties": {
+              "DriverSide": {
+                "$ref": "#/$defs/Door"
+              },
+              "Middle": {
+                "$ref": "#/$defs/Door"
+              },
+              "PassengerSide": {
+                "$ref": "#/$defs/Door"
+              }
+            },
+            "type": "object"
+          },
+          "Row2": {
+            "additionalProperties": false,
+            "properties": {
+              "DriverSide": {
+                "$ref": "#/$defs/Door"
+              },
+              "Middle": {
+                "$ref": "#/$defs/Door"
+              },
+              "PassengerSide": {
+                "$ref": "#/$defs/Door"
+              }
+            },
+            "type": "object"
+          }
         }
-      }
+      },
+      "type": "object"
     },
-    "FuelType": {
+    "ID": {
       "type": "string",
-      "enum": ["GASOLINE", "DIESEL", "ELECTRIC", "HYBRID"],
-      "description": "GraphQL enum type: FuelType"
+      "description": "The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `\"4\"`) or integer (such as `4`) input value will be accepted as an ID."
+    },
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Boolean": {
+      "type": "boolean",
+      "description": "The `Boolean` scalar type represents `true` or `false`."
     }
-  }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
 }
 ```
 
