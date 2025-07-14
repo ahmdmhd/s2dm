@@ -55,9 +55,10 @@ class JsonSchemaTransformer:
     corresponding JSON Schema definitions, handling directives and nested types.
     """
 
-    def __init__(self, graphql_schema: GraphQLSchema, root_type: str | None = None):
+    def __init__(self, graphql_schema: GraphQLSchema, root_type: str | None = None, strict: bool = False):
         self.graphql_schema = graphql_schema
         self.root_type = root_type
+        self.strict = strict
 
     def transform(self) -> dict[str, Any]:
         """
@@ -196,7 +197,7 @@ class JsonSchemaTransformer:
             directive_extensions = self.process_directives(list(object_type.ast_node.directives))
             definition.update(directive_extensions)
 
-        # Process fields
+        required_fields = []
         for field_name, field in object_type.fields.items():
             if is_valid_instance_tag_field(field, self.graphql_schema):
                 if field_name == "instanceTag":
@@ -208,8 +209,15 @@ class JsonSchemaTransformer:
                     raise ValueError(
                         f"Invalid schema: instanceTag object found on non-instanceTag named field '{field_name}'"
                     )
+
+            if is_non_null_type(field.type):
+                required_fields.append(field_name)
+
             field_definition = self.transform_field(field)
             definition["properties"][field_name] = field_definition
+
+        if required_fields:
+            definition["required"] = required_fields
 
         return definition
 
@@ -236,19 +244,20 @@ class JsonSchemaTransformer:
 
         return definition
 
-    def get_field_type_definition(self, field_type: GraphQLType) -> dict[str, Any]:
+    def get_field_type_definition(self, field_type: GraphQLType, nullable: bool = True) -> dict[str, Any]:
         """
         Get JSON Schema definition for a GraphQL field type.
 
         Args:
             field_type: The GraphQL field type
+            nullable: Whether the field is nullable (not wrapped in NonNull)
 
         Returns:
             Dict[str, Any]: JSON Schema type definition
         """
         # Handle NonNull wrapper. e.g. `Type!`
         if is_non_null_type(field_type):
-            return self.get_field_type_definition(cast(GraphQLNonNull[Any], field_type).of_type)
+            return self.get_field_type_definition(cast(GraphQLNonNull[Any], field_type).of_type, nullable=False)
 
         # Handle List wrapper
         if is_list_type(field_type):
@@ -257,7 +266,7 @@ class JsonSchemaTransformer:
 
             # Check if the list items are nullable (not wrapped in NonNull). e.g. `[Type]`
             # This handles cases like [Type] where items can be null: [Type, null, Type, ...]
-            if not is_non_null_type(list_type.of_type):
+            if not is_non_null_type(list_type.of_type) and self.strict:
                 # For nullable items, allow the item type or null
                 if "$ref" in item_definition:
                     # For object/union references, use oneOf
@@ -270,27 +279,52 @@ class JsonSchemaTransformer:
                     elif isinstance(current_type, list) and "null" not in current_type:
                         item_definition["type"] = current_type + ["null"]
 
-            return {"type": "array", "items": item_definition}
+            definition = {"type": "array", "items": item_definition}
+
+            if nullable and self.strict:
+                return {"oneOf": [definition, {"type": "null"}]}
+
+            return definition
 
         # Handle scalar types
         if is_scalar_type(field_type):
             scalar_type = cast(GraphQLScalarType, field_type)
             json_type = GRAPHQL_SCALAR_TO_JSON_SCHEMA.get(scalar_type.name, "string")
-            return {"type": json_type}
+            definition = {"type": json_type}
+
+            if nullable and self.strict:
+                definition = {"type": [json_type, "null"]}
+
+            return definition
 
         # Handle enum types
         if is_enum_type(field_type):
             enum_type = cast(GraphQLEnumType, field_type)
-            return {"$ref": f"#/$defs/{enum_type.name}"}
+            definition = {"$ref": f"#/$defs/{enum_type.name}"}
+
+            if nullable and self.strict:
+                return {"oneOf": [definition, {"type": "null"}]}
+
+            return definition
 
         # Handle object types (references)
         if is_object_type(field_type) or is_interface_type(field_type):
-            return self.process_field_object_type(field_type)
+            definition = self.process_field_object_type(field_type)
+
+            if nullable and self.strict:
+                return {"oneOf": [definition, {"type": "null"}]}
+
+            return definition
 
         # Handle union types
         if is_union_type(field_type):
             union_type = cast(GraphQLUnionType, field_type)
-            return {"$ref": f"#/$defs/{union_type.name}"}
+            definition = {"$ref": f"#/$defs/{union_type.name}"}
+
+            if nullable and self.strict:
+                return {"oneOf": [definition, {"type": "null"}]}
+
+            return definition
 
         return {"type": "string"}
 
@@ -481,9 +515,16 @@ class JsonSchemaTransformer:
         if interface_type.description:
             definition["description"] = interface_type.description
 
+        required_fields = []
         for field_name, field in interface_type.fields.items():
+            if is_non_null_type(field.type):
+                required_fields.append(field_name)
+
             field_definition = self.transform_field(field)
             definition["properties"][field_name] = field_definition
+
+        if required_fields:
+            definition["required"] = required_fields
 
         return definition
 
