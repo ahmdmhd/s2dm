@@ -225,6 +225,8 @@ def vspec(schema: Path, output: Path) -> None:
     _ = output.write_text(result)
 
 
+# Export -> json schema
+# ----------
 @export.command
 @schema_option
 @output_option
