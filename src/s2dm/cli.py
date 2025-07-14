@@ -236,9 +236,16 @@ def vspec(schema: Path, output: Path) -> None:
     type=str,
     help="Root type name for the JSON schema",
 )
-def jsonschema(schema: Path, output: Path, root_type: str | None) -> None:
+@click.option(
+    "--strict",
+    "-S",
+    is_flag=True,
+    default=False,
+    help="Enforce strict field nullability translation from GraphQL to JSON Schema",
+)
+def jsonschema(schema: Path, output: Path, root_type: str | None, strict: bool) -> None:
     """Generate JSON Schema from a given GraphQL schema."""
-    result = translate_to_jsonschema(schema, root_type)
+    result = translate_to_jsonschema(schema, root_type, strict)
     _ = output.write_text(result)
 
 
