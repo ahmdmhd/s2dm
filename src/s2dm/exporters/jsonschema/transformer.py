@@ -142,6 +142,9 @@ class JsonSchemaTransformer:
             return self.transform_scalar_type(cast(GraphQLScalarType, graphql_type))
         elif is_object_type(graphql_type) and not has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
             return self.transform_object_type(cast(GraphQLObjectType, graphql_type))
+        elif is_object_type(graphql_type) and has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
+            log.warning(f"Skipping object type with @instanceTag directive: {graphql_type.name}")
+            return None
         elif is_enum_type(graphql_type):
             return self.transform_enum_type(cast(GraphQLEnumType, graphql_type))
         elif is_interface_type(graphql_type):
@@ -149,7 +152,7 @@ class JsonSchemaTransformer:
         elif is_union_type(graphql_type):
             return self.transform_union_type(cast(GraphQLUnionType, graphql_type))
         else:
-            log.warning(f"Unsupported GraphQL type: {type(graphql_type)}")
+            log.warning(f"Unsupported GraphQL type: {type(graphql_type)} found in element {graphql_type} of the given GraphQL schema")
             return None
 
     def transform_scalar_type(self, scalar_type: GraphQLScalarType) -> dict[str, Any]:
