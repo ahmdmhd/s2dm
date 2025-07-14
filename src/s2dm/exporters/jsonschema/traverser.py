@@ -22,6 +22,7 @@ from graphql import (
 )
 
 from s2dm import log
+from s2dm.exporters.utils import has_directive
 
 
 def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[str]:
@@ -57,7 +58,7 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[s
             return
 
         # Traverse based on type kind
-        if is_object_type(type_def):
+        if is_object_type(type_def) and not has_directive(cast(GraphQLObjectType, type_def), "instanceTag"):
             visit_object_type(cast(GraphQLObjectType, type_def))
         elif is_interface_type(type_def):
             visit_interface_type(cast(GraphQLInterfaceType, type_def))

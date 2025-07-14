@@ -565,3 +565,245 @@ class TestAdvancedFeatures:
 
         transport_def = schema["$defs"]["Transport"]
         assert "oneOf" in transport_def
+
+
+class TestInstanceTagHandling:
+    def test_instance_tag_objects_excluded_from_schema(self) -> None:
+        """Test that objects with @instanceTag directive are excluded from JSON Schema."""
+        schema_str = """
+            directive @instanceTag on OBJECT
+
+            type Query {
+                vehicle: Vehicle
+                seat: Seat
+            }
+
+            type Vehicle {
+                id: ID!
+                seats: [Seat!]!
+            }
+
+            type Seat {
+                id: ID!
+            }
+
+            type SeatPosition @instanceTag {
+                row: RowEnum!
+                column: ColumnEnum!
+            }
+
+            enum RowEnum {
+                ROW1
+                ROW2
+            }
+
+            enum ColumnEnum {
+                LEFT
+                RIGHT
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        assert "Seat" in schema["$defs"]
+        assert "RowEnum" in schema["$defs"]
+        assert "ColumnEnum" in schema["$defs"]
+
+        assert "SeatPosition" not in schema["$defs"]
+
+    def test_error_on_invalid_instance_tag_field_name(self) -> None:
+        """Test that an error is raised if an instanceTag object is referenced incorrectly."""
+        schema_str = """
+            directive @instanceTag on OBJECT
+
+            type Query {
+                vehicle: Vehicle
+            }
+
+            type Vehicle {
+                id: ID!
+                seatPosition: SeatPosition!
+            }
+
+            type SeatPosition @instanceTag {
+                row: RowEnum!
+                column: ColumnEnum!
+            }
+
+            enum RowEnum {
+                FRONT
+                BACK
+            }
+
+            enum ColumnEnum {
+                LEFT
+                RIGHT
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+
+        with pytest.raises(
+            ValueError, match="Invalid schema: instanceTag object found on non-instanceTag named field 'seatPosition'"
+        ):
+            transform(graphql_schema)
+
+    def test_instance_tag_field_excluded_when_valid(self) -> None:
+        """Test that instanceTag fields are excluded when they reference valid instance tag objects."""
+        schema_str = """
+            directive @instanceTag on OBJECT
+
+            type Query {
+                vehicle: Vehicle
+            }
+
+            type Vehicle {
+                id: ID!
+                instanceTag: CabinPosition!
+                normalField: String!
+            }
+
+            type CabinPosition @instanceTag {
+                row: RowEnum!
+                column: ColumnEnum!
+            }
+
+            enum RowEnum {
+                ROW1
+                ROW2
+            }
+
+            enum ColumnEnum {
+                LEFT
+                RIGHT
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+
+        assert "instanceTag" not in vehicle_def["properties"]
+
+        assert "id" in vehicle_def["properties"]
+        assert "normalField" in vehicle_def["properties"]
+
+        assert "CabinPosition" not in schema["$defs"]
+
+    def test_instance_tag_field_included_when_invalid(self) -> None:
+        """Test that instanceTag fields are included when they don't reference valid instance tag objects."""
+        schema_str = """
+            type Query {
+                vehicle: Vehicle
+            }
+
+            type Vehicle {
+                id: ID!
+                instanceTag: String!  # Not a valid instance tag object
+                normalField: String!
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+
+        assert "instanceTag" in vehicle_def["properties"]
+        assert vehicle_def["properties"]["instanceTag"]["type"] == "string"
+
+        assert "id" in vehicle_def["properties"]
+        assert "normalField" in vehicle_def["properties"]
+
+    def test_instance_tag_field_with_non_instance_tag_object(self) -> None:
+        """Test that instanceTag fields referencing regular objects (without @instanceTag) are included."""
+        schema_str = """
+            directive @instanceTag on OBJECT
+
+            type Query {
+                vehicle: Vehicle
+            }
+
+            type Vehicle {
+                id: ID!
+                instanceTag: RegularObject!  # References object without @instanceTag
+                normalField: String!
+            }
+
+            type RegularObject {
+                name: String!
+                value: Int!
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+
+        assert "instanceTag" in vehicle_def["properties"]
+        assert vehicle_def["properties"]["instanceTag"]["$ref"] == "#/$defs/RegularObject"
+
+        assert "RegularObject" in schema["$defs"]
+
+        assert "id" in vehicle_def["properties"]
+        assert "normalField" in vehicle_def["properties"]
+
+    def test_instance_tag_object_expansion(self) -> None:
+        """Test that instanceTag objects are expanded correctly in the schema."""
+        schema_str = """
+            directive @instanceTag on OBJECT
+
+            type Query {
+                vehicle: Vehicle
+            }
+
+            type Vehicle {
+                id: ID!
+                door: Door!
+            }
+
+            type Door {
+                locked: Boolean!
+                instanceTag: InCabinArea2x2
+            }
+
+            enum TwoRowsInCabinEnum {
+                ROW1
+                ROW2
+            }
+
+            enum ThreeColumnsInCabinEnum {
+                DRIVERSIDE
+                MIDDLE
+                PASSENGERSIDE
+            }
+
+            type InCabinArea2x2 @instanceTag {
+                row: TwoRowsInCabinEnum
+                column: ThreeColumnsInCabinEnum
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+
+        assert "door" in vehicle_def["properties"]
+
+        door_property = vehicle_def["properties"]["door"]
+        assert door_property["Row1"]["properties"]["DriverSide"]["$ref"] == "#/$defs/Door"
+        assert door_property["Row1"]["properties"]["Middle"]["$ref"] == "#/$defs/Door"
+        assert door_property["Row1"]["properties"]["PassengerSide"]["$ref"] == "#/$defs/Door"
+
+        assert "Door" in schema["$defs"]
+        door_def = schema["$defs"]["Door"]
+
+        assert "locked" in door_def["properties"]
