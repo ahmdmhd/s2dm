@@ -44,7 +44,14 @@ class TestBasicTransformation:
         vehicle_def = schema["$defs"]["Vehicle"]
         assert vehicle_def["type"] == "object"
         assert "properties" in vehicle_def
-        assert "required" not in vehicle_def
+        assert "required" in vehicle_def
+
+        required_fields = vehicle_def["required"]
+        assert "id" in required_fields
+        assert "make" in required_fields
+
+        assert "model" not in required_fields
+        assert "year" not in required_fields
 
         assert vehicle_def["properties"]["id"]["type"] == "string"
         assert vehicle_def["properties"]["make"]["type"] == "string"
@@ -203,13 +210,23 @@ class TestGraphQLTypeHandling:
         assert vehicle_def["type"] == "object"
         assert "id" in vehicle_def["properties"]
         assert "make" in vehicle_def["properties"]
-        assert "required" not in vehicle_def
+
+        assert "required" in vehicle_def
+        required_fields = vehicle_def["required"]
+        assert "id" in required_fields
+        assert "make" in required_fields
 
         car_def = schema["$defs"]["Car"]
         assert car_def["type"] == "object"
         assert "id" in car_def["properties"]
         assert "make" in car_def["properties"]
         assert "doors" in car_def["properties"]
+
+        assert "required" in car_def
+        car_required_fields = car_def["required"]
+        assert "id" in car_required_fields
+        assert "make" in car_required_fields
+        assert "doors" in car_required_fields
 
 
 class TestEdgeCases:
@@ -234,7 +251,13 @@ class TestEdgeCases:
 
         assert props["features"]["type"] == "array"
         assert props["features"]["items"]["type"] == "string"
-        assert "required" not in vehicle_def
+
+        assert "required" in vehicle_def
+        required_fields = vehicle_def["required"]
+        assert "features" in required_fields
+
+        assert "optionalExtras" not in required_fields
+        assert "maintenanceRecords" not in required_fields
 
         assert props["optionalExtras"]["type"] == "array"
 
@@ -807,3 +830,96 @@ class TestInstanceTagHandling:
         door_def = schema["$defs"]["Door"]
 
         assert "locked" in door_def["properties"]
+
+
+class TestStrictMode:
+    def test_strict_mode_set_to_false(self) -> None:
+        """Test schema translation with strict mode set to False."""
+        schema_str = """
+            type Vehicle {
+                id: ID!
+                year: Int!
+                make: String
+                doors: [Door!]!
+                doorsAlt: [Door]
+            }
+
+            type Door {
+                locked: Boolean
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+
+        result = transform(graphql_schema, strict=False)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+        assert "required" in vehicle_def
+        assert "id" in vehicle_def["required"]
+        assert "year" in vehicle_def["required"]
+        assert "make" not in vehicle_def["required"]
+        assert "doors" in vehicle_def["required"]
+        assert "doorsAlt" not in vehicle_def["required"]
+
+        assert vehicle_def["properties"]["year"]["type"] == "integer"
+        assert vehicle_def["properties"]["make"]["type"] == "string"
+
+        doors_def = vehicle_def["properties"]["doors"]
+        assert doors_def["items"]["$ref"] == "#/$defs/Door"
+
+        doors_alt_def = vehicle_def["properties"]["doorsAlt"]
+        assert doors_alt_def["type"] == "array"
+        assert doors_alt_def["items"]["$ref"] == "#/$defs/Door"
+
+    def test_strict_mode_set_to_true(self) -> None:
+        """Test schema translation with strict mode set to True."""
+        schema_str = """
+            type Vehicle {
+                id: ID!
+                year: Int!
+                make: String
+                doors: [Door!]!
+                doorsAlt: [Door]
+            }
+
+            type Door {
+                locked: Boolean
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+
+        result = transform(graphql_schema, strict=True)
+        schema = json.loads(result)
+
+        assert "Vehicle" in schema["$defs"]
+        vehicle_def = schema["$defs"]["Vehicle"]
+        assert "required" in vehicle_def
+        assert "id" in vehicle_def["required"]
+        assert "year" in vehicle_def["required"]
+        assert "make" not in vehicle_def["required"]
+        assert "doors" in vehicle_def["required"]
+        assert "doorsAlt" not in vehicle_def["required"]
+
+        assert vehicle_def["properties"]["year"]["type"] == "integer"
+        assert vehicle_def["properties"]["make"]["type"] == ["string", "null"]
+
+        doors_def = vehicle_def["properties"]["doors"]
+        assert doors_def["type"] == "array"
+        assert doors_def["items"]["$ref"] == "#/$defs/Door"
+
+        doors_alt_def = vehicle_def["properties"]["doorsAlt"]
+
+        assert "oneOf" in doors_alt_def
+        assert len(doors_alt_def["oneOf"]) == 2
+
+        array_option = doors_alt_def["oneOf"][0]
+        assert array_option["type"] == "array"
+        assert array_option["items"] == {"oneOf": [{"$ref": "#/$defs/Door"}, {"type": "null"}]}
+
+        null_option = doors_alt_def["oneOf"][1]
+        assert null_option == {"type": "null"}
+
+        assert "Door" in schema["$defs"]
+        door_def = schema["$defs"]["Door"]
+        assert door_def["properties"]["locked"]["type"] == ["boolean", "null"]

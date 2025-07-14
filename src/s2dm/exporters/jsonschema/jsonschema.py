@@ -9,13 +9,14 @@ from s2dm.exporters.utils import load_schema
 from .transformer import JsonSchemaTransformer
 
 
-def transform(graphql_schema: GraphQLSchema, root_type: str | None = None) -> str:
+def transform(graphql_schema: GraphQLSchema, root_type: str | None = None, strict: bool = False) -> str:
     """
     Transform a GraphQL schema object to JSON Schema format.
 
     Args:
         graphql_schema: The GraphQL schema object to transform
         root_type: Optional root type name for the JSON schema
+        strict: Enforce strict field nullability translation from GraphQL to JSON Schema
 
     Returns:
         str: JSON Schema representation as a string
@@ -27,7 +28,7 @@ def transform(graphql_schema: GraphQLSchema, root_type: str | None = None) -> st
             raise ValueError(f"Root type '{root_type}' not found in schema")
         log.info(f"Using root type: {root_type}")
 
-    transformer = JsonSchemaTransformer(graphql_schema, root_type)
+    transformer = JsonSchemaTransformer(graphql_schema, root_type, strict)
     json_schema = transformer.transform()
 
     json_schema_str = json.dumps(json_schema, indent=2)
@@ -37,13 +38,14 @@ def transform(graphql_schema: GraphQLSchema, root_type: str | None = None) -> st
     return json_schema_str
 
 
-def translate_to_jsonschema(schema_path: Path, root_type: str | None = None) -> str:
+def translate_to_jsonschema(schema_path: Path, root_type: str | None = None, strict: bool = False) -> str:
     """
     Translate a GraphQL schema file to JSON Schema format.
 
     Args:
         schema_path: Path to a GraphQL schema file or directory containing schema files
         root_type: Optional root type name for the JSON schema
+        strict: Enforce strict field nullability translation from GraphQL to JSON Schema
 
     Returns:
         str: JSON Schema representation as a string
@@ -53,4 +55,4 @@ def translate_to_jsonschema(schema_path: Path, root_type: str | None = None) -> 
     graphql_schema = load_schema(schema_path)
     log.info(f"Successfully loaded GraphQL schema with {len(graphql_schema.type_map)} types")
 
-    return transform(graphql_schema, root_type)
+    return transform(graphql_schema, root_type, strict)
