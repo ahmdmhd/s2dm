@@ -143,7 +143,8 @@ class JsonSchemaTransformer:
         elif is_object_type(graphql_type) and not has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
             return self.transform_object_type(cast(GraphQLObjectType, graphql_type))
         elif is_object_type(graphql_type) and has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
-            log.warning(f"Skipping object type with @instanceTag directive: {graphql_type.name}")
+            object_type = cast(GraphQLObjectType, graphql_type)
+            log.warning(f"Skipping object type with @instanceTag directive: {object_type.name}")
             return None
         elif is_enum_type(graphql_type):
             return self.transform_enum_type(cast(GraphQLEnumType, graphql_type))
