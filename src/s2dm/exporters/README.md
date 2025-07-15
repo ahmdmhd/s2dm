@@ -334,31 +334,31 @@ The JSON Schema exporter produces:
           "type": "string"
         },
         "door": {
-          "Row1": {
+          "ROW1": {
             "additionalProperties": false,
             "properties": {
-              "DriverSide": {
+              "DRIVERSIDE": {
                 "$ref": "#/$defs/Door"
               },
-              "Middle": {
+              "MIDDLE": {
                 "$ref": "#/$defs/Door"
               },
-              "PassengerSide": {
+              "PASSENGERSIDE": {
                 "$ref": "#/$defs/Door"
               }
             },
             "type": "object"
           },
-          "Row2": {
+          "ROW2": {
             "additionalProperties": false,
             "properties": {
-              "DriverSide": {
+              "DRIVERSIDE": {
                 "$ref": "#/$defs/Door"
               },
-              "Middle": {
+              "MIDDLE": {
                 "$ref": "#/$defs/Door"
               },
-              "PassengerSide": {
+              "PASSENGERSIDE": {
                 "$ref": "#/$defs/Door"
               }
             },
@@ -366,11 +366,11 @@ The JSON Schema exporter produces:
           }
         }
       },
-      "type": "object"
-    },
-    "ID": {
-      "type": "string",
-      "description": "The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `\"4\"`) or integer (such as `4`) input value will be accepted as an ID."
+      "type": "object",
+      "required": [
+        "id",
+        "door"
+      ]
     },
     "Door": {
       "additionalProperties": false,
@@ -379,11 +379,10 @@ The JSON Schema exporter produces:
           "type": "boolean"
         }
       },
-      "type": "object"
-    },
-    "Boolean": {
-      "type": "boolean",
-      "description": "The `Boolean` scalar type represents `true` or `false`."
+      "type": "object",
+      "required": [
+        "locked"
+      ]
     }
   },
   "title": "Vehicle",
@@ -456,23 +455,68 @@ enum VehicleCategory {
 
 ```json
 {
-  "properties": {
-    "description": {"type": "string"},
-    "year": {"type": "integer"},
-    "category": {"$ref": "#/$defs/VehicleCategory"},
-    "parts": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/Part"}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Vehicle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/VehicleCategory"
+        },
+        "doorsOptional": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        },
+        "doorsRequired": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        },
+        "doors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "doorsRequired",
+        "doors"
+      ]
     },
-    "doors": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/Door"}
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "id"
+      ]
     },
-    "wheels": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/Wheel"}
+    "VehicleCategory": {
+      "type": "string",
+      "enum": [
+        "CAR",
+        "TRUCK"
+      ]
     }
-  }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
 }
 ```
 
@@ -480,43 +524,99 @@ enum VehicleCategory {
 
 ```json
 {
-  "properties": {
-    "description": {"type": ["string", "null"]},
-    "year": {"type": ["integer", "null"]},
-    "category": {
-      "oneOf": [
-        {"$ref": "#/$defs/VehicleCategory"},
-        {"type": "null"}
-      ]
-    },
-    "parts": {
-      "oneOf": [
-        {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Vehicle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "category": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/VehicleCategory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doorsOptional": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/Door"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doorsRequired": {
           "type": "array",
           "items": {
             "oneOf": [
-              {"$ref": "#/$defs/Part"},
-              {"type": "null"}
+              {
+                "$ref": "#/$defs/Door"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
-        {"type": "null"}
+        "doors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "doorsRequired",
+        "doors"
       ]
     },
-    "doors": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/Door"}
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "id"
+      ]
     },
-    "wheels": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {"$ref": "#/$defs/Wheel"},
-          {"type": "null"}
-        ]
-      }
+    "VehicleCategory": {
+      "type": "string",
+      "enum": [
+        "CAR",
+        "TRUCK"
+      ]
     }
-  }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
 }
 ```
 
