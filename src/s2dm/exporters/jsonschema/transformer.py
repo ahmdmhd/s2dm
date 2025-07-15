@@ -138,9 +138,7 @@ class JsonSchemaTransformer:
         Returns:
             Optional[Dict[str, Any]]: JSON Schema definition or None if not transformable
         """
-        if is_scalar_type(graphql_type):
-            return self.transform_scalar_type(cast(GraphQLScalarType, graphql_type))
-        elif is_object_type(graphql_type) and not has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
+        if is_object_type(graphql_type) and not has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
             return self.transform_object_type(cast(GraphQLObjectType, graphql_type))
         elif is_object_type(graphql_type) and has_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
             object_type = cast(GraphQLObjectType, graphql_type)
@@ -157,27 +155,6 @@ class JsonSchemaTransformer:
                 f"Unsupported GraphQL type: {type(graphql_type)} found in element {graphql_type} of the given schema"
             )
             return None
-
-    def transform_scalar_type(self, scalar_type: GraphQLScalarType) -> dict[str, Any]:
-        """
-        Transform a GraphQL scalar type to JSON Schema.
-
-        Args:
-            scalar_type: The GraphQL scalar type
-
-        Returns:
-            Dict[str, Any]: JSON Schema definition
-        """
-        json_type = GRAPHQL_SCALAR_TO_JSON_SCHEMA.get(scalar_type.name, "string")
-
-        definition = {
-            "type": json_type,
-        }
-
-        if scalar_type.description:
-            definition["description"] = scalar_type.description
-
-        return definition
 
     def transform_object_type(self, object_type: GraphQLObjectType) -> dict[str, Any]:
         """
