@@ -822,9 +822,9 @@ class TestInstanceTagHandling:
         assert "door" in vehicle_def["properties"]
 
         door_property = vehicle_def["properties"]["door"]
-        assert door_property["Row1"]["properties"]["DriverSide"]["$ref"] == "#/$defs/Door"
-        assert door_property["Row1"]["properties"]["Middle"]["$ref"] == "#/$defs/Door"
-        assert door_property["Row1"]["properties"]["PassengerSide"]["$ref"] == "#/$defs/Door"
+        assert door_property["ROW1"]["properties"]["DRIVERSIDE"]["$ref"] == "#/$defs/Door"
+        assert door_property["ROW1"]["properties"]["MIDDLE"]["$ref"] == "#/$defs/Door"
+        assert door_property["ROW1"]["properties"]["PASSENGERSIDE"]["$ref"] == "#/$defs/Door"
 
         assert "Door" in schema["$defs"]
         door_def = schema["$defs"]["Door"]

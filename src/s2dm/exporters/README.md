@@ -56,9 +56,9 @@ s2dm export <some_supported_format> ...
 
 #### Available exporters
 The tools can currently export a given model into:
-* [VSPEC](#vspec-exporter) - `tools/to_vspec.py`
-* [SHACL](#shacl-exporter) - `tools/to_shacl.py`
-* [JSON Schema](#json-schema-exporter) - `exporters/jsonschema/`
+* [VSPEC](#vspec-exporter)
+* [SHACL](#shacl-exporter)
+* [JSON Schema](#json-schema-exporter)
 
 #### Supported field cases by exporter
 > See `docs/MODELING_GUIDE.md` for more information on cases for fields and the custom directives, such as @noDuplicates.
@@ -438,7 +438,6 @@ Given this GraphQL schema:
 ```graphql
 type Vehicle {
   id: ID!              # Non-null
-  name: String!        # Non-null
   description: String  # Nullable
   year: Int           # Nullable
   category: VehicleCategory  # Nullable enum
