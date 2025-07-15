@@ -346,25 +346,6 @@ class JsonSchemaTransformer:
         """
         named_type = cast(GraphQLObjectType | GraphQLInterfaceType, field_type)
 
-        def transform_instance_name(instance_name: str) -> str:
-            transformation_dict = {
-                "ROW1": "Row1",
-                "ROW2": "Row2",
-                "ROW3": "Row3",
-                "ROW4": "Row4",
-                "ROW5": "Row5",
-                "ROW6": "Row6",
-                "ROW7": "Row7",
-                "ROW8": "Row8",
-                "ROW9": "Row9",
-                "ROW10": "Row10",
-                "DRIVERSIDE": "DriverSide",
-                "PASSENGERSIDE": "PassengerSide",
-                "MIDDLE": "Middle",
-            }
-
-            return transformation_dict.get(instance_name, instance_name)
-
         if is_object_type(named_type):
             instance_tag_object = get_instance_tag_object(cast(GraphQLObjectType, named_type), self.graphql_schema)
             if instance_tag_object:
@@ -376,8 +357,6 @@ class JsonSchemaTransformer:
                     expanded_instance_split = expanded_instance.split(".")
 
                     for index, part in enumerate(expanded_instance_split):
-                        part = transform_instance_name(part)
-
                         is_last_split_element = index == len(expanded_instance_split) - 1
 
                         if part not in current_definition:
