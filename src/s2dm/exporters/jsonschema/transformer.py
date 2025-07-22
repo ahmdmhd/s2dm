@@ -19,11 +19,11 @@ from graphql import (
     is_scalar_type,
     is_union_type,
 )
-from graphql.language.ast import FloatValueNode, IntValueNode
 
 from s2dm import log
 from s2dm.exporters.utils import (
     expand_instance_tag,
+    get_directive_arguments,
     get_instance_tag_object,
     get_referenced_types,
     has_directive,
@@ -177,7 +177,7 @@ class JsonSchemaTransformer:
 
         # Process directives
         if hasattr(object_type, "ast_node") and object_type.ast_node and object_type.ast_node.directives:
-            directive_extensions = self.process_directives(list(object_type.ast_node.directives))
+            directive_extensions = self.process_directives(object_type)
             definition.update(directive_extensions)
 
         required_fields = []
@@ -222,7 +222,7 @@ class JsonSchemaTransformer:
 
         # Process field directives
         if hasattr(field, "ast_node") and field.ast_node and field.ast_node.directives:
-            directive_extensions = self.process_directives(list(field.ast_node.directives))
+            directive_extensions = self.process_directives(field)
             definition.update(directive_extensions)
 
         return definition
@@ -356,7 +356,7 @@ class JsonSchemaTransformer:
 
         return {"$ref": f"#/$defs/{named_type.name}"}
 
-    def process_directives(self, directives: list[Any]) -> dict[str, Any]:
+    def process_directives(self, element: GraphQLField | GraphQLObjectType) -> dict[str, Any]:
         """
         Process GraphQL directives and convert them to JSON Schema extensions.
 
@@ -368,75 +368,32 @@ class JsonSchemaTransformer:
         """
         extensions = {}
 
-        for directive in directives:
-            directive_name = directive.name.value
+        if has_directive(element, "cardinality"):
+            args = get_directive_arguments(element, "cardinality")
+            if "min" in args:
+                extensions["minItems"] = args["min"]
+            if "max" in args:
+                extensions["maxItems"] = args["max"]
 
-            if directive_name == "cardinality":
-                args = self.get_directive_arguments(directive)
-                if "min" in args:
-                    extensions["minItems"] = args["min"]
-                if "max" in args:
-                    extensions["maxItems"] = args["max"]
+        if has_directive(element, "noDuplicates"):
+            extensions["uniqueItems"] = True
 
-            elif directive_name == "noDuplicates":
-                extensions["uniqueItems"] = True
+        if has_directive(element, "range"):
+            args = get_directive_arguments(element, "range")
+            if "min" in args:
+                extensions["minimum"] = args["min"]
+            if "max" in args:
+                extensions["maximum"] = args["max"]
 
-            elif directive_name == "range":
-                args = self.get_directive_arguments(directive)
-                if "min" in args:
-                    extensions["minimum"] = args["min"]
-                if "max" in args:
-                    extensions["maximum"] = args["max"]
-
-            elif directive_name == "metadata":
-                args = self.get_directive_arguments(directive)
-                if "comment" in args:
-                    extensions["$comment"] = args["comment"]
-                other_metadata = {k: v for k, v in args.items() if k != "comment"}
-                if other_metadata:
-                    extensions["x-metadata"] = other_metadata
-
-            else:
-                """
-                All other custom directives are included as an `x-` prefixed directive.
-
-                Directives with arguments are stored as an object, while those without
-                arguments are stored as a boolean.
-                """
-                args = self.get_directive_arguments(directive)
-                if args:
-                    extensions[f"x-{directive_name}"] = args
-                else:
-                    extensions[f"x-{directive_name}"] = True
+        if has_directive(element, "metadata"):
+            args = get_directive_arguments(element, "metadata")
+            if "comment" in args:
+                extensions["$comment"] = args["comment"]
+            other_metadata = {k: v for k, v in args.items() if k != "comment"}
+            if other_metadata:
+                extensions["x-metadata"] = other_metadata
 
         return extensions
-
-    def get_directive_arguments(self, directive: Any) -> dict[str, Any]:
-        """
-        Extract arguments from a GraphQL directive.
-
-        Args:
-            directive: GraphQL directive node
-
-        Returns:
-            Dict[str, Any]: Dictionary of argument names to values
-        """
-        args: dict[str, Any] = {}
-
-        if hasattr(directive, "arguments") and directive.arguments:
-            for arg in directive.arguments:
-                arg_name = arg.name.value
-                if hasattr(arg.value, "value"):
-                    if isinstance(arg.value, IntValueNode):
-                        args[arg_name] = int(arg.value.value)
-                    elif isinstance(arg.value, FloatValueNode):
-                        args[arg_name] = float(arg.value.value)
-                    else:
-                        args[arg_name] = arg.value.value
-                else:
-                    args[arg_name] = arg.value
-
-        return args
 
     def transform_enum_type(self, enum_type: GraphQLEnumType) -> dict[str, Any]:
         """

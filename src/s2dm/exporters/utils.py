@@ -25,6 +25,8 @@ from graphql import (
     is_object_type,
     is_union_type,
 )
+
+from graphql.language.ast import FloatValueNode, IntValueNode
 from graphql.type import (
     GraphQLField,
     GraphQLNamedType,
@@ -212,22 +214,32 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
 
 def get_directive_arguments(element: GraphQLField | GraphQLObjectType, directive_name: str) -> dict[str, Any]:
     """
-    Extracts the arguments of a specified directive from a GraphQL field.
+    Extracts the arguments of a specified directive from a GraphQL element.
     Args:
-        field (GraphQLField): The GraphQL field from which to extract the directive arguments.
-        directive_name (str): The name of the directive whose arguments are to be extracted.
+        element: The GraphQL element from which to extract the directive arguments.
+        directive_name: The name of the directive whose arguments are to be extracted.
     Returns:
-        dict[str, Any]: A dictionary containing the directive arguments as key-value pairs.
-                        Returns an empty dictionary if the directive is not found.
-    Logs:
-        Logs a debug message if the specified directive is not found in the field.
+        dict[str, Any]: A dictionary containing the directive arguments with proper type conversion.
     """
-    if has_directive(element, directive_name) and element.ast_node is not None:
-        directive = next(d for d in element.ast_node.directives if d.name.value == directive_name)
-        return {arg.name.value: arg.value.value for arg in directive.arguments if hasattr(arg.value, "value")}
-    else:
-        log.debug(f"Directive '{directive_name}' not found in element '{element}'.")
+    if not has_directive(element, directive_name) or not element.ast_node:
         return {}
+
+    directive = next(d for d in element.ast_node.directives if d.name.value == directive_name)
+    args: dict[str, Any] = {}
+
+    for arg in directive.arguments:
+        arg_name = arg.name.value
+        if hasattr(arg.value, "value"):
+            if isinstance(arg.value, IntValueNode):
+                args[arg_name] = int(arg.value.value)
+            elif isinstance(arg.value, FloatValueNode):
+                args[arg_name] = float(arg.value.value)
+            else:
+                args[arg_name] = arg.value.value
+        else:
+            args[arg_name] = arg.value
+
+    return args
 
 
 @dataclass
