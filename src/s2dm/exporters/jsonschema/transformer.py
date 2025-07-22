@@ -25,11 +25,10 @@ from s2dm import log
 from s2dm.exporters.utils import (
     expand_instance_tag,
     get_instance_tag_object,
+    get_referenced_types,
     has_directive,
     is_valid_instance_tag_field,
 )
-
-from .traverser import get_referenced_types
 
 GRAPHQL_SCALAR_TO_JSON_SCHEMA = {
     "String": "string",
@@ -102,7 +101,8 @@ class JsonSchemaTransformer:
 
         if self.root_type:
             referenced_types = get_referenced_types(self.graphql_schema, self.root_type)
-            user_defined_types = {name: type_def for name, type_def in type_map.items() if name in referenced_types}
+            referenced_names = {t.name for t in referenced_types if hasattr(t, 'name')}
+            user_defined_types = {name: type_def for name, type_def in type_map.items() if name in referenced_names}
         else:
             user_defined_types = {
                 name: type_def
