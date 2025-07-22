@@ -23,6 +23,7 @@ from graphql import (
 from s2dm import log
 from s2dm.exporters.utils import (
     expand_instance_tag,
+    get_cardinality,
     get_directive_arguments,
     get_instance_tag_object,
     get_referenced_types,
@@ -366,17 +367,18 @@ class JsonSchemaTransformer:
         Returns:
             Dict[str, Any]: JSON Schema extensions for the directives
         """
-        extensions = {}
-
-        if has_directive(element, "cardinality"):
-            args = get_directive_arguments(element, "cardinality")
-            if "min" in args:
-                extensions["minItems"] = args["min"]
-            if "max" in args:
-                extensions["maxItems"] = args["max"]
+        extensions: dict[str, Any] = {}
 
         if has_directive(element, "noDuplicates"):
             extensions["uniqueItems"] = True
+
+        if isinstance(element, GraphQLField):
+            cardinality = get_cardinality(element)
+            if cardinality:
+                if cardinality.min is not None:
+                    extensions["minItems"] = cardinality.min
+                if cardinality.max is not None:
+                    extensions["maxItems"] = cardinality.max
 
         if has_directive(element, "range"):
             args = get_directive_arguments(element, "range")
