@@ -293,8 +293,9 @@ Consider the following GraphQL schema:
 
 ```gql
 directive @instanceTag on OBJECT
+directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 
-type Vehicle {
+type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
     id: ID!
     door: Door!
 }
@@ -328,6 +329,10 @@ The JSON Schema exporter produces:
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Vehicle": {
+      "$comment": "Vehicle entity",
+      "x-metadata": {
+        "vssType": "branch"
+      },
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -420,6 +425,7 @@ S2DM directives are converted to JSON Schema constraints:
 - `@cardinality(min: 1, max: 5)` → `"minItems": 1, "maxItems": 5`
 - `@range(min: 0.0, max: 100.0)` → `"minimum": 0.0, "maximum": 100.0`
 - `@noDuplicates` → `"uniqueItems": true`
+- `@metadata(comment: "Description", vssType: "branch")` → `"$comment": "Description", "x-metadata": {"vssType": "branch"}`
 - Custom directives → `"x-directiveName": true` or `"x-directiveName": {...}`
 
 #### Strict Nullability Mode

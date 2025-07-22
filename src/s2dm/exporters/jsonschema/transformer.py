@@ -388,6 +388,14 @@ class JsonSchemaTransformer:
                 if "max" in args:
                     extensions["maximum"] = args["max"]
 
+            elif directive_name == "metadata":
+                args = self.get_directive_arguments(directive)
+                if "comment" in args:
+                    extensions["$comment"] = args["comment"]
+                other_metadata = {k: v for k, v in args.items() if k != "comment"}
+                if other_metadata:
+                    extensions["x-metadata"] = other_metadata
+
             else:
                 """
                 All other custom directives are included as an `x-` prefixed directive.

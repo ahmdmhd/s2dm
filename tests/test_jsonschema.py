@@ -513,9 +513,16 @@ class TestDirectives:
         schema = json.loads(result)
 
         vehicle_def = schema["$defs"]["Vehicle"]
+        assert "$comment" in vehicle_def
+        assert vehicle_def["$comment"] == "Vehicle entity"
         assert "x-metadata" in vehicle_def
-        assert vehicle_def["x-metadata"]["comment"] == "Vehicle entity"
         assert vehicle_def["x-metadata"]["vssType"] == "branch"
+
+        speed_field = vehicle_def["properties"]["speed"]
+        assert "$comment" in speed_field
+        assert speed_field["$comment"] == "Current speed"
+        assert "x-metadata" in speed_field
+        assert speed_field["x-metadata"]["vssType"] == "sensor"
 
 
 class TestErrorHandling:
