@@ -569,7 +569,7 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[G
         type_def = graphql_schema.type_map.get(type_name)
         if not type_def:
             return
-            
+
         referenced.add(type_def)
 
         if is_object_type(type_def) and not has_directive(cast(GraphQLObjectType, type_def), "instanceTag"):
