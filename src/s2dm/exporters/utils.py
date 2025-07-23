@@ -197,10 +197,13 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
     else:
         tags_per_enum_field = []
         for field_name, field in object.fields.items():
-            if not isinstance(field.type, GraphQLEnumType):
+            field_type = field.type
+            if isinstance(field.type, GraphQLNonNull):
+                field_type = get_named_type(field.type)
+            if not isinstance(field_type, GraphQLEnumType):
                 # TODO: Move this check to a validation function for the @instanceTag directive
                 raise TypeError(f"Field '{field_name}' in object '{object.name}' is not an enum.")
-            tags_per_enum_field.append(list(field.type.values.keys()))
+            tags_per_enum_field.append(list(field_type.values.keys()))
         log.debug(f"Tags per field: {tags_per_enum_field}")
 
         # Combine tags from different enum fields

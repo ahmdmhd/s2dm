@@ -5,6 +5,7 @@ from graphql import (
     GraphQLField,
     GraphQLInterfaceType,
     GraphQLList,
+    GraphQLNamedType,
     GraphQLNonNull,
     GraphQLObjectType,
     GraphQLScalarType,
@@ -23,6 +24,7 @@ from graphql import (
 from s2dm import log
 from s2dm.exporters.utils import (
     expand_instance_tag,
+    get_all_named_types,
     get_cardinality,
     get_directive_arguments,
     get_instance_tag_object,
@@ -97,23 +99,18 @@ class JsonSchemaTransformer:
                 }
             )
 
-        type_map = self.graphql_schema.type_map
-        excluded_types = {"Query", "Mutation", "Subscription"}
-
         if self.root_type:
             referenced_types = get_referenced_types(self.graphql_schema, self.root_type)
-            referenced_names = {t.name for t in referenced_types if hasattr(t, "name")}
-            user_defined_types = {name: type_def for name, type_def in type_map.items() if name in referenced_names}
+            user_defined_types: list[GraphQLNamedType] = [
+                t for t in referenced_types if isinstance(t, GraphQLNamedType)
+            ]
         else:
-            user_defined_types = {
-                name: type_def
-                for name, type_def in type_map.items()
-                if not name.startswith("__") and name not in excluded_types
-            }
+            user_defined_types = get_all_named_types(self.graphql_schema)
 
         log.info(f"Found {len(user_defined_types)} user-defined types to transform")
 
-        for type_name, type_def in user_defined_types.items():
+        for type_def in user_defined_types:
+            type_name = type_def.name
             try:
                 json_schema_def = self.transform_graphql_type(type_def)
                 if json_schema_def:
