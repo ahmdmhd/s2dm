@@ -111,7 +111,7 @@ jobs:
             CHANGELOG=$(git-cliff ${LAST_TAG}..HEAD --strip=header)
           fi
 
-          CHANGELOG=$(echo "$CHANGELOG" | sed "s/\[unreleased\]/[${NEW_VERSION#v}] - $(date +%Y-%m-%d)/")
+          CHANGELOG=$(echo "$CHANGELOG" | sed "s/\[unreleased\]/[${NEW_VERSION#v}] - $(date +%Y-%m-%d)/i")
 
           # Update CHANGELOG.md - insert new version above the previous version
           # Create temporary file with the new changelog entry
