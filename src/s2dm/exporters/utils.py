@@ -25,7 +25,6 @@ from graphql import (
     is_object_type,
     is_union_type,
 )
-
 from graphql.language.ast import FloatValueNode, IntValueNode
 from graphql.type import (
     GraphQLField,
