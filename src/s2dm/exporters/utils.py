@@ -4,17 +4,28 @@ from dataclasses import dataclass
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ariadne import load_schema_from_path
 from graphql import (
     GraphQLEnumType,
+    GraphQLInputObjectType,
+    GraphQLInterfaceType,
+    GraphQLList,
+    GraphQLNonNull,
     GraphQLString,
+    GraphQLType,
+    GraphQLUnionType,
     build_schema,
     get_named_type,
+    is_input_object_type,
+    is_interface_type,
     is_list_type,
     is_non_null_type,
+    is_object_type,
+    is_union_type,
 )
+from graphql.language.ast import FloatValueNode, IntValueNode
 from graphql.type import (
     GraphQLField,
     GraphQLNamedType,
@@ -185,10 +196,13 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
     else:
         tags_per_enum_field = []
         for field_name, field in object.fields.items():
-            if not isinstance(field.type, GraphQLEnumType):
+            field_type = field.type
+            if isinstance(field.type, GraphQLNonNull):
+                field_type = get_named_type(field.type)
+            if not isinstance(field_type, GraphQLEnumType):
                 # TODO: Move this check to a validation function for the @instanceTag directive
                 raise TypeError(f"Field '{field_name}' in object '{object.name}' is not an enum.")
-            tags_per_enum_field.append(list(field.type.values.keys()))
+            tags_per_enum_field.append(list(field_type.values.keys()))
         log.debug(f"Tags per field: {tags_per_enum_field}")
 
         # Combine tags from different enum fields
@@ -202,22 +216,32 @@ def expand_instance_tag(object: GraphQLObjectType) -> list[str]:
 
 def get_directive_arguments(element: GraphQLField | GraphQLObjectType, directive_name: str) -> dict[str, Any]:
     """
-    Extracts the arguments of a specified directive from a GraphQL field.
+    Extracts the arguments of a specified directive from a GraphQL element.
     Args:
-        field (GraphQLField): The GraphQL field from which to extract the directive arguments.
-        directive_name (str): The name of the directive whose arguments are to be extracted.
+        element: The GraphQL element from which to extract the directive arguments.
+        directive_name: The name of the directive whose arguments are to be extracted.
     Returns:
-        dict[str, Any]: A dictionary containing the directive arguments as key-value pairs.
-                        Returns an empty dictionary if the directive is not found.
-    Logs:
-        Logs a debug message if the specified directive is not found in the field.
+        dict[str, Any]: A dictionary containing the directive arguments with proper type conversion.
     """
-    if has_directive(element, directive_name) and element.ast_node is not None:
-        directive = next(d for d in element.ast_node.directives if d.name.value == directive_name)
-        return {arg.name.value: arg.value.value for arg in directive.arguments if hasattr(arg.value, "value")}
-    else:
-        log.debug(f"Directive '{directive_name}' not found in element '{element}'.")
+    if not has_directive(element, directive_name) or not element.ast_node:
         return {}
+
+    directive = next(d for d in element.ast_node.directives if d.name.value == directive_name)
+    args: dict[str, Any] = {}
+
+    for arg in directive.arguments:
+        arg_name = arg.name.value
+        if hasattr(arg.value, "value"):
+            if isinstance(arg.value, IntValueNode):
+                args[arg_name] = int(arg.value.value)
+            elif isinstance(arg.value, FloatValueNode):
+                args[arg_name] = float(arg.value.value)
+            else:
+                args[arg_name] = arg.value.value
+        else:
+            args[arg_name] = arg.value
+
+    return args
 
 
 @dataclass
@@ -528,3 +552,81 @@ def search_schema(
                 continue
 
     return results
+
+
+def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[GraphQLType]:
+    """
+    Find all GraphQL types referenced from the root type through graph traversal.
+
+    Args:
+        graphql_schema: The GraphQL schema
+        root_type: The root type to start traversal from
+
+    Returns:
+        Set[GraphQLType]: Set of referenced GraphQL type objects
+    """
+    visited: set[str] = set()
+    referenced: set[GraphQLType] = set()
+
+    def visit_type(type_name: str) -> None:
+        if type_name in visited:
+            return
+
+        visited.add(type_name)
+
+        if type_name.startswith("__"):
+            return
+
+        if type_name in {"Query", "Mutation", "Subscription"}:
+            return
+
+        type_def = graphql_schema.type_map.get(type_name)
+        if not type_def:
+            return
+
+        referenced.add(type_def)
+
+        if is_object_type(type_def) and not has_directive(cast(GraphQLObjectType, type_def), "instanceTag"):
+            visit_object_type(cast(GraphQLObjectType, type_def))
+        elif is_interface_type(type_def):
+            visit_interface_type(cast(GraphQLInterfaceType, type_def))
+        elif is_union_type(type_def):
+            visit_union_type(cast(GraphQLUnionType, type_def))
+        elif is_input_object_type(type_def):
+            visit_input_object_type(cast(GraphQLInputObjectType, type_def))
+        # Scalar and enum types don't reference other types
+
+    def visit_object_type(obj_type: GraphQLObjectType) -> None:
+        for field in obj_type.fields.values():
+            visit_field_type(field.type)
+
+        for interface in obj_type.interfaces:
+            visit_type(interface.name)
+
+    def visit_interface_type(interface_type: GraphQLInterfaceType) -> None:
+        for field in interface_type.fields.values():
+            visit_field_type(field.type)
+
+    def visit_union_type(union_type: GraphQLUnionType) -> None:
+        for member_type in union_type.types:
+            visit_type(member_type.name)
+
+    def visit_input_object_type(input_type: GraphQLInputObjectType) -> None:
+        for field in input_type.fields.values():
+            visit_field_type(field.type)
+
+    def visit_field_type(field_type: GraphQLType) -> None:
+        unwrapped_type = field_type
+        while is_non_null_type(unwrapped_type) or is_list_type(unwrapped_type):
+            if is_non_null_type(unwrapped_type):
+                unwrapped_type = cast(GraphQLNonNull[Any], unwrapped_type).of_type
+            elif is_list_type(unwrapped_type):
+                unwrapped_type = cast(GraphQLList[Any], unwrapped_type).of_type
+
+        if hasattr(unwrapped_type, "name"):
+            visit_type(unwrapped_type.name)
+
+    visit_type(root_type)
+
+    log.info(f"Found {len(referenced)} referenced types from root type '{root_type}'")
+    return referenced
