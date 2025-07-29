@@ -20,6 +20,7 @@ from s2dm.exporters.utils import (
     get_all_object_types,
     load_schema,
     load_schema_as_str,
+    load_schema_as_str_filtered,
     search_schema,
 )
 from s2dm.exporters.vspec import translate_to_vspec
@@ -164,16 +165,29 @@ def validate() -> None:
     required=True,
     help="GraphQL schema file or directory containing schema files",
 )
+@click.option(
+    "--root-type",
+    "-r",
+    type=str,
+    help="Root type name for filtering the schema",
+)
 @output_option
 @click.pass_context
-def compose(ctx: click.Context, schema: Path, output: Path) -> None:
+def compose(ctx: click.Context, schema: Path, root_type: str | None, output: Path) -> None:
     """Compose GraphQL schema files into a single output file."""
     try:
-        composed_schema_str = load_schema_as_str(schema)
+        if root_type:
+            composed_schema_str = load_schema_as_str_filtered(schema, root_type)
+        else:
+            composed_schema_str = load_schema_as_str(schema)
+
         output.write_text(composed_schema_str)
 
-        console = ctx.obj["console"]
-        console.print(f"[green]✓[/green] Successfully composed schema to {output}")
+        console = ctx.obj
+        if root_type:
+            console.print(f"[green]✓[/green] Successfully composed schema with root type '{root_type}' to {output}")
+        else:
+            console.print(f"[green]✓[/green] Successfully composed schema to {output}")
 
     except OSError as e:
         console = ctx.obj["console"]
