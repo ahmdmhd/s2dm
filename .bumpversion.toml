@@ -12,10 +12,13 @@ sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
 allow_dirty = false
-commit = true
+commit = false
 message = "chore: bump version {current_version} → {new_version}"
 moveable_tags = []
 commit_args = ""
 
 [[tool.bumpversion.files]]
 filename = "src/s2dm/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "tests/test_s2dm.py"

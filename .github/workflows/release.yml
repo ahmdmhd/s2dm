@@ -97,7 +97,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Bump version without creating a tag
+          # Bump version without creating a tag or commit (since commit=false in .bumpversion.toml)
           uv run bump-my-version bump ${{ steps.version.outputs.bump }} --no-tag
 
           # Get the new version from .bumpversion.toml
@@ -125,9 +125,12 @@ jobs:
           mv updated_changelog.md CHANGELOG.md
           rm temp_changelog.md
 
-          # Commit the updated CHANGELOG.md
-          git add CHANGELOG.md
-          git commit -m "docs: update CHANGELOG.md for ${NEW_VERSION}"
+          # Stage all changes (version files and changelog) and commit together
+          git add .bumpversion.toml src/s2dm/__init__.py tests/test_s2dm.py CHANGELOG.md
+          git commit -m "chore: release ${NEW_VERSION}
+
+          - Bump version to ${NEW_VERSION#v}
+          - Update CHANGELOG.md"
 
           # Create the tag on this commit
           git tag ${NEW_VERSION}
