@@ -62,15 +62,11 @@ disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov --cov-report=xml:coverage.xml"
+
 
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "PGH", "B", "SIM"]
-
-[tool.bumpversion]
-current_version = "0.1.0"
-
-[[tool.bumpversion.files]]
-filename = "./src/s2dm/__init__.py"
