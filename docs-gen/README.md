@@ -7,7 +7,7 @@ This directory contains the Hugo-based documentation website for the **Simplifie
 - **Framework**: [Hugo](https://gohugo.io/) static site generator
 - **Theme**: [Doks](https://github.com/h-enk/doks) - A modern documentation theme built on Bootstrap 5
 - **CSS Framework**: Bootstrap 5 with custom SCSS
-- **Icons**: 
+- **Icons**:
   - Lucide icons (for index page features)
   - Font Awesome 5.15.3 (site-wide)
 
@@ -18,7 +18,7 @@ docs-gen/
 ├── assets/          # SCSS, JS, and other build assets
 ├── config/          # Hugo configuration files
 │   ├── _default/    # Default configuration
-│   ├── production/  # Production overrides  
+│   ├── production/  # Production overrides
 │   └── next/        # Development overrides
 ├── content/         # Markdown content files
 │   ├── _index.md    # Homepage content
@@ -102,7 +102,7 @@ For full-width images (like the S2DM role diagram), use HTML:
 
 ```html
 <div class="w-100 my-4">
-  <img src="/images/s2dm_role.png" alt="S2DM Role Overview" 
+  <img src="/images/s2dm_role.png" alt="S2DM Role Overview"
        class="img-fluid w-100" style="max-width: 100%; height: auto;">
 </div>
 ```
@@ -137,7 +137,7 @@ This is a tip callout for helpful suggestions.
 
 Available callout types:
 - `note` (blue)
-- `tip` (green) 
+- `tip` (green)
 - `warning` (yellow)
 - `important` (red)
 
