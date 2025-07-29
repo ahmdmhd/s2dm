@@ -24,8 +24,8 @@ line-length=100
 [title-min-length]
 min-length=5
 
-# Ignore all rules for GitHub Actions bot commits
+# Ignore all rules for GitHub Actions or depdenabot bot commits
 
 [ignore-by-author-name]
-regex=GitHub Action
+regex=(GitHub Action|^(dependabot\[bot\]|dependabot))
 ignore=all
