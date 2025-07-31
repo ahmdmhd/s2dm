@@ -1,0 +1,50 @@
+"""
+Wheel signals for axle. Instances. Counted from the center line (3:rd left is on the left side of 2:left in the vehicle direction)
+"""
+type VehicleTrailerWheel {
+  """
+  Angular (Rotational) speed of a vehicle's wheel.
+  """
+  angularSpeed(unit: Angularspeed_Unit_Enum = DEGREE_PER_SECOND): Float
+    @metadata(comment: "Positive if wheel is trying to drive vehicle forward. Negative if wheel is trying to drive vehicle backward.")
+
+  """Linear speed of a vehicle's wheel."""
+  speed(unit: Velocity_Unit_Enum = KILOMETER_PER_HOUR): Float
+  brake: TrailerWheelBrake
+  tire: TrailerWheelTire
+}
+
+"""Brake signals for wheel"""
+type TrailerWheelBrake {
+  """
+  Brake fluid level as percent. 0 = Empty. 100 = Full.
+  """
+  fluidLevel(unit: Relation_Unit_Enum = PERCENT): UInt8 @range(min:0, max: 100)
+
+  """Brake pad wear status. True = Worn. False = Not Worn."""
+  isBrakesWorn: Boolean
+
+  """
+  Brake fluid level status. True = Brake fluid level low. False = Brake fluid level OK.
+  """
+  isFluidLevelLow: Boolean
+
+  """
+  Brake pad wear as percent. 0 = No Wear. 100 = Worn.
+  """
+  padWear(unit: Relation_Unit_Enum = PERCENT): UInt8 @range(min:0, max: 100)
+}
+
+"""Tire signals for wheel."""
+type TrailerWheelTire {
+  """
+  Tire Pressure Status. True = Low tire pressure. False = Good tire pressure.
+  """
+  isPressureLow: Boolean
+
+  """Tire pressure in kilo-Pascal."""
+  pressure(unit: Pressure_Unit_Enum = KILOPASCAL): UInt16
+
+  """Tire temperature in Celsius."""
+  temperature(unit: Temperature_Unit_Enum = DEGREE_CELSIUS): Float
+}
