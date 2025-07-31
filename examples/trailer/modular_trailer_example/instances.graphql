@@ -1,0 +1,66 @@
+extend type VehicleTrailer {
+    instanceTag: TrailerTag
+}
+
+type TrailerTag @instanceTag {
+    instance: ThreeTrailers  # <-- Desired instances are assigned here via pointer to the enum
+}
+
+# This can be arbitrarily specified
+enum ThreeTrailers {
+  TRAILER_1
+  TRAILER_2
+  TRAILER_3
+}
+
+extend type VehicleTrailerAxle {
+    instanceTag: TrailerAxleTag
+}
+
+type TrailerAxleTag @instanceTag {
+    position: AxlePositionEnum  # <-- Desired instances are assigned here via pointer to the enum
+}
+
+enum AxlePositionEnum {
+  POSITION_1   # Front-most axle, closest to truck
+  POSITION_2
+  POSITION_3
+  POSITION_4
+  POSITION_5
+  POSITION_6
+  POSITION_7
+  POSITION_8
+  POSITION_9
+  POSITION_10
+  POSITION_11
+  POSITION_12
+  POSITION_13
+  POSITION_14
+  POSITION_15  # Rear-most axle, furthest from truck
+}
+
+extend type VehicleTrailerWheel {
+    instanceTag: TrailerWheelTag
+}
+
+type TrailerWheelTag @instanceTag {
+    axle: AxlePositionEnum
+    side: TwoSides
+    outsideInNumber: EightOutsideInNumber
+}
+
+enum TwoSides {
+    LEFT
+    RIGHT
+}
+
+enum EightOutsideInNumber {
+    _1ST
+    _2ND
+    _3RD
+    _4TH
+    _5TH
+    _6TH
+    _7TH
+    _8TH
+}

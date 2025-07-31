@@ -1,0 +1,32 @@
+"""A trailer attached to a vehicle and its associated properties."""
+type VehicleTrailer {
+    """17-character Vehicle Identification Number (VIN) as defined by ISO 3779."""
+    vin: ID!
+
+    """Type of trailer as defined in ISO 11992-2"""
+    trailerKind: VehicleTrailerKindEnum
+
+    """The sum of the static vertical loads of the trailer axles."""
+    axleLoadSum(unit: Mass_Unit_Enum = KILOGRAM): UInt32
+
+    """The customer's name for the trailer"""
+    customerTrailerName: String
+
+    """List of axles on the trailer."""
+    axles: [VehicleTrailerAxle]
+
+    """Number of axles on the trailer"""
+    axleCount: UInt8  # <-- This could be directly counted from the "axles" list.
+}
+
+enum VehicleTrailerKindEnum {
+  UNDEFINED
+  SEMI_TRAILER
+  CENTER_AXLE_TRAILER
+  FULL_TRAILER
+  CONVERTER_DOLLY
+  LINK_TRAILER
+  TOWING_SEMI_TRAILER
+  TOWING_CENTRE_AXLE_TRAILER
+  TOWING_FULL_TRAILER
+}
