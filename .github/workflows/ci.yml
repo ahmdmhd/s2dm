@@ -35,7 +35,7 @@ jobs:
 
       - name: sync
         run: |
-          uv sync
+          uv sync --frozen
 
       - name: pre-commit
         run: |
