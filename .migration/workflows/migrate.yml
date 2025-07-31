@@ -36,7 +36,7 @@ jobs:
     - name: Install S2DM dependencies
       working-directory: s2dm
       run: |
-        uv sync
+        uv sync --frozen
 
     - name: Activate venv
       working-directory: s2dm
