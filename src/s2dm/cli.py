@@ -251,9 +251,16 @@ def vspec(schema: Path, output: Path) -> None:
     default=False,
     help="Enforce strict field nullability translation from GraphQL to JSON Schema",
 )
-def jsonschema(schema: Path, output: Path, root_type: str | None, strict: bool) -> None:
+@click.option(
+    "--expanded-instances",
+    "-e",
+    is_flag=True,
+    default=False,
+    help="Expand instance tags into nested structure instead of arrays",
+)
+def jsonschema(schema: Path, output: Path, root_type: str | None, strict: bool, expanded_instances: bool) -> None:
     """Generate JSON Schema from a given GraphQL schema."""
-    result = translate_to_jsonschema(schema, root_type, strict)
+    result = translate_to_jsonschema(schema, root_type, strict, expanded_instances)
     _ = output.write_text(result)
 
 
