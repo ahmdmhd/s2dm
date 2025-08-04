@@ -172,8 +172,8 @@ def validate() -> None:
     help="Root type name for filtering the schema",
 )
 @output_option
-@click.pass_context
-def compose(ctx: click.Context, schema: Path, root_type: str | None, output: Path) -> None:
+@click.pass_obj
+def compose(console: Console, schema: Path, root_type: str | None, output: Path) -> None:
     """Compose GraphQL schema files into a single output file."""
     try:
         if root_type:
@@ -183,22 +183,18 @@ def compose(ctx: click.Context, schema: Path, root_type: str | None, output: Pat
 
         output.write_text(composed_schema_str)
 
-        console = ctx.obj
         if root_type:
             console.print(f"[green]✓[/green] Successfully composed schema with root type '{root_type}' to {output}")
         else:
             console.print(f"[green]✓[/green] Successfully composed schema to {output}")
 
     except OSError as e:
-        console = ctx.obj
         console.print(f"[red]✗[/red] File I/O error: {e}")
         sys.exit(1)
     except ValueError as e:
-        console = ctx.obj
         console.print(f"[red]✗[/red] Invalid schema: {e}")
         sys.exit(1)
     except Exception as e:
-        console = ctx.obj
         console.print(f"[red]✗[/red] Unexpected error: {e}")
         sys.exit(1)
 
