@@ -240,6 +240,12 @@ class JsonSchemaTransformer:
         # Process field directives
         if hasattr(field, "ast_node") and field.ast_node and field.ast_node.directives:
             directive_extensions = self.process_directives(field)
+            # For expanded instances (when we return a tuple), don't apply array-specific directives
+            if singular_name is not None:
+                # Remove array-specific directives for expanded instances since they become objects
+                directive_extensions.pop("uniqueItems", None)
+                directive_extensions.pop("minItems", None)
+                directive_extensions.pop("maxItems", None)
             definition.update(directive_extensions)
 
         if singular_name:
@@ -433,13 +439,8 @@ class JsonSchemaTransformer:
 
                 if part not in current_definition:
                     if is_last_split_element:
-                        # For the last element, add the actual object properties
-                        current_definition[part] = {"additionalProperties": False, "properties": {}, "type": "object"}
-                        # Add all properties from the original object type
-                        for field_name, field in object_type.fields.items():
-                            if field_name != "instanceTag":  # Skip the instanceTag field itself
-                                field_definition = self.transform_field(field)
-                                current_definition[part]["properties"][field_name] = field_definition
+                        # For the last element, use a reference to the object type
+                        current_definition[part] = {"$ref": f"#/$defs/{object_type.name}"}
                     else:
                         current_definition[part] = {
                             "additionalProperties": False,
