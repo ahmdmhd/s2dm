@@ -433,13 +433,8 @@ class JsonSchemaTransformer:
 
                 if part not in current_definition:
                     if is_last_split_element:
-                        # For the last element, add the actual object properties
-                        current_definition[part] = {"additionalProperties": False, "properties": {}, "type": "object"}
-                        # Add all properties from the original object type
-                        for field_name, field in object_type.fields.items():
-                            if field_name != "instanceTag":  # Skip the instanceTag field itself
-                                field_definition = self.transform_field(field)
-                                current_definition[part]["properties"][field_name] = field_definition
+                        # For the last element, use a reference to the object type
+                        current_definition[part] = {"$ref": f"#/$defs/{object_type.name}"}
                     else:
                         current_definition[part] = {
                             "additionalProperties": False,
