@@ -50,13 +50,9 @@ class TestExpandedInstances:
         assert "DRIVERSIDE" in row1["properties"]
         assert "PASSENGERSIDE" in row1["properties"]
 
-        # Each door position should have the door properties
+        # Each door position should use $ref to Door type (not copy properties inline)
         driver_door = row1["properties"]["DRIVERSIDE"]
-        assert driver_door["type"] == "object"
-        assert "isLocked" in driver_door["properties"]
-        assert "position" in driver_door["properties"]
-        assert driver_door["properties"]["isLocked"]["type"] == "boolean"
-        assert driver_door["properties"]["position"]["type"] == "integer"
+        assert driver_door == {"$ref": "#/$defs/Door"}
 
     def test_expanded_instances_for_seats(self, test_schema_path: Path) -> None:
         """Test expanded instances for seats with 3-level nesting."""
@@ -80,13 +76,9 @@ class TestExpandedInstances:
         assert "CENTER" in row1["properties"]
         assert "RIGHT" in row1["properties"]
 
-        # Each seat position should have the seat properties
+        # Each seat position should use $ref to Seat type (not copy properties inline)
         left_seat = row1["properties"]["LEFT"]
-        assert left_seat["type"] == "object"
-        assert "isOccupied" in left_seat["properties"]
-        assert "height" in left_seat["properties"]
-        assert left_seat["properties"]["isOccupied"]["type"] == "boolean"
-        assert left_seat["properties"]["height"]["type"] == "integer"
+        assert left_seat == {"$ref": "#/$defs/Seat"}
 
     def test_non_instance_tagged_objects_remain_arrays(self, test_schema_path: Path) -> None:
         """Test that objects without instance tags remain as arrays even with expanded_instances=True."""
@@ -154,11 +146,9 @@ class TestExpandedInstances:
         assert door_def["type"] == "object"
         assert "ROW1" in door_def["properties"]
 
-        # Properties should still have correct types (in strict mode, nullable fields become arrays)
+        # In expanded instances, positions should use $ref (behavior is same in both modes)
         driver_door = door_def["properties"]["ROW1"]["properties"]["DRIVERSIDE"]
-        islocked_type = driver_door["properties"]["isLocked"]["type"]
-        # In strict mode, nullable boolean becomes ["boolean", "null"]
-        assert islocked_type == ["boolean", "null"] or islocked_type == "boolean"
+        assert driver_door == {"$ref": "#/$defs/Door"}
 
     def test_singular_naming_for_expanded_instances(self, test_schema_path: Path) -> None:
         """Test that expanded instances use singular type names instead of field names."""
@@ -179,3 +169,49 @@ class TestExpandedInstances:
         # The original plural field names should not exist in expanded version
         assert "doors" not in schema_expanded["$defs"]["Cabin"]["properties"]
         assert "seats" not in schema_expanded["$defs"]["Cabin"]["properties"]
+
+    def test_nested_instances_use_refs_not_inline_expansion(self) -> None:
+        """Test that nested expanded instances use $ref instead of copying object properties inline."""
+        # Create a nested schema path
+        nested_schema_path = Path(__file__).parent / "test_nested_schema.graphql"
+
+        result = translate_to_jsonschema(nested_schema_path, root_type="Chassis", expanded_instances=True)
+        schema = json.loads(result)
+
+        # Check that Chassis -> Axle uses proper expansion with $ref
+        chassis_def = schema["$defs"]["Chassis"]
+        axle_prop = chassis_def["properties"]["Axle"]
+
+        # Should be an object with ROW1 and ROW2 properties
+        assert axle_prop["type"] == "object"
+        assert "ROW1" in axle_prop["properties"]
+        assert "ROW2" in axle_prop["properties"]
+
+        # Each ROW should use $ref to Axle, not copy properties inline
+        assert axle_prop["properties"]["ROW1"] == {"$ref": "#/$defs/Axle"}
+        assert axle_prop["properties"]["ROW2"] == {"$ref": "#/$defs/Axle"}
+
+        # Check that Axle -> Wheel also uses proper expansion with $ref
+        axle_def = schema["$defs"]["Axle"]
+        wheel_prop = axle_def["properties"]["Wheel"]
+
+        # Should be an object with LEFT and RIGHT properties
+        assert wheel_prop["type"] == "object"
+        assert "LEFT" in wheel_prop["properties"]
+        assert "RIGHT" in wheel_prop["properties"]
+
+        # Each position should use $ref to Wheel, not copy properties inline
+        assert wheel_prop["properties"]["LEFT"] == {"$ref": "#/$defs/Wheel"}
+        assert wheel_prop["properties"]["RIGHT"] == {"$ref": "#/$defs/Wheel"}
+
+        # Verify that field names are singular (Wheel not Wheels, Axle not Axles)
+        assert "Wheel" in axle_def["properties"]
+        assert "Wheels" not in axle_def["properties"]
+        assert "Axle" in chassis_def["properties"]
+        assert "Axles" not in chassis_def["properties"]
+
+        # Verify the nested Wheel definition exists and has the expected structure
+        wheel_def = schema["$defs"]["Wheel"]
+        assert wheel_def["type"] == "object"
+        assert "Tire" in wheel_def["properties"]
+        assert wheel_def["properties"]["Tire"] == {"$ref": "#/$defs/Tire"}
