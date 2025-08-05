@@ -240,6 +240,12 @@ class JsonSchemaTransformer:
         # Process field directives
         if hasattr(field, "ast_node") and field.ast_node and field.ast_node.directives:
             directive_extensions = self.process_directives(field)
+            # For expanded instances (when we return a tuple), don't apply array-specific directives
+            if singular_name is not None:
+                # Remove array-specific directives for expanded instances since they become objects
+                directive_extensions.pop("uniqueItems", None)
+                directive_extensions.pop("minItems", None)
+                directive_extensions.pop("maxItems", None)
             definition.update(directive_extensions)
 
         if singular_name:
