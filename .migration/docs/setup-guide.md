@@ -4,15 +4,19 @@ This guide explains how to set up the automated S2DM migration workflow in your 
 
 ## Prerequisites
 
-- A repository with S2DM specification files in a `spec/` directory
+- A clean repository with a `spec/` directory containing schema files written in `GraphQL SDL` and following the data modeling ruleset of the `S2DM` approach.
 - A `units.yaml` file at the repository root
-- GitHub Actions enabled in your repository
+- GitHub Actions enabled in your repository. For more information, follow this [guide](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+
+> !NOTE If the repository is empty, or if the user is starting from scratch without any schema files, then the tools will create an empty `spec/` directory.
 
 ## Setup Steps
 
 ### 1. Copy Files from S2DM Repository
 
-Copy the required files from the [COVESA/s2dm](https://github.com/COVESA/s2dm) repository to your repository:
+The migration workflow comprises two files: `migrate.yml` and `.bumpversion.toml`.
+
+The `migrate.yml` defines a GitHub Actions workflow that is responsible for exporting new releases based on changes to the GraphQL specification of the domain data model repository. The workflow is explained [here](#how-the-workflow-works). The `.bumpversion.toml` is utilized to track the versions of the created releases. Users of the automation should copy both files into the domain data model repository. This can be achieved through one of the following methods:
 
 #### Option A: Using the setup script (recommended)
 
@@ -58,9 +62,23 @@ curl -o .github/workflows/migrate.yml https://raw.githubusercontent.com/COVESA/s
 curl -o .bumpversion.toml https://raw.githubusercontent.com/COVESA/s2dm/main/.migration/.bumpversion.toml
 ```
 
+Ensure your repository has the following structure:
+
+```plain
+your-repo/
+├── .github/
+│   └── workflows/
+│       └── migrate.yml          # Copied from COVESA/s2dm
+├── .bumpversion.toml            # Copied from COVESA/s2dm
+├── spec/                        # Your specification files (GraphQL)
+│   └── ...
+├── units.yaml                   # Units file
+└── README.md
+```
+
 ### 2. Configure Repository Variables
 
-The workflow supports optional configuration through GitHub repository variables.
+The workflow supports optional configuration for the `s2dm` commands through GitHub repository variables.
 
 Go to your repository → Settings → Secrets and variables → Actions → Variables tab, and add:
 
@@ -85,22 +103,6 @@ Go to your repository → Settings → Secrets and variables → Actions → Var
 
 > Note: All variables are optional. If not set, the commands will use their default values.
 
-### 3. Repository Structure
-
-Ensure your repository has the following structure:
-
-```plain
-your-repo/
-├── .github/
-│   └── workflows/
-│       └── migrate.yml          # Copied from COVESA/s2dm
-├── .bumpversion.toml            # Copied from COVESA/s2dm
-├── spec/                        # Your specification files (GraphQL)
-│   └── ...
-├── units.yaml                   # Units file
-└── README.md
-```
-
 ## How the Workflow Works
 
 The migration workflow is triggered on pushes to the `main` branch when files in the `spec/` directory are modified.
@@ -123,16 +125,18 @@ The migration workflow is triggered on pushes to the `main` branch when files in
 - name: Compose GraphQL schema
 ```
 
-- Combines all specification files from `spec/` into a single GraphQL schema
+- Composes a valid GraphQL SDL schema from:
+  - All the specification files of your domain model located inside the `<your-repo>/spec/` directory.
+  - All the used items from the [pre-defined elements in the `S2DM`](https://github.com/COVESA/s2dm/tree/main/src/s2dm/spec) repo.
 - Output: `.artifacts/graphql/schema.graphql`
 
 #### 3. JSON Schema Generation
 
 ```yaml
-- name: Generate JSON schema
+- name: Export JSON schema
 ```
 
-- Converts the GraphQL schema to JSON Schema format
+- Exports a JSON schema from a GraphQL SDL schema
 - Output: `.artifacts/jsonschema/schema.json`
 
 #### 4. Registry Management
@@ -149,10 +153,10 @@ The migration workflow is triggered on pushes to the `main` branch when files in
 #### 5. SHACL Generation
 
 ```yaml
-- name: Generate SHACL
+- name: Export SHACL
 ```
 
-- Creates SHACL (Shapes Constraint Language) validation shapes from GraphQL schema
+- Exports SHACL (Shapes Constraint Language) validation shapes from a GraphQL schema
 - Output: `.artifacts/shacl/schema.shacl.ttl` (Turtle RDF format)
 
 #### 6. SKOS RDF Generation
@@ -161,16 +165,16 @@ The migration workflow is triggered on pushes to the `main` branch when files in
 - name: Generate SKOS RDF
 ```
 
-- Creates semantic vocabulary from GraphQL schema
+- Parses the reference specification (in GraphQL SDL) and generates a set of RDF triples that use the `SKOS` vocabulary, which enables the arbitrary extension of a vocabulary in a decoupled manner.
 - Output: `.artifacts/skos/schema.ttl` (Turtle RDF format)
 
 #### 7. VSpec Generation
 
 ```yaml
-- name: Generate VSpec
+- name: Export vspec
 ```
 
-- Converts GraphQL schema to Vehicle Signal Specification (VSpec) format
+- Exports the GraphQL schema in the Vehicle Signal Specification (`.vspec`) format.
 - Output: `.artifacts/vspec/schema.vspec`
 
 #### 8. Release Creation
