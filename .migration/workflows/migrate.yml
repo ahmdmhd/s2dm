@@ -10,6 +10,8 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -41,7 +43,7 @@ jobs:
     - name: Activate venv
       working-directory: s2dm
       run: |
-        source .venv/bin/activate
+        echo "${{ github.workspace }}/s2dm/.venv/bin" >> $GITHUB_PATH
 
     - name: Verify S2DM installation
       run: |
@@ -52,7 +54,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         mkdir -p .previous-release
-        gh release download --dir .previous-release || echo "No previous release found"
+        gh release download --pattern "*" --dir .previous-release || echo "No previous release found"
 
     - name: Prepare artifacts
       run: |
@@ -76,6 +78,7 @@ jobs:
         else
           echo "No previous release found"
           echo "IS_INITIAL_RELEASE=true" >> "$GITHUB_OUTPUT"
+          echo "CONTINUE=true" >> "$GITHUB_OUTPUT"
         fi
         echo "VERSION_BUMP=$VERSION_BUMP" >> "$GITHUB_OUTPUT"
 
@@ -95,18 +98,18 @@ jobs:
         CONCEPT_NAMESPACE: ${{ vars.CONCEPT_NAMESPACE || '' }}
         CONCEPT_PREFIX: ${{ vars.CONCEPT_PREFIX || '' }}
       run: |
-        CMD="s2dm registry init -s ./current/spec -u ./current/units.yaml -o ./.artifacts/registry/history"
+        CMD="s2dm registry init -s ./current/spec -u ./current/units.yaml -o ./.artifacts/registry/registry.json"
         [ -n "$CONCEPT_NAMESPACE" ] && CMD="$CMD --concept-namespace '$CONCEPT_NAMESPACE'"
         [ -n "$CONCEPT_PREFIX" ] && CMD="$CMD --concept-prefix '$CONCEPT_PREFIX'"
         eval "$CMD"
 
     - name: Update registry
-      if: steps.version-check.outputs.CONTINUE == 'true' && steps.version-check.outputs.IS_INITIAL_RELEASE != 'false'
+      if: steps.version-check.outputs.CONTINUE == 'true' && steps.version-check.outputs.IS_INITIAL_RELEASE != 'true'
       env:
         CONCEPT_NAMESPACE: ${{ vars.CONCEPT_NAMESPACE || '' }}
         CONCEPT_PREFIX: ${{ vars.CONCEPT_PREFIX || '' }}
       run: |
-        CMD="s2dm registry update -s ./current/spec -sh ./.artifacts/registry/history -u ./current/units.yaml -o ./.artifacts/registry/history"
+        CMD="s2dm registry update -s ./current/spec -sh ./.previous-release/registry/registry.json -u ./current/units.yaml -o ./.artifacts/registry/registry.json"
         [ -n "$CONCEPT_NAMESPACE" ] && CMD="$CMD --concept-namespace '$CONCEPT_NAMESPACE'"
         [ -n "$CONCEPT_PREFIX" ] && CMD="$CMD --concept-prefix '$CONCEPT_PREFIX'"
         eval "$CMD"
@@ -152,23 +155,26 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        bump-my-version bump ${{ steps.version-check.outputs.VERSION_BUMP }} --config-file ../.bumpversion.toml
+        bump-my-version bump ${{ steps.version-check.outputs.VERSION_BUMP }} --config-file ./.bumpversion.toml
         git push origin ${{ github.ref_name }} --tags
 
     - name: Get latest tag
       if: steps.version-check.outputs.CONTINUE == 'true'
       id: get-latest-tag
+      working-directory: current
       run: |
         LATEST_TAG=$(git describe --tags --abbrev=0)
         echo "LATEST_TAG=$LATEST_TAG" >> "$GITHUB_OUTPUT"
 
     - name: Create release
       if: steps.version-check.outputs.CONTINUE == 'true'
+      working-directory: current
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         LATEST_TAG: ${{ steps.get-latest-tag.outputs.LATEST_TAG }}
       run: |
+        tar -czf ../release.tar.gz -C ../.artifacts .
         gh release create "${LATEST_TAG}" \
           --title "Release ${LATEST_TAG}" \
           --notes "This release contains the artifacts from the automated migration workflow." \
-          ./.artifacts/*
+          ../release.tar.gz

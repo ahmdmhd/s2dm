@@ -18,8 +18,8 @@ parse_args() {
                 shift 2
                 ;;
             --help|-h)
-                echo "Usage: $0 [--dir DIRECTORY]"
-                echo "  --dir DIRECTORY  Target directory to set up (default: current directory)"
+                echo "Usage: $0 [--directory DIRECTORY]"
+                echo "  --directory DIRECTORY  Target directory to set up (default: current directory)"
                 exit 0
                 ;;
             *)
@@ -67,6 +67,7 @@ init_git_repo() {
 
     log_info "Initializing git repository in $TARGET_DIR..."
     (cd "$TARGET_DIR" && git init)
+    git branch -m main || true
     log_success "Git repository initialized"
 }
 
