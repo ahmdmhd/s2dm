@@ -344,9 +344,13 @@ def test_compose_graphql_with_root_type(runner: CliRunner, tmp_outputs: Path) ->
     assert out.exists()
 
     composed_content = out.read_text()
+    assert "type Query" in composed_content
+    
     assert "type Vehicle" in composed_content
     assert "type Vehicle_ADAS" in composed_content
     assert "Successfully composed schema with root type 'Vehicle'" in result.output
+
+    assert "type Person" not in composed_content
 
 
 def test_compose_graphql_with_root_type_nonexistent(runner: CliRunner, tmp_outputs: Path) -> None:

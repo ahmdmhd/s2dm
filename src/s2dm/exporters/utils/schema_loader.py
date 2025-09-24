@@ -100,10 +100,31 @@ def load_schema_filtered(graphql_schema_path: Path, root_type: str) -> GraphQLSc
     referenced_types = get_referenced_types(graphql_schema, root_type)
     named_types = [t for t in referenced_types if isinstance(t, GraphQLNamedType)]
 
+    filtered_query_type = None
+
+    if root_type == "Query":
+        filtered_query_type = graphql_schema.query_type
+    elif graphql_schema.query_type:
+        query_field = {}
+        for field_name, field in graphql_schema.query_type.fields.items():
+            field_type = field.type
+            while hasattr(field_type, 'of_type'):
+                field_type = field_type.of_type
+
+            if getattr(field_type, 'name', '') == root_type:
+                query_field[field_name] = field
+                break
+
+        if query_field:
+            filtered_query_type = GraphQLObjectType(name="Query", fields=query_field)
+
+    mutation_type = graphql_schema.mutation_type if root_type == "Mutation" else None
+    subscription_type = graphql_schema.subscription_type if root_type == "Subscription" else None
+
     filtered_schema = GraphQLSchema(
-        query=graphql_schema.query_type,
-        mutation=graphql_schema.mutation_type,
-        subscription=graphql_schema.subscription_type,
+        query=filtered_query_type,
+        mutation=mutation_type,
+        subscription=subscription_type,
         types=named_types,
         directives=graphql_schema.directives,
         description=graphql_schema.description,
@@ -112,7 +133,7 @@ def load_schema_filtered(graphql_schema_path: Path, root_type: str) -> GraphQLSc
 
     log.info(f"Filtered schema from {len(graphql_schema.type_map)} to {len(referenced_types)} types")
 
-    return filtered_schema
+    return ensure_query(filtered_schema)
 
 
 def print_schema_with_directives_preserved(schema: GraphQLSchema) -> str:
