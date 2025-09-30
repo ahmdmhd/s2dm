@@ -268,9 +268,9 @@ def compose(console: Console, schema: list[Path], root_type: str | None, output:
     """Compose GraphQL schema files into a single output file."""
     try:
         if root_type:
-            composed_schema_str = load_schema_as_str_filtered(schema, root_type)
+            composed_schema_str = load_schema_as_str_filtered(schema, root_type, add_references=True)
         else:
-            composed_schema_str = load_schema_as_str(schema)
+            composed_schema_str = load_schema_as_str(schema, add_references=True)
 
         output.write_text(composed_schema_str)
 

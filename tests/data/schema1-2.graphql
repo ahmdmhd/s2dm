@@ -36,7 +36,7 @@ type Vehicle_Body_Mirrors {
   isFolded: Boolean
 }
 
-type Person {
+type Person @reference(uri: "http://example.com") {
   id: ID!
   name: String
   height: Float

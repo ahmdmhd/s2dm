@@ -495,6 +495,74 @@ def test_compose_preserves_custom_directives(runner: CliRunner, tmp_outputs: Pat
     assert "type Vehicle_ADAS_ObstacleDetection" in composed_content
 
 
+def test_compose_adds_reference_directives(runner: CliRunner, tmp_outputs: Path) -> None:
+    """Test that compose adds @reference directives to track source files."""
+    out = tmp_outputs / "reference_directives_test.graphql"
+    result = runner.invoke(cli, ["compose", "-s", str(SAMPLE1_1), "-s", str(SAMPLE1_2), "-o", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+
+    composed_content = out.read_text()
+
+    assert 'type Vehicle @reference(uri: "schema1-1.graphql")' in composed_content
+    assert 'type Vehicle_ADAS @reference(uri: "schema1-1.graphql")' in composed_content
+    assert 'enum Vehicle_ADAS_ActiveAutonomyLevel_Enum @reference(uri: "schema1-1.graphql")' in composed_content
+
+    assert 'type Vehicle_ADAS_ObstacleDetection @reference(uri: "schema1-2.graphql")' in composed_content
+    assert 'type Vehicle_Occupant @reference(uri: "schema1-2.graphql")' in composed_content
+    assert 'type Person @reference(uri: "http://example.com")' in composed_content
+
+    assert 'type InCabinArea2x2 @instanceTag @reference(uri: "S2DM Spec")' in composed_content
+
+
+def test_compose_reference_directive_placement_after_other_directives(runner: CliRunner, tmp_outputs: Path) -> None:
+    """Test that @reference directives are placed correctly after implements clause."""
+    # Create test schema with implements clause
+    test_schema_dir = tmp_outputs / "test_schemas"
+    test_schema_dir.mkdir()
+
+    schema_file = test_schema_dir / "test.graphql"
+    schema_file.write_text("""
+scalar DateTime
+
+interface Node {
+  id: ID!
+}
+
+interface Timestamped {
+  createdAt: String
+  updatedAt: String
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+}
+
+type Admin implements Node & Timestamped @instanceTag {
+  id: ID!
+  role: String
+  createdAt: String
+  updatedAt: String
+}
+
+union Person = User | Admin
+""")
+
+    out = tmp_outputs / "implements_test.graphql"
+    result = runner.invoke(cli, ["compose", "-s", str(schema_file), "-o", str(out)])
+
+    assert result.exit_code == 0, result.output
+    composed_content = out.read_text()
+
+    assert 'type User implements Node @reference(uri: "test.graphql")' in composed_content
+    assert 'type Admin implements Node & Timestamped @instanceTag @reference(uri: "test.graphql")' in composed_content
+
+    assert 'scalar DateTime @reference(uri: "test.graphql")' in composed_content
+    assert 'union Person @reference(uri: "test.graphql")' in composed_content
+
+
 # ToDo(DA): needs refactoring after final decision how stats will work
 def test_stats_graphql(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["stats", "graphql", "-s", str(SAMPLE1_1), "-s", str(SAMPLE1_2)])
