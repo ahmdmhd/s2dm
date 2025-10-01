@@ -505,15 +505,15 @@ def test_compose_adds_reference_directives(runner: CliRunner, tmp_outputs: Path)
 
     composed_content = out.read_text()
 
-    assert 'type Vehicle @reference(uri: "schema1-1.graphql")' in composed_content
-    assert 'type Vehicle_ADAS @reference(uri: "schema1-1.graphql")' in composed_content
-    assert 'enum Vehicle_ADAS_ActiveAutonomyLevel_Enum @reference(uri: "schema1-1.graphql")' in composed_content
+    assert 'type Vehicle @reference(source: "schema1-1.graphql")' in composed_content
+    assert 'type Vehicle_ADAS @reference(source: "schema1-1.graphql")' in composed_content
+    assert 'enum Vehicle_ADAS_ActiveAutonomyLevel_Enum @reference(source: "schema1-1.graphql")' in composed_content
 
-    assert 'type Vehicle_ADAS_ObstacleDetection @reference(uri: "schema1-2.graphql")' in composed_content
-    assert 'type Vehicle_Occupant @reference(uri: "schema1-2.graphql")' in composed_content
+    assert 'type Vehicle_ADAS_ObstacleDetection @reference(source: "schema1-2.graphql")' in composed_content
+    assert 'type Vehicle_Occupant @reference(source: "schema1-2.graphql")' in composed_content
     assert 'type Person @reference(uri: "http://example.com")' in composed_content
 
-    assert 'type InCabinArea2x2 @instanceTag @reference(uri: "S2DM Spec")' in composed_content
+    assert 'type InCabinArea2x2 @instanceTag @reference(source: "S2DM Spec")' in composed_content
 
 
 def test_compose_reference_directive_placement_after_other_directives(runner: CliRunner, tmp_outputs: Path) -> None:
@@ -556,11 +556,13 @@ union Person = User | Admin
     assert result.exit_code == 0, result.output
     composed_content = out.read_text()
 
-    assert 'type User implements Node @reference(uri: "test.graphql")' in composed_content
-    assert 'type Admin implements Node & Timestamped @instanceTag @reference(uri: "test.graphql")' in composed_content
+    assert 'type User implements Node @reference(source: "test.graphql")' in composed_content
+    assert (
+        'type Admin implements Node & Timestamped @instanceTag @reference(source: "test.graphql")' in composed_content
+    )
 
-    assert 'scalar DateTime @reference(uri: "test.graphql")' in composed_content
-    assert 'union Person @reference(uri: "test.graphql")' in composed_content
+    assert 'scalar DateTime @reference(source: "test.graphql")' in composed_content
+    assert 'union Person @reference(source: "test.graphql")' in composed_content
 
 
 # ToDo(DA): needs refactoring after final decision how stats will work

@@ -62,7 +62,7 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
         Dictionary mapping type name to URI (filename or "S2DM Spec")
     """
     source_map: dict[str, str] = {}
-    S2DM_SPEC_URI = "S2DM Spec"
+    S2DM_SPEC_SOURCE = "S2DM Spec"
 
     for path in graphql_schema_paths:
         if isinstance(path, str):
@@ -91,7 +91,7 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
             content = spec_file.read_text()
             type_names = _extract_type_names_from_content(content)
             for type_name in type_names:
-                source_map[type_name] = S2DM_SPEC_URI
+                source_map[type_name] = S2DM_SPEC_SOURCE
 
     return source_map
 
@@ -228,7 +228,7 @@ def print_schema_with_directives_preserved(schema: GraphQLSchema, source_map: di
                 has_reference = any(d.startswith("@reference") for d in existing_directives)
 
                 if not has_reference:
-                    existing_directives.append(f'@reference(uri: "{uri}")')
+                    existing_directives.append(f'@reference(source: "{uri}")')
                     directive_map[type_name] = existing_directives
 
     base_schema = print_schema(schema)

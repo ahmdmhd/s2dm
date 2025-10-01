@@ -50,15 +50,15 @@ This will include only the `Vehicle` type and all types transitively referenced 
 
 ### Reference Directives
 
-The compose command automatically adds `@reference(uri: String!)` directives to all types to track their source:
+The compose command automatically adds `@reference(source: String!)` directives to all types to track their source:
 
 ```graphql
-type Vehicle @reference(uri: "schema1.graphql") {
+type Vehicle @reference(source: "schema1.graphql") {
   id: ID!
   name: String
 }
 
-type Person @reference(uri: "schema2.graphql") {
+type Person @reference(source: "schema2.graphql") {
   id: ID!
   name: String
 }
@@ -67,7 +67,7 @@ type Person @reference(uri: "schema2.graphql") {
 Types from the S2DM specification (common types, scalars, directives) are marked with:
 
 ```graphql
-type InCabinArea2x2 @instanceTag @reference(uri: "S2DM Spec") {
+type InCabinArea2x2 @instanceTag @reference(source: "S2DM Spec") {
   row: TwoRowsInCabinEnum
   column: TwoColumnsInCabinEnum
 }
