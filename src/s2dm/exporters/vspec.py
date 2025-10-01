@@ -379,10 +379,10 @@ def reconstruct_paths(nested_types: list[tuple[str, str]]) -> list[str]:
 @click.argument("schema", type=click.Path(exists=True, path_type=Path), required=True)
 @click.argument("output", type=click.Path(dir_okay=False, writable=True, path_type=Path), required=True)
 def main(
-    schema: list[Path],
+    schemas: list[Path],
     output: Path,
 ) -> None:
-    result = translate_to_vspec(schema)
+    result = translate_to_vspec(schemas)
     log.info(f"Result:\n{result}")
     with open(output, "w", encoding="utf-8") as output_file:
         log.info(f"Writing data to '{output}'")
