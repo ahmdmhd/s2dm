@@ -33,7 +33,7 @@ from s2dm.tools.validators import validate_language_tag
 schema_option = click.option(
     "--schema",
     "-s",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     multiple=True,
     help="The GraphQL schema file or directory containing schema files. Can be specified multiple times.",
@@ -464,7 +464,7 @@ def skos_skeleton(
 @click.option(
     "--previous",
     "-p",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     multiple=True,
     help=(
@@ -581,7 +581,7 @@ def validate_graphql(console: Console, schema: list[Path], output: Path) -> None
 @click.option(
     "--val-schema",
     "-v",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     multiple=True,
     help=(
@@ -649,7 +649,7 @@ def export_concept_uri(console: Console, schema: list[Path], output: Path | None
 @click.option(
     "--units",
     "-u",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     help="Path to your units.yaml",
 )
@@ -677,7 +677,7 @@ def export_id(console: Console, schema: list[Path], units: Path, output: Path | 
 @click.option(
     "--units",
     "-u",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     help="Path to your units.yaml",
 )
@@ -740,7 +740,7 @@ def registry_init(
 @click.option(
     "--units",
     "-u",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     required=True,
     help="Path to your units.yaml",
 )

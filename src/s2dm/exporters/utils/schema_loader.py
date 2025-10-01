@@ -65,9 +65,6 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
     S2DM_SPEC_SOURCE = "S2DM Spec"
 
     for path in graphql_schema_paths:
-        if isinstance(path, str):
-            path = Path(path)
-
         if path.is_file():
             content = path.read_text()
             type_names = _extract_type_names_from_content(content)
@@ -102,8 +99,6 @@ def build_schema_str(graphql_schema_paths: list[Path], add_references: bool = Fa
     schema_str = ""
 
     for path in graphql_schema_paths:
-        if isinstance(path, str):
-            path = Path(path)
         log.debug(f"Loading schema from path: {path}")
         schema_str += load_schema_from_path(path)
         schema_str += "\n"
