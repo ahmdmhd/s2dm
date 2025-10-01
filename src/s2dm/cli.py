@@ -720,7 +720,7 @@ def registry_init(
     history_dir = output_real.parent / "history"
 
     spec_history_exporter = SpecHistoryExporter(
-        schema=schema,
+        schemas=schema,
         output=output,
         history_dir=history_dir,
     )
@@ -791,7 +791,7 @@ def registry_update(
     history_dir = output_real.parent / "history"
 
     spec_history_exporter = SpecHistoryExporter(
-        schema=schema,
+        schemas=schema,
         output=output,
         history_dir=history_dir,
     )
