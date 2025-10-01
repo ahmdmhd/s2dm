@@ -31,6 +31,12 @@ from s2dm.exporters.utils.directive import add_directives_to_schema, build_direc
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type
 
 SPEC_DIR_PATH = Path(__file__).parent.parent.parent / "spec"
+SPEC_FILES = [
+    SPEC_DIR_PATH / "custom_directives.graphql",
+    SPEC_DIR_PATH / "common_types.graphql",
+    SPEC_DIR_PATH / "custom_scalars.graphql",
+    SPEC_DIR_PATH / "unit_enums.graphql",
+]
 
 
 def _extract_type_names_from_content(content: str) -> list[str]:
@@ -77,13 +83,7 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
                 for type_name in type_names:
                     source_map[type_name] = graphql_file.name
 
-    spec_files = [
-        SPEC_DIR_PATH / "custom_directives.graphql",
-        SPEC_DIR_PATH / "common_types.graphql",
-        SPEC_DIR_PATH / "custom_scalars.graphql",
-    ]
-
-    for spec_file in spec_files:
+    for spec_file in SPEC_FILES:
         if spec_file.exists():
             content = spec_file.read_text()
             type_names = _extract_type_names_from_content(content)
@@ -103,34 +103,14 @@ def build_schema_str(graphql_schema_paths: list[Path], add_references: bool = Fa
         schema_str += load_schema_from_path(path)
         schema_str += "\n"
 
-    # Read custom directives from file
-    custom_directives_file = SPEC_DIR_PATH / "custom_directives.graphql"
-    custom_directives_str = custom_directives_file.read_text()
+    # Read spec files
+    spec_contents = []
+    for spec_file in SPEC_FILES:
+        if spec_file.exists():
+            spec_contents.append(spec_file.read_text())
 
-    # Read common types from file
-    common_types_file = SPEC_DIR_PATH / "common_types.graphql"
-    common_types_str = common_types_file.read_text()
-
-    # Read custom scalar types from file
-    custom_scalar_types_file = SPEC_DIR_PATH / "custom_scalars.graphql"
-    custom_scalar_types_str = custom_scalar_types_file.read_text()
-
-    # Read unit enums from file
-    unit_enums_file = SPEC_DIR_PATH / "unit_enums.graphql"
-    unit_enums_str = unit_enums_file.read_text()
-
-    # Build schema with custom directives
-    schema_str = (
-        custom_directives_str
-        + "\n"
-        + common_types_str
-        + "\n"
-        + custom_scalar_types_str
-        + "\n"
-        + schema_str
-        + "\n"
-        + unit_enums_str
-    )
+    # Build schema with spec files
+    schema_str = "\n".join(spec_contents) + "\n" + schema_str
     return schema_str
 
 
