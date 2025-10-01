@@ -376,7 +376,7 @@ def reconstruct_paths(nested_types: list[tuple[str, str]]) -> list[str]:
 
 
 @click.command()
-@click.argument("schema", type=click.Path(exists=True), required=True)
+@click.argument("schema", type=click.Path(exists=True, path_type=Path), required=True)
 @click.argument("output", type=click.Path(dir_okay=False, writable=True, path_type=Path), required=True)
 def main(
     schema: list[Path],
