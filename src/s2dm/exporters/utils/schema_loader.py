@@ -58,11 +58,31 @@ def _extract_type_names_from_content(content: str) -> list[str]:
     return type_names
 
 
+def resolve_graphql_files(paths: list[Path]) -> list[Path]:
+    """Resolve a list of paths (files and directories) into a flat list of GraphQL files.
+
+    Args:
+        paths: List of file or directory paths
+
+    Returns:
+        Flat list of GraphQL file paths
+    """
+    resolved_files: list[Path] = []
+
+    for path in paths:
+        if path.is_file():
+            resolved_files.append(path)
+        elif path.is_dir():
+            resolved_files.extend(sorted(path.rglob("*.graphql")))
+
+    return resolved_files
+
+
 def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
     """Build mapping of type names to source URIs.
 
     Args:
-        graphql_schema_paths: List of paths to GraphQL schema files or directories
+        graphql_schema_paths: List of GraphQL schema file paths (should be resolved files, not directories)
 
     Returns:
         Dictionary mapping type name to URI (filename or "S2DM Spec")
@@ -70,18 +90,11 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
     source_map: dict[str, str] = {}
     S2DM_SPEC_SOURCE = "S2DM Spec"
 
-    for path in graphql_schema_paths:
-        if path.is_file():
-            content = path.read_text()
-            type_names = _extract_type_names_from_content(content)
-            for type_name in type_names:
-                source_map[type_name] = path.name
-        elif path.is_dir():
-            for graphql_file in sorted(path.rglob("*.graphql")):
-                content = graphql_file.read_text()
-                type_names = _extract_type_names_from_content(content)
-                for type_name in type_names:
-                    source_map[type_name] = graphql_file.name
+    for graphql_file in graphql_schema_paths:
+        content = graphql_file.read_text()
+        type_names = _extract_type_names_from_content(content)
+        for type_name in type_names:
+            source_map[type_name] = graphql_file.name
 
     for spec_file in SPEC_FILES:
         if spec_file.exists():
