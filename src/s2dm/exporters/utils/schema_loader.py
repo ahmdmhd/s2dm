@@ -79,78 +79,70 @@ def resolve_graphql_files(paths: list[Path]) -> list[Path]:
     return sorted(resolved_files)
 
 
-def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
-    """Build mapping of type names to source URIs.
-
-    Args:
-        graphql_schema_paths: List of GraphQL schema file paths (should be resolved files, not directories)
-
-    Returns:
-        Dictionary mapping type name to URI (filename or "S2DM Spec")
-    """
+def build_schema_str_with_optional_source_map(
+    graphql_schema_paths: list[Path], with_source_map: bool
+) -> tuple[str, dict[str, str]]:
+    """Build a GraphQL schema from a file or folder, returning also a source map."""
+    schema_str = ""
     source_map: dict[str, str] = {}
     S2DM_SPEC_SOURCE = "S2DM Spec"
 
     for graphql_file in graphql_schema_paths:
-        content = graphql_file.read_text()
-        type_names = _extract_type_names_from_content(content)
-        for type_name in type_names:
-            source_map[type_name] = graphql_file.name
-
-    for spec_file in SPEC_FILES:
-        content = spec_file.read_text()
-        type_names = _extract_type_names_from_content(content)
-        for type_name in type_names:
-            source_map[type_name] = S2DM_SPEC_SOURCE
-
-    return source_map
-
-
-def build_schema_str(graphql_schema_paths: list[Path], add_references: bool = False) -> str:
-    """Build a GraphQL schema from a file or folder."""
-    # Load and merge schemas from the directory
-    schema_str = ""
-
-    for path in graphql_schema_paths:
-        log.debug(f"Loading schema from path: {path}")
-        schema_str += load_schema_from_path(path)
-        schema_str += "\n"
+        content = load_schema_from_path(graphql_file)
+        schema_str += content + "\n"
+        if with_source_map:
+            type_names = _extract_type_names_from_content(content)
+            for type_name in type_names:
+                source_map[type_name] = graphql_file.name
 
     # Read spec files
     spec_contents = []
     for spec_file in SPEC_FILES:
-        spec_contents.append(spec_file.read_text())
+        content = spec_file.read_text()
+        spec_contents.append(content)
+        if with_source_map:
+            type_names = _extract_type_names_from_content(content)
+            for type_name in type_names:
+                source_map[type_name] = S2DM_SPEC_SOURCE
 
-    # Build schema with spec files
     schema_str = "\n".join(spec_contents) + "\n" + schema_str
+
+    return schema_str, source_map
+
+
+def build_schema_str(graphql_schema_paths: list[Path]) -> str:
+    """Build a GraphQL schema from a file or folder."""
+    schema_str, _ = build_schema_str_with_optional_source_map(graphql_schema_paths, with_source_map=False)
     return schema_str
 
 
-def load_schema(graphql_schema_paths: list[Path], add_references: bool = False) -> GraphQLSchema:
-    """Load and build a GraphQL schema from files or folders."""
-    schema_str = build_schema_str(graphql_schema_paths)
+def build_schema_with_query(schema_str: str) -> GraphQLSchema:
+    """Build a GraphQL schema from a schema string, ensuring it has a Query type."""
     schema = build_schema(schema_str)  # Convert GraphQL SDL to a GraphQLSchema object
-    log.info("Successfully loaded the given GraphQL schema file.")
+    log.info("Successfully built the given GraphQL schema string.")
     log.debug(f"Read schema: \n{print_schema(schema)}")
     return ensure_query(schema)
 
 
-def load_schema_filtered(
-    graphql_schema_paths: list[Path], root_type: str, add_references: bool = False
-) -> GraphQLSchema:
-    """Load and build GraphQL schema filtered by root type.
+def load_schema(graphql_schema_paths: list[Path]) -> GraphQLSchema:
+    """Load and build a GraphQL schema from files or folders."""
+    schema_str = build_schema_str(graphql_schema_paths)
+    return build_schema_with_query(schema_str)
+
+
+def filter_schema(graphql_schema: GraphQLSchema, root_type: str) -> GraphQLSchema:
+    """Filter a GraphQL schema by root type.
 
     Args:
-        graphql_schema_paths: List of paths to the GraphQL schema files or directories
+        graphql_schema: The GraphQL schema to filter
         root_type: Root type name to filter the schema
-        add_references: Whether to add @reference directives to types
+
     Returns:
         Filtered GraphQL schema as GraphQLSchema object
+
     Raises:
         ValueError: If root type is not found in schema
     """
-    graphql_schema = load_schema(graphql_schema_paths, add_references)
-
     if root_type not in graphql_schema.type_map:
         raise ValueError(f"Root type '{root_type}' not found in schema")
 
@@ -195,6 +187,22 @@ def load_schema_filtered(
     return ensure_query(filtered_schema)
 
 
+def load_schema_filtered(graphql_schema_paths: list[Path], root_type: str) -> GraphQLSchema:
+    """Load and build GraphQL schema filtered by root type.
+
+    Args:
+        graphql_schema_paths: List of paths to the GraphQL schema files or directories
+        root_type: Root type name to filter the schema
+        add_references: Whether to add @reference directives to types
+    Returns:
+        Filtered GraphQL schema as GraphQLSchema object
+    Raises:
+        ValueError: If root type is not found in schema
+    """
+    graphql_schema = load_schema(graphql_schema_paths)
+    return filter_schema(graphql_schema, root_type)
+
+
 def print_schema_with_directives_preserved(schema: GraphQLSchema, source_map: dict[str, str] | None = None) -> str:
     """Print schema while preserving custom directives.
 
@@ -224,8 +232,8 @@ def print_schema_with_directives_preserved(schema: GraphQLSchema, source_map: di
 
 def load_schema_as_str(graphql_schema_paths: list[Path], add_references: bool = False) -> str:
     """Load and build GraphQL schema but return as str."""
-    schema = load_schema(graphql_schema_paths)
-    source_map = _build_source_map(graphql_schema_paths) if add_references else None
+    schema_str, source_map = build_schema_str_with_optional_source_map(graphql_schema_paths, add_references)
+    schema = build_schema_with_query(schema_str)
     return print_schema_with_directives_preserved(schema, source_map)
 
 
@@ -243,9 +251,10 @@ def load_schema_as_str_filtered(graphql_schema_paths: list[Path], root_type: str
     Raises:
         ValueError: If root type is not found in schema
     """
-    schema = load_schema_filtered(graphql_schema_paths, root_type)
-    source_map = _build_source_map(graphql_schema_paths) if add_references else None
-    return print_schema_with_directives_preserved(schema, source_map)
+    schema_str, source_map = build_schema_str_with_optional_source_map(graphql_schema_paths, add_references)
+    schema = build_schema_with_query(schema_str)
+    filtered_schema = filter_schema(schema, root_type)
+    return print_schema_with_directives_preserved(filtered_schema, source_map)
 
 
 def create_tempfile_to_composed_schema(graphql_schema_paths: list[Path]) -> Path:
