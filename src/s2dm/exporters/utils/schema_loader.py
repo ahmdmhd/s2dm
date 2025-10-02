@@ -59,23 +59,24 @@ def _extract_type_names_from_content(content: str) -> list[str]:
 
 
 def resolve_graphql_files(paths: list[Path]) -> list[Path]:
-    """Resolve a list of paths (files and directories) into a flat list of GraphQL files.
+    """Resolve a list of paths (files and directories) into a flat list of unique GraphQL files.
 
     Args:
         paths: List of file or directory paths
 
     Returns:
-        Flat list of GraphQL file paths
+        Flat list of unique GraphQL file paths (deduplicated and sorted)
     """
-    resolved_files: list[Path] = []
+    resolved_files: set[Path] = set()
 
     for path in paths:
         if path.is_file():
-            resolved_files.append(path)
+            resolved_files.add(path.resolve())
         elif path.is_dir():
-            resolved_files.extend(sorted(path.rglob("*.graphql")))
+            for file in path.rglob("*.graphql"):
+                resolved_files.add(file.resolve())
 
-    return resolved_files
+    return sorted(resolved_files)
 
 
 def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
@@ -97,11 +98,10 @@ def _build_source_map(graphql_schema_paths: list[Path]) -> dict[str, str]:
             source_map[type_name] = graphql_file.name
 
     for spec_file in SPEC_FILES:
-        if spec_file.exists():
-            content = spec_file.read_text()
-            type_names = _extract_type_names_from_content(content)
-            for type_name in type_names:
-                source_map[type_name] = S2DM_SPEC_SOURCE
+        content = spec_file.read_text()
+        type_names = _extract_type_names_from_content(content)
+        for type_name in type_names:
+            source_map[type_name] = S2DM_SPEC_SOURCE
 
     return source_map
 
@@ -119,8 +119,7 @@ def build_schema_str(graphql_schema_paths: list[Path], add_references: bool = Fa
     # Read spec files
     spec_contents = []
     for spec_file in SPEC_FILES:
-        if spec_file.exists():
-            spec_contents.append(spec_file.read_text())
+        spec_contents.append(spec_file.read_text())
 
     # Build schema with spec files
     schema_str = "\n".join(spec_contents) + "\n" + schema_str
