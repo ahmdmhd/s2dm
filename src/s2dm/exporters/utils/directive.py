@@ -15,6 +15,8 @@ from graphql import (
 )
 from graphql.language.ast import StringValueNode
 
+GRAPHQL_TYPE_DEFINITION_PATTERN = r"^(type|interface|input|enum|union|scalar)\s+(\w+)"
+
 
 def get_directive_arguments(element: GraphQLField | GraphQLObjectType, directive_name: str) -> dict[str, Any]:
     """
@@ -175,7 +177,7 @@ def add_directives_to_schema(schema_str: str, directive_map: dict[str | tuple[st
     current_type = None
 
     for line in lines:
-        type_match = re.match(r"^(type|interface|input|enum|union|scalar)\s+(\w+)", line)
+        type_match = re.match(GRAPHQL_TYPE_DEFINITION_PATTERN, line)
         if type_match:
             type_kind = type_match.group(1)
             type_name = type_match.group(2)

@@ -27,7 +27,12 @@ from graphql import (
 )
 
 from s2dm import log
-from s2dm.exporters.utils.directive import add_directives_to_schema, build_directive_map, has_given_directive
+from s2dm.exporters.utils.directive import (
+    GRAPHQL_TYPE_DEFINITION_PATTERN,
+    add_directives_to_schema,
+    build_directive_map,
+    has_given_directive,
+)
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type
 
 SPEC_DIR_PATH = Path(__file__).parent.parent.parent / "spec"
@@ -42,19 +47,8 @@ SPEC_FILES = [
 def _extract_type_names_from_content(content: str) -> list[str]:
     """Extract type names from GraphQL schema content."""
     type_names: list[str] = []
-    type_patterns = [
-        r"^\s*type\s+(\w+)",
-        r"^\s*interface\s+(\w+)",
-        r"^\s*union\s+(\w+)",
-        r"^\s*enum\s+(\w+)",
-        r"^\s*scalar\s+(\w+)",
-        r"^\s*input\s+(\w+)",
-    ]
-
-    for pattern in type_patterns:
-        matches = re.finditer(pattern, content, re.MULTILINE)
-        type_names.extend(match.group(1) for match in matches)
-
+    matches = re.finditer(GRAPHQL_TYPE_DEFINITION_PATTERN, content, re.MULTILINE)
+    type_names.extend(match.group(2) for match in matches)
     return type_names
 
 
