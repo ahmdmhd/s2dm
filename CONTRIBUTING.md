@@ -55,8 +55,17 @@ pre-commit install
 pre-commit install --hook-type commit-msg
 ```
 
-The first command installs hooks that run before commits (code formatting, linting, etc.).
+The first command installs hooks that run before commits (code formatting, linting, type checking, etc.).
 The second command installs the `commit-msg` hook that validates commit messages using gitlint.
+
+Pre-commit hooks automatically run:
+- **Ruff**: Code formatting and linting
+- **Mypy**: Type checking on `src/` directory (uses your local virtual environment)
+- **Various checks**: YAML, TOML, trailing whitespace, etc.
+- **Gitlint**: Commit message validation (commit-msg stage)
+
+> [!TIP]
+> The mypy hook uses `language: system` with `uv run`, which means it uses your local virtual environment's dependencies. This is faster and avoids duplicating dependency lists.
 
 > [!NOTE]
 > Both hooks are required: the first validates your code, the second enforces conventional commit message standards as described in the [Commit Message Enforcement](#commit-message-enforcement) section.
@@ -73,11 +82,19 @@ New code should ideally have tests and not break existing tests.
 
 ### Type Checking
 
-Simplified Semantic Data Modeling uses type annotations throughout, and `mypy` to do the checking. Run the following to type check Simplified Semantic Data Modeling:
+Simplified Semantic Data Modeling uses type annotations throughout, and `mypy` to do the checking.
+
+**Automatic checking:** Type checking runs automatically via pre-commit hooks when you commit changes to `src/`.
+
+**Manual checking:** To manually type check the entire codebase:
 
 ```bash
-mypy --ignore-missing-imports --no-implicit-optional --warn-unreachable
+mypy src/s2dm
+# or with uv:
+uv run mypy src/s2dm
 ```
+
+The mypy configuration is defined in `pyproject.toml` under `[tool.mypy]` with `strict = true` mode enabled, which includes comprehensive type checking rules.
 
 ### Code Formatting
 

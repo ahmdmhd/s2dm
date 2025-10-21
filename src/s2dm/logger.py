@@ -1,5 +1,6 @@
 """Unified logging system for S2DM with CLI output support."""
 
+import json
 import logging
 from typing import Any
 
@@ -89,14 +90,16 @@ class S2DMLogger(logging.Logger):
         """
         self.console.rule(f"[{style}]{title}")
 
-    def print_json(self, data: str) -> None:
+    def print_dict(self, data: dict[str, Any]) -> None:
         """
-        Print JSON data with syntax highlighting.
+        Print dictionary data with syntax highlighting.
+
+        The dictionary is converted to a JSON string and then printed with syntax highlighting.
 
         Args:
-            data: JSON string to display
+            data: Dictionary to display
         """
-        self.console.print_json(data)
+        self.console.print_json(json.dumps(data, indent=2))
 
     def key_value(self, key: str, value: Any, key_style: str = "dim") -> None:
         """

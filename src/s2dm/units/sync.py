@@ -397,6 +397,7 @@ def get_latest_qudt_version(fallback: str = "main") -> str:
             return fallback
 
         # Pick the latest version
-        return max(tags, key=lambda tag: version.parse(tag["name"]))["name"]
+        latest_tag = max(tags, key=lambda tag: version.parse(tag["name"]))
+        return str(latest_tag["name"])
     except (requests.RequestException, json.JSONDecodeError, version.InvalidVersion):
         return fallback

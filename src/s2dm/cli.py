@@ -734,7 +734,7 @@ def export_concept_uri(schemas: list[Path], output: Path | None, namespace: str,
         log.success(f"Concept URIs written to {output}")
 
     log.rule("Concept URIs (JSON-LD)")
-    log.print_json(json.dumps(data, indent=2))
+    log.print_dict(data)
 
 
 # registry -> id
@@ -750,7 +750,7 @@ def export_id(schemas: list[Path], output: Path | None, strict_mode: bool) -> No
     node_ids = exporter.run()
 
     log.rule("Concept IDs")
-    log.print(node_ids)
+    log.print_dict(node_ids)
 
 
 # registry -> init
@@ -800,11 +800,11 @@ def registry_init(
     spec_history_result = spec_history_exporter.init_spec_history_model(concept_uris, concept_ids, concept_uri_model)
 
     log.rule("Concept IDs")
-    log.print(concept_ids)
+    log.print_dict(concept_ids)
     log.rule("Concept URIs")
-    log.print(concept_uris)
+    log.print_dict(concept_uris)
     log.rule("Spec history (updated)")
-    log.print(spec_history_result)
+    log.print_dict(spec_history_result.model_dump())
 
 
 # registry -> update
@@ -867,11 +867,11 @@ def registry_update(
     )
 
     log.rule("Concept IDs")
-    log.print(concept_ids)
+    log.print_dict(concept_ids)
     log.rule("Concept URIs")
-    log.print(concept_uris)
+    log.print_dict(concept_uris)
     log.rule("Spec history (updated)")
-    log.print(spec_history_result)
+    log.print_dict(spec_history_result.model_dump())
 
 
 # search -> graphql
@@ -1104,7 +1104,7 @@ def stats_graphql(schemas: list[Path]) -> None:
             type_counts["custom_types"][name] = type_counts["custom_types"].get(name, 0) + 1
 
     log.rule("GraphQL Schema Type Counts")
-    log.print(type_counts)
+    log.print_dict(type_counts)
 
 
 cli.add_command(check)
