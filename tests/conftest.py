@@ -44,7 +44,8 @@ class TestSchemaData:
 
 
 def parsed_console_output() -> str:
-    return
+    """Parse console output (placeholder function)."""
+    return ""
 
 
 @pytest.fixture(scope="module")

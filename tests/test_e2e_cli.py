@@ -34,7 +34,7 @@ class ExpectedIds:
     NEW_PERSON_HEIGHT_ID = "0xBB5A2DD0"  # schema1-2.graphql
 
 
-def contains_value(obj: dict[str, Any] | list | str, target: str) -> bool:
+def contains_value(obj: dict[str, Any] | list[Any] | str, target: str) -> bool:
     """Helper function to recursively search dicts"""
     if isinstance(obj, dict):
         for v in obj.values():
