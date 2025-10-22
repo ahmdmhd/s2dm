@@ -581,8 +581,8 @@ union Person = User | Admin
 def test_stats_graphql(runner: CliRunner) -> None:
     result = runner.invoke(cli, ["stats", "graphql", "-s", str(TSD.SAMPLE1_1), "-s", str(TSD.SAMPLE1_2)])
     print(f"{result.output=}")
-    assert result.exit_code == 0, result.output
-    assert "'UInt32': 1" in normalize_whitespace(result.output)
+    assert result.exit_code == 0, normalize_whitespace(result.output)
+    assert '"UInt32": 1' in normalize_whitespace(result.output)
 
 
 def test_units_sync_cli(
