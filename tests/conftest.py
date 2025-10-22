@@ -23,6 +23,8 @@ SCALAR_TYPES = ["String", "Int", "Float", "Boolean"]
 
 
 class TestSchemaData:
+    """Test schema data paths and constants."""
+
     TESTS_DATA_DIR: Path = Path(__file__).parent / "data"
     SCHEMA1: Path = TESTS_DATA_DIR / "schema1.graphql"
     SCHEMA2: Path = TESTS_DATA_DIR / "schema2.graphql"
@@ -41,6 +43,19 @@ class TestSchemaData:
     NON_BREAKING_SCHEMA = TESTS_DATA_DIR / "non-breaking.graphql"
     DANGEROUS_SCHEMA = TESTS_DATA_DIR / "dangerous.graphql"
     BREAKING_SCHEMA = TESTS_DATA_DIR / "breaking.graphql"
+
+
+@pytest.fixture(autouse=True)
+def patch_default_units_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch DEFAULT_QUDT_UNITS_DIR to use tests/data/units for all tests.
+
+    This prevents the "No QUDT units directory found" warning during tests
+    and provides the necessary unit enum definitions that test schemas reference.
+
+    Tests that use the units_sync_mocks fixture will have this overridden with
+    their own tmp_path directory for isolation.
+    """
+    monkeypatch.setattr("s2dm.cli.DEFAULT_QUDT_UNITS_DIR", TestSchemaData.UNITS_SCHEMA_PATH)
 
 
 def parsed_console_output() -> str:
