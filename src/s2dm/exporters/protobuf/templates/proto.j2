@@ -8,12 +8,14 @@ package {{ package }};
 {% if enum.description %}
 // {{ enum.description }}
 {% endif %}
-enum {{ enum.name }} {
-  {{ enum.name | upper }}_UNSPECIFIED = 0;
+message {{ enum.name }} {
+  enum Enum {
+    {{ enum.name | upper }}_UNSPECIFIED = 0;
 {% for value in enum.enum_values %}
-  {{ value.name }} = {{ value.number }};{% if value.description %}  // {{ value.description }}{% endif %}
+    {{ value.name }} = {{ value.number }};{% if value.description %}  // {{ value.description }}{% endif %}
 
 {% endfor %}
+  }
 }
 
 {% endfor %}
