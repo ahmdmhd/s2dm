@@ -343,7 +343,7 @@ class ProtobufTransformer:
 
         if is_enum_type(field_type):
             enum_type = cast(GraphQLEnumType, field_type)
-            return enum_type.name
+            return f"{enum_type.name}.Enum"
 
         if is_object_type(field_type) or is_interface_type(field_type):
             named_type = cast(GraphQLObjectType | GraphQLInterfaceType, field_type)
