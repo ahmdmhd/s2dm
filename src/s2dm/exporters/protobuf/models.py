@@ -17,6 +17,7 @@ class ProtoEnum(BaseModel):
     name: str
     enum_values: list[ProtoEnumValue]
     description: str | None = None
+    source: str | None = None
 
     @field_validator("enum_values")
     @classmethod
@@ -42,6 +43,7 @@ class ProtoMessage(BaseModel):
     name: str
     fields: list[ProtoField]
     description: str | None = None
+    source: str | None = None
 
     @field_validator("fields")
     @classmethod
@@ -58,6 +60,7 @@ class ProtoUnion(BaseModel):
     name: str
     members: list[ProtoField]
     description: str | None = None
+    source: str | None = None
 
 
 class ProtoSchema(BaseModel):
