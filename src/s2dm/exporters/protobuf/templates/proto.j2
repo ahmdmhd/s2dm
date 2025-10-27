@@ -1,5 +1,11 @@
 syntax = "{{ syntax }}";
 
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.MessageOptions {
+  string source = 50001;
+}
+
 {% if package %}
 package {{ package }};
 
@@ -9,6 +15,10 @@ package {{ package }};
 // {{ enum.description }}
 {% endif %}
 message {{ enum.name }} {
+{% if enum.source %}
+  option (source) = "{{ enum.source }}";
+
+{% endif %}
   enum Enum {
     {{ enum.name | upper }}_UNSPECIFIED = 0;
 {% for value in enum.enum_values %}
@@ -24,6 +34,10 @@ message {{ enum.name }} {
 // {{ message.description }}
 {% endif %}
 message {{ message.name }} {
+{% if message.source %}
+  option (source) = "{{ message.source }}";
+
+{% endif %}
 {% for field in message.fields %}
   {{ field.type }} {{ field.name }} = {{ field.number }};{% if field.description %}  // {{ field.description }}{% endif %}
 
@@ -44,6 +58,10 @@ message Message {
 // {{ union.description }}
 {% endif %}
 message {{ union.name }} {
+{% if union.source %}
+  option (source) = "{{ union.source }}";
+
+{% endif %}
   oneof {{ union.name }} {
 {% for member in union.members %}
     {{ member.type }} {{ member.name }} = {{ member.number }};

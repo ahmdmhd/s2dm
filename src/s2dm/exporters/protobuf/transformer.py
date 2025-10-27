@@ -122,7 +122,7 @@ class ProtobufTransformer:
                 enum_types.append(cast(GraphQLEnumType, type_def))
             elif is_object_type(type_def):
                 object_type = cast(GraphQLObjectType, type_def)
-                if not has_given_directive(object_type, "instanceTag"):
+                if not (has_given_directive(object_type, "instanceTag") and self.expanded_instances):
                     message_types.append(object_type)
             elif is_interface_type(type_def):
                 message_types.append(cast(GraphQLInterfaceType, type_def))
@@ -168,6 +168,7 @@ class ProtobufTransformer:
                     name=enum_type.name,
                     enum_values=enum_values,
                     description=enum_type.description,
+                    source=enum_type.name,
                 )
             )
         return enums
@@ -183,6 +184,7 @@ class ProtobufTransformer:
                     name=message_type.name,
                     fields=fields,
                     description=message_type.description,
+                    source=message_type.name,
                 )
             )
         return messages
@@ -228,6 +230,7 @@ class ProtobufTransformer:
                     name=union_type.name,
                     members=members,
                     description=union_type.description,
+                    source=union_type.name,
                 )
             )
         return unions
