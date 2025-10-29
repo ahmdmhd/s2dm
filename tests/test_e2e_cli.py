@@ -106,8 +106,6 @@ def test_export_protobuf(runner: CliRunner, tmp_outputs: Path) -> None:
             str(out),
             "-r",
             "Vehicle",
-            "-p",
-            "package.name",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -115,14 +113,14 @@ def test_export_protobuf(runner: CliRunner, tmp_outputs: Path) -> None:
     with open(out, encoding="utf-8") as f:
         content = f.read()
 
-    assert 'syntax = "proto3";' in content
-    assert "package package.name;" in content
+    assert "package" not in content
 
     assert "message Vehicle" in content
     assert "message Vehicle_ADAS" in content
     assert "message Vehicle_ADAS_ObstacleDetection" in content
 
-    assert "enum Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
+    assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
+    assert "enum Enum" in content
 
     assert "float averageSpeed = 2;" in content
     assert "bool isFolded = 2;" in content
@@ -153,12 +151,12 @@ def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) 
     with open(out, encoding="utf-8") as f:
         content = f.read()
 
-    assert 'syntax = "proto3";' in content
     assert "package package.name;" in content
 
     assert "message Message" in content
 
-    assert "enum Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
+    assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
+    assert "enum Enum" in content
 
     assert "float Vehicle_averageSpeed = 2;" in content
     assert "repeated Vehicle_Body_Mirrors Vehicle_body_mirrors_s = 11;" in content
