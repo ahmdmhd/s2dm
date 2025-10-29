@@ -199,7 +199,7 @@ class ProtobufTransformer:
         field_number = 1
 
         for field_name, field in message_type.fields.items():
-            if is_instance_tag_field(field_name):
+            if is_instance_tag_field(field_name) and self.expanded_instances:
                 continue
 
             proto_field_type = self._get_field_proto_type(field.type)
@@ -285,7 +285,7 @@ class ProtobufTransformer:
             return fields, referenced_types, field_counter
 
         for field_name, field in object_type.fields.items():
-            if is_instance_tag_field(field_name):
+            if is_instance_tag_field(field_name) and self.expanded_instances:
                 continue
 
             field_type = field.type
