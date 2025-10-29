@@ -2,6 +2,7 @@ from typing import Any, cast
 
 from graphql import (
     GraphQLEnumType,
+    GraphQLField,
     GraphQLInterfaceType,
     GraphQLList,
     GraphQLNamedType,
@@ -24,8 +25,9 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from s2dm import log
 from s2dm.exporters.protobuf.models import ProtoEnum, ProtoEnumValue, ProtoField, ProtoMessage, ProtoSchema, ProtoUnion
-from s2dm.exporters.utils.directive import has_given_directive
+from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_named_types
+from s2dm.exporters.utils.field import get_cardinality
 from s2dm.exporters.utils.instance_tag import is_instance_tag_field
 from s2dm.exporters.utils.schema_loader import get_referenced_types
 
@@ -61,6 +63,8 @@ PROTOBUF_RESERVED_KEYWORDS = {
     "optional",
     "required",
 }
+
+PROTOBUF_DATA_TYPES = set(GRAPHQL_SCALAR_TO_PROTOBUF.values())
 
 
 class ProtobufTransformer:
@@ -104,7 +108,7 @@ class ProtobufTransformer:
         log.info("Starting GraphQL to Protobuf transformation")
 
         if self.root_type:
-            referenced_types = get_referenced_types(self.graphql_schema, self.root_type)
+            referenced_types = get_referenced_types(self.graphql_schema, self.root_type, True)
             user_defined_types: list[GraphQLNamedType] = [
                 referenced_type for referenced_type in referenced_types if isinstance(referenced_type, GraphQLNamedType)
             ]
@@ -200,6 +204,7 @@ class ProtobufTransformer:
 
             proto_field_type = self._get_field_proto_type(field.type)
             proto_field_name = self._escape_field_name(field_name)
+            validation_rules = self.process_directives(field, proto_field_type)
 
             fields.append(
                 ProtoField(
@@ -207,6 +212,7 @@ class ProtobufTransformer:
                     type=proto_field_type,
                     number=field_number,
                     description=field.description,
+                    validation_rules=validation_rules,
                 )
             )
             field_number += 1
@@ -252,6 +258,19 @@ class ProtobufTransformer:
         fields, referenced_types, _ = self._flatten_fields(root_object, root_object.name, message_types, 1)
         return fields, referenced_types
 
+    def _create_proto_field_with_validation(
+        self, field: GraphQLField, field_name: str, proto_type: str, field_number: int
+    ) -> ProtoField:
+        """Create a ProtoField with validation rules from directives."""
+        validation_rules = self.process_directives(field, proto_type)
+        return ProtoField(
+            name=field_name,
+            type=proto_type,
+            number=field_number,
+            description=field.description,
+            validation_rules=validation_rules,
+        )
+
     def _flatten_fields(
         self,
         object_type: GraphQLObjectType | GraphQLInterfaceType,
@@ -285,24 +304,14 @@ class ProtobufTransformer:
                     named_type = cast(GraphQLObjectType | GraphQLInterfaceType, unwrapped_type)
                     referenced_types.add(named_type.name)
                 fields.append(
-                    ProtoField(
-                        name=flattened_name,
-                        type=proto_type,
-                        number=field_counter,
-                        description=field.description,
-                    )
+                    self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
                 )
                 field_counter += 1
                 continue
 
             if not is_object_interface_type:
                 fields.append(
-                    ProtoField(
-                        name=flattened_name,
-                        type=proto_type,
-                        number=field_counter,
-                        description=field.description,
-                    )
+                    self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
                 )
                 field_counter += 1
                 continue
@@ -363,3 +372,45 @@ class ProtobufTransformer:
         if name in PROTOBUF_RESERVED_KEYWORDS:
             return f"_{name}_"
         return name
+
+    def process_directives(self, field: GraphQLField, proto_type: str) -> str | None:
+        """Process GraphQL directives and convert them to protovalidate constraints."""
+        rules = []
+
+        repeated_rules = []
+
+        if has_given_directive(field, "noDuplicates"):
+            unwrapped_type = get_named_type(field.type)
+            if is_scalar_type(unwrapped_type) or is_enum_type(unwrapped_type):
+                repeated_rules.append("unique: true")
+
+        cardinality = get_cardinality(field)
+        if cardinality:
+            if cardinality.min is not None:
+                repeated_rules.append(f"min_items: {cardinality.min}")
+            if cardinality.max is not None:
+                repeated_rules.append(f"max_items: {cardinality.max}")
+
+        if repeated_rules:
+            rules.append(f"(buf.validate.field).repeated = {{{', '.join(repeated_rules)}}}")
+
+        if has_given_directive(field, "range"):
+            args = get_directive_arguments(field, "range")
+            scalar_type = self._get_validation_type(proto_type)
+            if scalar_type:
+                range_rules = []
+                if "min" in args:
+                    range_rules.append(f"gte: {args['min']}")
+                if "max" in args:
+                    range_rules.append(f"lte: {args['max']}")
+                if range_rules:
+                    rules.append(f"(buf.validate.field).{scalar_type} = {{{', '.join(range_rules)}}}")
+
+        if rules:
+            return f"[{', '.join(rules)}]"
+        return None
+
+    def _get_validation_type(self, proto_type: str) -> str | None:
+        """Get the protovalidate scalar type from protobuf type."""
+        validation_type = proto_type.replace("repeated ", "")
+        return validation_type if validation_type in PROTOBUF_DATA_TYPES else None

@@ -297,13 +297,16 @@ def ensure_query(schema: GraphQLSchema) -> GraphQLSchema:
     return schema
 
 
-def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[GraphQLType]:
+def get_referenced_types(
+    graphql_schema: GraphQLSchema, root_type: str, include_instance_tag_fields: bool = False
+) -> set[GraphQLType]:
     """
     Find all GraphQL types referenced from the root type through graph traversal.
 
     Args:
         graphql_schema: The GraphQL schema
         root_type: The root type to start traversal from
+        include_instance_tag_fields: Whether to traverse fields of @instanceTag types to find their dependencies
 
     Returns:
         Set[GraphQLType]: Set of referenced GraphQL type objects
@@ -326,8 +329,10 @@ def get_referenced_types(graphql_schema: GraphQLSchema, root_type: str) -> set[G
 
         referenced.add(type_def)
 
-        if is_object_type(type_def) and not has_given_directive(cast(GraphQLObjectType, type_def), "instanceTag"):
-            visit_object_type(cast(GraphQLObjectType, type_def))
+        if is_object_type(type_def):
+            object_type = cast(GraphQLObjectType, type_def)
+            if not has_given_directive(object_type, "instanceTag") or include_instance_tag_fields:
+                visit_object_type(object_type)
         elif is_interface_type(type_def):
             visit_interface_type(cast(GraphQLInterfaceType, type_def))
         elif is_union_type(type_def):

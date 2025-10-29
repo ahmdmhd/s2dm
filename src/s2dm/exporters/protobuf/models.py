@@ -35,6 +35,7 @@ class ProtoField(BaseModel):
     type: str
     number: int = Field(ge=1)
     description: str | None = None
+    validation_rules: str | None = None
 
 
 class ProtoMessage(BaseModel):
