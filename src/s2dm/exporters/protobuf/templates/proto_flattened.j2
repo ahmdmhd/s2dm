@@ -1,0 +1,45 @@
+syntax = "{{ syntax }}";
+{% if imports %}{# if imports #}
+
+{% for import in imports %}{# for import in imports #}
+{{ import }}
+{% endfor %}{# endfor import #}
+{% endif %}{# endif imports #}
+{% if has_source_option %}{# if has_source_option #}
+
+extend google.protobuf.MessageOptions {
+  string source = 50001;
+}
+{% endif %}{# endif has_source_option #}
+{% if package %}{# if package #}
+
+package {{ package }};
+{% endif %}{# endif package #}
+{% if enums %}{# if enums #}
+
+{% for enum in enums %}{# for enum in enums #}
+{% if enum.description %}{# if enum.description #}
+// {{ enum.description }}
+{% endif %}{# endif enum.description #}
+message {{ enum.name }} {
+{% if enum.source %}{# if enum.source #}
+  option (source) = "{{ enum.source }}";
+
+{% endif %}{# endif enum.source #}
+  enum Enum {
+    {{ enum.name | upper }}_UNSPECIFIED = 0;
+{% for value in enum.enum_values %}{# for value in enum.enum_values #}
+    {{ value.name }} = {{ value.number }};{% if value.description %}  // {{ value.description }}{% endif %}
+
+{% endfor %}{# endfor value #}
+  }
+}
+{% endfor %}{# endfor enum #}
+{% endif %}{# endif enums #}
+
+message Message {
+{% for field in flattened_fields %}{# for field in flattened_fields #}
+  {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.validation_rules %} {{ field.validation_rules }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
+
+{% endfor %}{# endfor field #}
+}
