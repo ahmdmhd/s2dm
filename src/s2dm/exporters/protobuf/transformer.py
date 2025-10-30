@@ -150,11 +150,49 @@ class ProtobufTransformer:
 
         proto_schema.messages = self._build_messages(message_types)
 
-        template = self.env.get_template("proto.j2")
-        result = template.render(proto_schema.model_dump())
+        template_name = "proto_flattened.j2" if self.flatten_naming and self.root_type else "proto_standard.j2"
+        template = self.env.get_template(template_name)
+
+        template_vars = self._build_template_vars(proto_schema)
+
+        result = template.render(template_vars)
 
         log.info("Successfully transformed GraphQL schema to Protobuf")
         return result
+
+    def _has_validation_rules(self, proto_schema: ProtoSchema) -> bool:
+        """Check if any field in the schema has validation rules."""
+        def check_message(message: ProtoMessage) -> bool:
+            if any(field.validation_rules for field in message.fields):
+                return True
+            return any(check_message(nested) for nested in message.nested_messages)
+
+        return any(field.validation_rules for field in proto_schema.flattened_fields) or any(
+            check_message(message) for message in proto_schema.messages
+        )
+
+    def _has_source_option(self, proto_schema: ProtoSchema) -> bool:
+        """Check if any type in the schema has a source option."""
+        return any(enum.source for enum in proto_schema.enums) or any(
+            message.source for message in proto_schema.messages
+        )
+
+    def _build_template_vars(self, proto_schema: ProtoSchema) -> dict:
+        """Build all template variables from proto schema."""
+        has_source_option = self._has_source_option(proto_schema)
+        has_validation_rules = self._has_validation_rules(proto_schema)
+
+        imports = []
+        if has_source_option:
+            imports.append('import "google/protobuf/descriptor.proto";')
+        if has_validation_rules:
+            imports.append('import "buf/validate/validate.proto";')
+
+        template_vars = proto_schema.model_dump()
+        template_vars["imports"] = imports
+        template_vars["has_source_option"] = has_source_option
+
+        return template_vars
 
     def _build_enums(self, enum_types: list[GraphQLEnumType]) -> list[ProtoEnum]:
         """Build Pydantic models for enum types."""
