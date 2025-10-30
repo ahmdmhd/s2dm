@@ -141,13 +141,17 @@ class ProtobufTransformer:
         )
 
         if self.flatten_naming and self.root_type:
+            # In flatten mode, we need a second filtering pass to remove types that were completely flattened.
+            # When object fields are flattened, they become prefixed fields in the parent (e.g., parent_child_field).
+            # If no fields reference that object type directly (non-flattened), the type definition is no longer needed.
+            # However, unions and enums cannot be flattened and must remain as separate type definitions.
             proto_schema.flattened_fields, referenced_type_names = self._build_flattened_fields(message_types)
             message_types = [
                 message_type for message_type in message_types if message_type.name in referenced_type_names
             ]
-        else:
-            proto_schema.unions = self._build_unions(union_types)
+            union_types = [union_type for union_type in union_types if union_type.name in referenced_type_names]
 
+        proto_schema.unions = self._build_unions(union_types)
         proto_schema.messages = self._build_messages(message_types)
 
         template_name = "proto_flattened.j2" if self.flatten_naming and self.root_type else "proto_standard.j2"
@@ -162,6 +166,7 @@ class ProtobufTransformer:
 
     def _has_validation_rules(self, proto_schema: ProtoSchema) -> bool:
         """Check if any field in the schema has validation rules."""
+
         def check_message(message: ProtoMessage) -> bool:
             if any(field.validation_rules for field in message.fields):
                 return True
@@ -177,7 +182,7 @@ class ProtobufTransformer:
             message.source for message in proto_schema.messages
         )
 
-    def _build_template_vars(self, proto_schema: ProtoSchema) -> dict:
+    def _build_template_vars(self, proto_schema: ProtoSchema) -> dict[str, Any]:
         """Build all template variables from proto schema."""
         has_source_option = self._has_source_option(proto_schema)
         has_validation_rules = self._has_validation_rules(proto_schema)
@@ -333,6 +338,14 @@ class ProtobufTransformer:
             validation_rules=validation_rules,
         )
 
+    def _should_flatten_field(self, unwrapped_type: GraphQLType, is_list: bool) -> bool:
+        """Check if a field should be recursively flattened into parent fields."""
+        if is_list:
+            return False
+        if is_union_type(unwrapped_type):
+            return False
+        return is_object_type(unwrapped_type) or is_interface_type(unwrapped_type)
+
     def _flatten_fields(
         self,
         object_type: GraphQLObjectType | GraphQLInterfaceType,
@@ -356,10 +369,10 @@ class ProtobufTransformer:
             unwrapped_type = get_named_type(field_type)
 
             if is_object_type(unwrapped_type):
-                object_type = cast(GraphQLObjectType, unwrapped_type)
-                expanded_instances = self._get_expanded_instances(object_type)
+                object_type_cast = cast(GraphQLObjectType, unwrapped_type)
+                expanded_instances = self._get_expanded_instances(object_type_cast)
                 if expanded_instances:
-                    nested_type = type_cache.get(object_type.name)
+                    nested_type = type_cache.get(object_type_cast.name)
                     if nested_type:
                         for expanded_instance in expanded_instances:
                             expanded_prefix = f"{prefix}_{field_name}_{expanded_instance.replace('.', '_')}"
@@ -372,40 +385,37 @@ class ProtobufTransformer:
 
             inner = field_type.of_type if is_non_null_type(field_type) else field_type
             is_list = is_list_type(inner)
+            should_flatten = self._should_flatten_field(unwrapped_type, is_list)
 
             flattened_name = f"{prefix}_{field_name}"
             proto_type = self._get_field_proto_type(field_type)
 
-            is_object_interface_type = is_object_type(unwrapped_type) or is_interface_type(unwrapped_type)
+            if should_flatten:
+                named_unwrapped_type = cast(GraphQLObjectType | GraphQLInterfaceType, unwrapped_type)
+                nested_type = type_cache.get(named_unwrapped_type.name)
 
-            if is_list:
-                if is_object_interface_type:
+                if nested_type:
+                    nested_fields, nested_referenced, field_counter = self._flatten_fields(
+                        nested_type, flattened_name, all_types, field_counter, type_cache
+                    )
+                    fields.extend(nested_fields)
+                    referenced_types.update(nested_referenced)
+                else:
+                    raise ValueError(f"Type '{named_unwrapped_type.name}' not found in available types")
+            else:
+                if is_list and (is_object_type(unwrapped_type) or is_interface_type(unwrapped_type)):
                     named_type = cast(GraphQLObjectType | GraphQLInterfaceType, unwrapped_type)
                     referenced_types.add(named_type.name)
+                elif is_union_type(unwrapped_type):
+                    union_type_cast = cast(GraphQLUnionType, unwrapped_type)
+                    referenced_types.add(union_type_cast.name)
+                    for member_type in union_type_cast.types:
+                        referenced_types.add(member_type.name)
+
                 fields.append(
                     self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
                 )
                 field_counter += 1
-                continue
-
-            if not is_object_interface_type:
-                fields.append(
-                    self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
-                )
-                field_counter += 1
-                continue
-
-            named_unwrapped_type = cast(GraphQLObjectType | GraphQLInterfaceType, unwrapped_type)
-            nested_type = type_cache.get(named_unwrapped_type.name)
-
-            if nested_type:
-                nested_fields, nested_referenced, field_counter = self._flatten_fields(
-                    nested_type, flattened_name, all_types, field_counter, type_cache
-                )
-                fields.extend(nested_fields)
-                referenced_types.update(nested_referenced)
-            else:
-                raise ValueError(f"Type '{named_unwrapped_type.name}' not found in available types")
 
         return fields, referenced_types, field_counter
 

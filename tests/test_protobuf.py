@@ -218,6 +218,79 @@ class TestProtobufExporter:
         assert "message Average {" not in result
         assert "message Vehicle {" not in result
 
+    def test_flattened_naming_with_arrays_and_unions(self) -> None:
+        """Test that flatten_naming mode keeps arrays and unions as references with their definitions."""
+        schema_str = """
+        type Feature {
+            name: String
+            enabled: Boolean
+        }
+
+        type Car {
+            brand: String
+        }
+
+        type Truck {
+            capacity: Int
+        }
+
+        union VehicleType = Car | Truck
+
+        type Vehicle {
+            id: String
+            features: [Feature]
+            vehicleType: VehicleType
+        }
+        """
+        schema = build_schema(schema_str)
+        result = translate_to_protobuf(schema, root_type="Vehicle", flatten_naming=True)
+
+        assert re.search(
+            r"message Feature \{.*?"
+            r'option \(source\) = "Feature";.*?'
+            r"string name = 1;.*?"
+            r"bool enabled = 2;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Feature message should be included as it's referenced by array"
+
+        assert re.search(
+            r"message Car \{.*?" r'option \(source\) = "Car";.*?' r"string brand = 1;.*?" r"\}",
+            result,
+            re.DOTALL,
+        ), "Car message should be included as it's part of union"
+
+        assert re.search(
+            r"message Truck \{.*?" r'option \(source\) = "Truck";.*?' r"int32 capacity = 1;.*?" r"\}",
+            result,
+            re.DOTALL,
+        ), "Truck message should be included as it's part of union"
+
+        assert re.search(
+            r"message VehicleType \{.*?"
+            r'option \(source\) = "VehicleType";.*?'
+            r"oneof VehicleType \{.*?"
+            r"Car Car = 1;.*?"
+            r"Truck Truck = 2;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "VehicleType union should be included"
+
+        assert re.search(
+            r"message Message \{.*?"
+            r"string Vehicle_id = 1;.*?"
+            r"repeated Feature Vehicle_features = 2;.*?"
+            r"VehicleType Vehicle_vehicleType = 3;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Message with flattened scalar, array reference, and union reference"
+
+        assert "message Vehicle {" not in result
+
     def test_package_name(self) -> None:
         """Test that package name is included when specified."""
         schema_str = """
