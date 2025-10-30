@@ -30,21 +30,28 @@ message {{ enum.name }} {
 }
 
 {% endfor %}
-{% for message in messages %}
+{% macro render_message(message, indent=0) %}
+{% set indent_str = "  " * indent %}
 {% if message.description %}
-// {{ message.description }}
+{{ indent_str }}// {{ message.description }}
 {% endif %}
-message {{ message.name }} {
+{{ indent_str }}message {{ message.name }} {
 {% if message.source %}
-  option (source) = "{{ message.source }}";
+{{ indent_str }}  option (source) = "{{ message.source }}";
 
 {% endif %}
+{% for nested in message.nested_messages %}
+{{ render_message(nested, indent + 1) }}
+{% endfor %}
 {% for field in message.fields %}
-  {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.validation_rules %} {{ field.validation_rules }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
+{{ indent_str }}  {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.validation_rules %} {{ field.validation_rules }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
 
 {% endfor %}
-}
+{{ indent_str }}}
 
+{% endmacro %}
+{% for message in messages %}
+{{ render_message(message) }}
 {% endfor %}
 {% if flatten_mode %}
 message Message {

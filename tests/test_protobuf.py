@@ -389,6 +389,60 @@ class TestProtobufExporter:
             re.DOTALL,
         ), "Cabin message with source option and fields in order"
 
+        assert re.search(
+            r"message RowEnum \{.*?"
+            r'option \(source\) = "RowEnum";.*?'
+            r"enum Enum \{.*?"
+            r"ROWENUM_UNSPECIFIED = 0;.*?"
+            r"ROW1 = 1;.*?"
+            r"ROW2 = 2;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "RowEnum present with all values"
+
+        assert re.search(
+            r"message SideEnum \{.*?"
+            r'option \(source\) = "SideEnum";.*?'
+            r"enum Enum \{.*?"
+            r"SIDEENUM_UNSPECIFIED = 0;.*?"
+            r"DRIVERSIDE = 1;.*?"
+            r"PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "SideEnum present with all values"
+
+        assert re.search(
+            r"message SeatRowEnum \{.*?"
+            r'option \(source\) = "SeatRowEnum";.*?'
+            r"enum Enum \{.*?"
+            r"SEATROWENUM_UNSPECIFIED = 0;.*?"
+            r"ROW1 = 1;.*?"
+            r"ROW2 = 2;.*?"
+            r"ROW3 = 3;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "SeatRowEnum present with all values"
+
+        assert re.search(
+            r"message SeatPositionEnum \{.*?"
+            r'option \(source\) = "SeatPositionEnum";.*?'
+            r"enum Enum \{.*?"
+            r"SEATPOSITIONENUM_UNSPECIFIED = 0;.*?"
+            r"LEFT = 1;.*?"
+            r"CENTER = 2;.*?"
+            r"RIGHT = 3;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "SeatPositionEnum present with all values"
+
     def test_reserved_keyword_escaping(self) -> None:
         """Test that Protobuf reserved keywords are escaped."""
         schema_str = """
@@ -461,6 +515,291 @@ class TestProtobufExporter:
             "Message with fields: repeated Seat Cabin_seats = 1, "
             "repeated Door Cabin_doors = 2, float Cabin_temperature = 3"
         )
+
+    def test_expanded_instances_default(self, test_schema_path: list[Path]) -> None:
+        """Test that instance tags are NOT expanded by default (treated as regular types)."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=False)
+
+        assert re.search(
+            r"message Cabin \{.*?"
+            r'option \(source\) = "Cabin".*?;.*?'
+            r"repeated Seat seats = 1.*?;.*?"
+            r"repeated Door doors = 2.*?;.*?"
+            r"float temperature = 3.*?;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Cabin message with source option and repeated fields"
+
+        assert re.search(
+            r"message Seat \{.*?" r'option \(source\) = "Seat";', result, re.DOTALL
+        ), "Seat message with source option"
+
+        assert re.search(
+            r"message Door \{.*?" r'option \(source\) = "Door";', result, re.DOTALL
+        ), "Door message with source option"
+
+        assert "message Cabin_seats" not in result
+        assert "message Cabin_doors" not in result
+
+    def test_expanded_instances(self, test_schema_path: list[Path]) -> None:
+        """Test that instance tags are expanded into nested messages when enabled."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=True)
+
+        assert re.search(
+            r"message Cabin \{.*?"
+            r'option \(source\) = "Cabin";.*?'
+            r"message Cabin_Seat \{.*?"
+            r"message Cabin_Seat_ROW1 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Seat_ROW2 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Seat_ROW3 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
+            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
+            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Door \{.*?"
+            r"message Cabin_Door_ROW1 \{.*?"
+            r"Door DRIVERSIDE = 1;.*?"
+            r"Door PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"message Cabin_Door_ROW2 \{.*?"
+            r"Door DRIVERSIDE = 1;.*?"
+            r"Door PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
+            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
+            r"\}.*?"
+            r"Cabin_Seat Seat = 1;.*?"
+            r"Cabin_Door Door = 2;.*?"
+            r"float temperature = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Cabin message with complete nested expanded instance structure"
+
+        assert re.search(
+            r"message Door \{.*?"
+            r'option \(source\) = "Door";.*?'
+            r"bool isLocked = 1;.*?"
+            r"int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Door message with fields"
+
+        assert re.search(
+            r"message Seat \{.*?"
+            r'option \(source\) = "Seat";.*?'
+            r"bool isOccupied = 1;.*?"
+            r"int32 height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Seat message with fields"
+
+        assert "SeatRowEnum" not in result
+        assert "SeatPositionEnum" not in result
+        assert "RowEnum" not in result
+        assert "SideEnum" not in result
+
+    def test_expanded_instances_with_flatten_naming(self, test_schema_path: list[Path]) -> None:
+        """Test that expanded instances only expand in flatten mode when flag is set."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+        result = translate_to_protobuf(graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True)
+
+        assert re.search(
+            r"message Message \{.*?"
+            r"bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
+            r"int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW1_CENTER_isOccupied = 3;.*?"
+            r"int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW1_RIGHT_isOccupied = 5;.*?"
+            r"int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_LEFT_isOccupied = 7;.*?"
+            r"int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_CENTER_isOccupied = 9;.*?"
+            r"int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_RIGHT_isOccupied = 11;.*?"
+            r"int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_LEFT_isOccupied = 13;.*?"
+            r"int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_CENTER_isOccupied = 15;.*?"
+            r"int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_RIGHT_isOccupied = 17;.*?"
+            r"int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19;.*?"
+            r"int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21;.*?"
+            r"int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23;.*?"
+            r"int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25;.*?"
+            r"int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"float Cabin_temperature = 27 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Message with all flattened expanded instance fields"
+
+        assert "SeatRowEnum" not in result
+        assert "SeatPositionEnum" not in result
+        assert "RowEnum" not in result
+        assert "SideEnum" not in result
+
+    def test_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
+        """Test that naming config is applied to expanded instance field names in non-flatten mode."""
+        naming_config = {"field": {"object": "MACROCASE"}}
+        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Cabin", expanded_instances=True, naming_config=naming_config
+        )
+
+        assert re.search(
+            r"message Cabin \{.*?"
+            r'option \(source\) = "Cabin";.*?'
+            r"message Cabin_Seat \{.*?"
+            r"message Cabin_Seat_ROW1 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Seat_ROW2 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Seat_ROW3 \{.*?"
+            r"Seat LEFT = 1;.*?"
+            r"Seat CENTER = 2;.*?"
+            r"Seat RIGHT = 3;.*?"
+            r"\}.*?"
+            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
+            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
+            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
+            r"\}.*?"
+            r"message Cabin_Door \{.*?"
+            r"message Cabin_Door_ROW1 \{.*?"
+            r"Door DRIVERSIDE = 1;.*?"
+            r"Door PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"message Cabin_Door_ROW2 \{.*?"
+            r"Door DRIVERSIDE = 1;.*?"
+            r"Door PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
+            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
+            r"\}.*?"
+            r"Cabin_Seat SEAT = 1;.*?"
+            r"Cabin_Door DOOR = 2;.*?"
+            r"float TEMPERATURE = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Cabin message with complete nested expanded instance structure and MACROCASE field names"
+
+        assert re.search(
+            r"message Door \{.*?"
+            r'option \(source\) = "Door";.*?'
+            r"bool IS_LOCKED = 1;.*?"
+            r"int32 POSITION = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Door message with MACROCASE fields"
+
+        assert re.search(
+            r"message Seat \{.*?"
+            r'option \(source\) = "Seat";.*?'
+            r"bool IS_OCCUPIED = 1;.*?"
+            r"int32 HEIGHT = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Seat message with MACROCASE fields"
+
+        assert "SeatRowEnum" not in result
+        assert "SeatPositionEnum" not in result
+        assert "RowEnum" not in result
+        assert "SideEnum" not in result
+
+    def test_flatten_mode_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
+        """Test that naming config is applied to type name in flattened prefix with expanded instances."""
+        naming_config = {"field": {"object": "snake_case"}}
+        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True, naming_config=naming_config
+        )
+
+        assert re.search(
+            r"message Message \{.*?"
+            r"bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
+            r"int32 Cabin_seats_ROW1_LEFT_height = 2 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW1_CENTER_is_occupied = 3;.*?"
+            r"int32 Cabin_seats_ROW1_CENTER_height = 4 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW1_RIGHT_is_occupied = 5;.*?"
+            r"int32 Cabin_seats_ROW1_RIGHT_height = 6 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_LEFT_is_occupied = 7;.*?"
+            r"int32 Cabin_seats_ROW2_LEFT_height = 8 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_CENTER_is_occupied = 9;.*?"
+            r"int32 Cabin_seats_ROW2_CENTER_height = 10 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW2_RIGHT_is_occupied = 11;.*?"
+            r"int32 Cabin_seats_ROW2_RIGHT_height = 12 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_LEFT_is_occupied = 13;.*?"
+            r"int32 Cabin_seats_ROW3_LEFT_height = 14 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_CENTER_is_occupied = 15;.*?"
+            r"int32 Cabin_seats_ROW3_CENTER_height = 16 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_seats_ROW3_RIGHT_is_occupied = 17;.*?"
+            r"int32 Cabin_seats_ROW3_RIGHT_height = 18 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19;.*?"
+            r"int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21;.*?"
+            r"int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23;.*?"
+            r"int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25;.*?"
+            r"int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"float Cabin_temperature = 27 "
+            r"\[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Message with all flattened expanded instance fields in snake_case"
+
+        assert "SeatRowEnum" not in result
+        assert "SeatPositionEnum" not in result
+        assert "RowEnum" not in result
+        assert "SideEnum" not in result
 
     def test_complete_proto_file(self) -> None:
         """Test that the complete Protobuf output includes syntax, imports, and source option definition."""

@@ -45,6 +45,7 @@ class ProtoMessage(BaseModel):
     fields: list[ProtoField]
     description: str | None = None
     source: str | None = None
+    nested_messages: list["ProtoMessage"] = Field(default_factory=list)
 
     @field_validator("fields")
     @classmethod
