@@ -61,6 +61,7 @@ message {{ enum.name }} {
 {{ render_message(message) }}
 {% endfor %}{# endfor message #}
 {% endif %}{# endif messages #}
+{% if unions %}{# if unions #}
 {% for union in unions %}{# for union in unions #}
 {% if union.description %}{# if union.description #}
 // {{ union.description }}
@@ -77,3 +78,4 @@ message {{ union.name }} {
   }
 }
 {% endfor %}{# endfor union #}
+{% endif %}{# endif unions #}
