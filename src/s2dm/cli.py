@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -75,12 +76,14 @@ schema_option = click.option(
 )
 
 
-selection_query_option = click.option(
-    "--selection-query",
-    "-q",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="GraphQL query file to filter the passed schema",
-)
+def selection_query_option(required: bool = False) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    return click.option(
+        "--selection-query",
+        "-q",
+        type=click.Path(exists=True, dir_okay=False, path_type=Path),
+        required=required,
+        help="GraphQL query file to filter the passed schema",
+    )
 
 
 root_type_option = click.option(
@@ -383,7 +386,7 @@ def validate() -> None:
 
 @click.command()
 @schema_option
-@selection_query_option
+@selection_query_option()
 @root_type_option
 @output_option
 def compose(schemas: list[Path], root_type: str | None, selection_query: Path | None, output: Path) -> None:
@@ -426,7 +429,7 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
 # ----------
 @export.command
 @schema_option
-@selection_query_option
+@selection_query_option()
 @output_option
 @click.option(
     "--serialization-format",
@@ -505,7 +508,7 @@ def shacl(
 # ----------
 @export.command
 @schema_option
-@selection_query_option
+@selection_query_option()
 @output_option
 @click.pass_context
 def vspec(ctx: click.Context, schemas: list[Path], selection_query: Path | None, output: Path) -> None:
@@ -526,7 +529,7 @@ def vspec(ctx: click.Context, schemas: list[Path], selection_query: Path | None,
 # ----------
 @export.command
 @schema_option
-@selection_query_option
+@selection_query_option()
 @output_option
 @root_type_option
 @click.option(
@@ -563,7 +566,7 @@ def jsonschema(
 # ----------
 @export.command
 @schema_option
-@selection_query_option
+@selection_query_option(required=True)
 @output_option
 @root_type_option
 @click.option(

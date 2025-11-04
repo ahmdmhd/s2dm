@@ -102,6 +102,8 @@ def test_export_protobuf(runner: CliRunner, tmp_outputs: Path) -> None:
             str(TSD.SAMPLE1_1),
             "-s",
             str(TSD.SAMPLE1_2),
+            "-q",
+            str(TSD.SCHEMA1_QUERY),
             "-o",
             str(out),
             "-r",
@@ -122,8 +124,8 @@ def test_export_protobuf(runner: CliRunner, tmp_outputs: Path) -> None:
     assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
     assert "enum Enum" in content
 
-    assert "float averageSpeed = 2;" in content
-    assert "bool isFolded = 2;" in content
+    assert "optional float averageSpeed = 1;" in content
+    assert "optional bool isEngaged = 1;" in content
 
 
 def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) -> None:
@@ -137,6 +139,8 @@ def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) 
             str(TSD.SAMPLE1_1),
             "-s",
             str(TSD.SAMPLE1_2),
+            "-q",
+            str(TSD.SCHEMA1_QUERY),
             "-o",
             str(out),
             "-r",
@@ -158,9 +162,8 @@ def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) 
     assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
     assert "enum Enum" in content
 
-    assert "float Vehicle_averageSpeed = 2;" in content
-    assert "repeated Vehicle_Body_Mirrors Vehicle_body_mirrors_s = 11;" in content
-    assert "bool isFolded = 2;" in content
+    assert "optional float Vehicle_averageSpeed = 1;" in content
+    assert "optional bool Vehicle_adas_abs_isEngaged = 3;" in content
 
 
 def test_generate_skos_skeleton(runner: CliRunner, tmp_outputs: Path) -> None:
