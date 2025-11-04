@@ -480,6 +480,45 @@ You can call the help for usage reference:
 s2dm export protobuf --help
 ```
 
+#### Field Number Stability
+
+**Important Limitation**: Field numbers in generated protobuf files are **not stable** across schema regenerations when the GraphQL schema changes.
+
+**How Field Numbers Are Assigned:**
+
+Field numbers are assigned sequentially (starting from 1) based on:
+1. The iteration order of fields in the GraphQL schema
+2. Which types/fields are included (affected by `--root-type` filtering)
+3. The flattening logic (when using `--flatten-naming`)
+
+**Impact on Schema Evolution:**
+
+Any change to the GraphQL schema can cause field number reassignments:
+
+```graphql
+# Version 1
+type Door {
+  isLocked: Boolean    # becomes field number 1
+  position: Int        # becomes field number 2
+}
+
+# Version 2 - Adding a new field
+type Door {
+  id: ID               # becomes field number 1
+  isLocked: Boolean    # becomes field number 2 (was 1!)
+  position: Int        # becomes field number 3 (was 2!)
+}
+```
+
+**When Field Number Stability Matters:**
+
+Field number changes break compatibility if you have:
+
+- **Persistent protobuf data**: Data stored in databases, files, or caches will deserialize incorrectly after regeneration
+- **Rolling deployments**: Services using different schema versions cannot communicate during deployment
+- **Message queues**: Messages enqueued before regeneration will fail to deserialize correctly
+- **Archived data**: Historical protobuf-encoded logs or backups become unreadable
+
 ### Naming Configuration
 
 All export commands support a global naming configuration feature that allows you to transform element names during the export process using the `[--naming-config | -n]` flag.
