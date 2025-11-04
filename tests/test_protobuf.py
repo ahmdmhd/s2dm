@@ -589,6 +589,77 @@ class TestProtobufExporter:
             "repeated Door Cabin_doors = 2, float Cabin_temperature = 3"
         )
 
+    def test_flatten_naming_includes_referenced_types_transitively(self, test_schema_path: list[Path]) -> None:
+        """Test that flatten mode includes types referenced by non-flattened types and their dependencies."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Vehicle", flatten_naming=True, expanded_instances=False
+        )
+
+        assert re.search(
+            r"message Message \{.*?"
+            r"repeated Door Vehicle_doors = 1.*?"
+            r"string Vehicle_model = 2.*?"
+            r"int32 Vehicle_year = 3.*?"
+            r"repeated string Vehicle_features = 4.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Message with flattened Vehicle fields including repeated Door reference"
+
+        assert re.search(
+            r"message Door \{.*?"
+            r'option \(source\) = "Door";.*?'
+            r"bool isLocked = 1;.*?"
+            r"int32 position = 2.*?"
+            r"DoorPosition instanceTag = 3;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Door message should be included with DoorPosition reference"
+
+        assert re.search(
+            r"message DoorPosition \{.*?"
+            r'option \(source\) = "DoorPosition";.*?'
+            r"RowEnum.Enum row = 1;.*?"
+            r"SideEnum.Enum side = 2;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "DoorPosition message should be included as it's referenced by Door"
+
+        assert re.search(
+            r"message RowEnum \{.*?"
+            r'option \(source\) = "RowEnum";.*?'
+            r"enum Enum \{.*?"
+            r"ROWENUM_UNSPECIFIED = 0;.*?"
+            r"ROW1 = 1;.*?"
+            r"ROW2 = 2;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "RowEnum should be included as it's used by DoorPosition"
+
+        assert re.search(
+            r"message SideEnum \{.*?"
+            r'option \(source\) = "SideEnum";.*?'
+            r"enum Enum \{.*?"
+            r"SIDEENUM_UNSPECIFIED = 0;.*?"
+            r"DRIVERSIDE = 1;.*?"
+            r"PASSENGERSIDE = 2;.*?"
+            r"\}.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "SideEnum should be included as it's used by DoorPosition"
+
+        assert "SeatPosition" not in result, "SeatPosition should not be included as it's not referenced by Vehicle"
+        assert "SeatRowEnum" not in result, "SeatRowEnum should not be included as it's not referenced by Vehicle"
+        assert (
+            "SeatPositionEnum" not in result
+        ), "SeatPositionEnum should not be included as it's not referenced by Vehicle"
+
     def test_expanded_instances_default(self, test_schema_path: list[Path]) -> None:
         """Test that instance tags are NOT expanded by default (treated as regular types)."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)

@@ -136,7 +136,7 @@ class ProtobufTransformer:
 
         proto_schema = ProtoSchema(
             package=self.package_name,
-            enums=self._build_enums(enum_types),
+            enums=[],
             flatten_mode=self.flatten_naming and self.root_type is not None,
         )
 
@@ -150,7 +150,9 @@ class ProtobufTransformer:
                 message_type for message_type in message_types if message_type.name in referenced_type_names
             ]
             union_types = [union_type for union_type in union_types if union_type.name in referenced_type_names]
+            enum_types = [enum_type for enum_type in enum_types if enum_type.name in referenced_type_names]
 
+        proto_schema.enums = self._build_enums(enum_types)
         proto_schema.unions = self._build_unions(union_types)
         proto_schema.messages = self._build_messages(message_types)
 
@@ -346,6 +348,13 @@ class ProtobufTransformer:
             return False
         return is_object_type(unwrapped_type) or is_interface_type(unwrapped_type)
 
+    def _add_type_with_dependencies(self, type_name: str, referenced_types: set[str]) -> None:
+        """Add a type and all its transitive dependencies to the referenced_types set."""
+        dependencies = get_referenced_types(self.graphql_schema, type_name, include_instance_tag_fields=True)
+        for dependency in dependencies:
+            if isinstance(dependency, GraphQLNamedType):
+                referenced_types.add(dependency.name)
+
     def _flatten_fields(
         self,
         object_type: GraphQLObjectType | GraphQLInterfaceType,
@@ -405,12 +414,12 @@ class ProtobufTransformer:
             else:
                 if is_list and (is_object_type(unwrapped_type) or is_interface_type(unwrapped_type)):
                     named_type = cast(GraphQLObjectType | GraphQLInterfaceType, unwrapped_type)
-                    referenced_types.add(named_type.name)
+                    self._add_type_with_dependencies(named_type.name, referenced_types)
                 elif is_union_type(unwrapped_type):
                     union_type_cast = cast(GraphQLUnionType, unwrapped_type)
-                    referenced_types.add(union_type_cast.name)
+                    self._add_type_with_dependencies(union_type_cast.name, referenced_types)
                     for member_type in union_type_cast.types:
-                        referenced_types.add(member_type.name)
+                        self._add_type_with_dependencies(member_type.name, referenced_types)
 
                 fields.append(
                     self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
