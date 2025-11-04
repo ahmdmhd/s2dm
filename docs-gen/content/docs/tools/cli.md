@@ -487,6 +487,7 @@ s2dm export protobuf --help
 **How Field Numbers Are Assigned:**
 
 Field numbers are assigned sequentially (starting from 1) based on:
+
 1. The iteration order of fields in the GraphQL schema
 2. Which types/fields are included (affected by `--root-type` filtering)
 3. The flattening logic (when using `--flatten-naming`)

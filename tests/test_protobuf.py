@@ -34,15 +34,15 @@ class TestProtobufExporter:
         assert re.search(
             r"message ScalarType \{.*?"
             r'option \(source\) = "ScalarType".*?;.*?'
-            r"string stringField = 1.*?;.*?"
-            r"int32 intField = 2.*?;.*?"
-            r"float floatField = 3.*?;.*?"
-            r"bool boolField = 4.*?;.*?"
-            r"string idField = 5.*?;.*?"
+            r"optional string stringField = 1.*?;.*?"
+            r"optional int32 intField = 2.*?;.*?"
+            r"optional float floatField = 3.*?;.*?"
+            r"optional bool boolField = 4.*?;.*?"
+            r"optional string idField = 5.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "ScalarType message with source option and fields in order"
+        ), "ScalarType message with source option and optional fields in order"
 
         assert "message Message {" not in result
 
@@ -73,17 +73,17 @@ class TestProtobufExporter:
         assert re.search(
             r"message CustomScalarType \{.*?"
             r'option \(source\) = "CustomScalarType".*?;.*?'
-            r"int32 int8Field = 1.*?;.*?"
-            r"uint32 uint8Field = 2.*?;.*?"
-            r"int32 int16Field = 3.*?;.*?"
-            r"uint32 uint16Field = 4.*?;.*?"
-            r"uint32 uint32Field = 5.*?;.*?"
-            r"int64 int64Field = 6.*?;.*?"
-            r"uint64 uint64Field = 7.*?;.*?"
+            r"optional int32 int8Field = 1.*?;.*?"
+            r"optional uint32 uint8Field = 2.*?;.*?"
+            r"optional int32 int16Field = 3.*?;.*?"
+            r"optional uint32 uint16Field = 4.*?;.*?"
+            r"optional uint32 uint32Field = 5.*?;.*?"
+            r"optional int64 int64Field = 6.*?;.*?"
+            r"optional uint64 uint64Field = 7.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "CustomScalarType message with source option and custom scalar fields in order"
+        ), "CustomScalarType message with source option and optional custom scalar fields in order"
 
     def test_enum_type_with_unspecified(self) -> None:
         """Test that enums include UNSPECIFIED default value."""
@@ -116,10 +116,13 @@ class TestProtobufExporter:
         ), "LockStatus enum wrapped in message with source option and values in order"
 
         assert re.search(
-            r"message Door \{.*?" r'option \(source\) = "Door".*?;.*?' r"LockStatus.Enum lockStatus = 1.*?;.*?" r"\}",
+            r"message Door \{.*?"
+            r'option \(source\) = "Door".*?;.*?'
+            r"optional LockStatus.Enum lockStatus = 1.*?;.*?"
+            r"\}",
             result,
             re.DOTALL,
-        ), "Door message with source option and LockStatus.Enum lockStatus = 1 field"
+        ), "Door message with source option and optional LockStatus.Enum lockStatus = 1 field"
 
     def test_list_to_repeated(self) -> None:
         """Test that GraphQL lists are converted to repeated fields and non-null handling."""
@@ -137,14 +140,14 @@ class TestProtobufExporter:
         assert re.search(
             r"message Vehicle \{.*?"
             r'option \(source\) = "Vehicle".*?;.*?'
-            r"repeated string features = 1.*?;.*?"
-            r"repeated string requiredFeatures = 2.*?;.*?"
-            r"string model = 3.*?;.*?"
-            r"string vin = 4.*?;.*?"
+            r"optional repeated string features = 1.*?;.*?"
+            r"repeated string requiredFeatures = 2 \[\(buf\.validate\.field\)\.required = true\].*?;.*?"
+            r"optional string model = 3.*?;.*?"
+            r"string vin = 4 \[\(buf\.validate\.field\)\.required = true\].*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Vehicle message with source option and fields in order"
+        ), "Vehicle message with optional for nullable fields and required for non-nullable"
 
     def test_nested_objects_standard_mode(self) -> None:
         """Test nested object types in standard mode."""
@@ -165,22 +168,22 @@ class TestProtobufExporter:
         assert re.search(
             r"message Speed \{.*?"
             r'option \(source\) = "Speed".*?;.*?'
-            r"float average = 1.*?;.*?"
-            r"float current = 2.*?;.*?"
+            r"optional float average = 1.*?;.*?"
+            r"optional float current = 2.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Speed message with source option and fields in order"
+        ), "Speed message with source option and optional fields in order"
 
         assert re.search(
             r"message Vehicle \{.*?"
             r'option \(source\) = "Vehicle".*?;.*?'
-            r"Speed speed = 1.*?;.*?"
-            r"string model = 2.*?;.*?"
+            r"optional Speed speed = 1.*?;.*?"
+            r"optional string model = 2.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Vehicle message with source option and fields in order"
+        ), "Vehicle message with source option and optional fields in order"
 
     def test_flattened_naming_mode(self) -> None:
         """Test that flatten_naming mode creates flattened field names."""
@@ -560,16 +563,46 @@ class TestProtobufExporter:
         assert re.search(
             r"message Vehicle \{.*?"
             r'option \(source\) = "Vehicle";.*?'
-            r"int32 speed = 1 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 250\}\];.*?"
-            r"float engineTemp = 2 \[\(buf\.validate\.field\)\.float = \{gte: -40\.0, lte: 150\.0\}\];.*?"
-            r"repeated string sensors = 3 \[\(buf\.validate\.field\)\.repeated = \{unique: true\}\];.*?"
-            r"repeated string features = 4 \[\(buf\.validate\.field\)\.repeated = \{min_items: 1, max_items: 10\}\];.*?"
-            r"repeated int32 wheels = 5 \[\(buf\.validate\.field\)\.repeated = "
+            r"optional int32 speed = 1 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 250\}\];.*?"
+            r"optional float engineTemp = 2 \[\(buf\.validate\.field\)\.float = \{gte: -40\.0, lte: 150\.0\}\];.*?"
+            r"optional repeated string sensors = 3 \[\(buf\.validate\.field\)\.repeated = \{unique: true\}\];.*?"
+            r"optional repeated string features = 4 "
+            r"\[\(buf\.validate\.field\)\.repeated = \{min_items: 1, max_items: 10\}\];.*?"
+            r"optional repeated int32 wheels = 5 \[\(buf\.validate\.field\)\.repeated = "
             r"\{unique: true, min_items: 2, max_items: 6\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Vehicle message with validation rules on all fields"
+        ), "Vehicle message with optional and validation rules on all fields"
+
+    def test_required_validation_with_other_rules(self) -> None:
+        """Test that required validation works together with other validation rules."""
+        schema_str = """
+        directive @range(min: Float, max: Float) on FIELD_DEFINITION
+        directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
+        directive @noDuplicates on FIELD_DEFINITION
+
+        type Vehicle {
+            speed: Int! @range(min: 0, max: 300)
+            tags: [String!]! @noDuplicates @cardinality(min: 1, max: 10)
+            vin: String!
+        }
+        """
+        schema = build_schema(schema_str)
+        result = translate_to_protobuf(schema, root_type="Vehicle")
+
+        assert re.search(
+            r"message Vehicle \{.*?"
+            r'option \(source\) = "Vehicle";.*?'
+            r"int32 speed = 1 \[\(buf\.validate\.field\)\.required = true, "
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 300\}\];.*?"
+            r"repeated string tags = 2 \[\(buf\.validate\.field\)\.required = true, "
+            r"\(buf\.validate\.field\)\.repeated = \{unique: true, min_items: 1, max_items: 10\}\];.*?"
+            r"string vin = 3 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Vehicle message with required combined with other validation rules"
 
     def test_flatten_naming_without_expansion(self, test_schema_path: list[Path]) -> None:
         """Test that flatten mode WITHOUT -e flag keeps arrays as repeated."""
@@ -598,10 +631,10 @@ class TestProtobufExporter:
 
         assert re.search(
             r"message Message \{.*?"
-            r"repeated Door Vehicle_doors = 1.*?"
-            r"string Vehicle_model = 2.*?"
-            r"int32 Vehicle_year = 3.*?"
-            r"repeated string Vehicle_features = 4.*?"
+            r"optional repeated Door Vehicle_doors = 1.*?"
+            r"optional string Vehicle_model = 2.*?"
+            r"optional int32 Vehicle_year = 3.*?"
+            r"optional repeated string Vehicle_features = 4.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -610,9 +643,9 @@ class TestProtobufExporter:
         assert re.search(
             r"message Door \{.*?"
             r'option \(source\) = "Door";.*?'
-            r"bool isLocked = 1;.*?"
-            r"int32 position = 2.*?"
-            r"DoorPosition instanceTag = 3;.*?"
+            r"optional bool isLocked = 1;.*?"
+            r"optional int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional DoorPosition instanceTag = 3;.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -621,8 +654,8 @@ class TestProtobufExporter:
         assert re.search(
             r"message DoorPosition \{.*?"
             r'option \(source\) = "DoorPosition";.*?'
-            r"RowEnum.Enum row = 1;.*?"
-            r"SideEnum.Enum side = 2;.*?"
+            r"RowEnum.Enum row = 1 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"SideEnum.Enum side = 2 \[\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -729,7 +762,7 @@ class TestProtobufExporter:
             r"\}.*?"
             r"Cabin_Seat Seat = 1;.*?"
             r"Cabin_Door Door = 2;.*?"
-            r"float temperature = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional float temperature = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -738,8 +771,8 @@ class TestProtobufExporter:
         assert re.search(
             r"message Door \{.*?"
             r'option \(source\) = "Door";.*?'
-            r"bool isLocked = 1;.*?"
-            r"int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool isLocked = 1;.*?"
+            r"optional int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -748,8 +781,8 @@ class TestProtobufExporter:
         assert re.search(
             r"message Seat \{.*?"
             r'option \(source\) = "Seat";.*?'
-            r"bool isOccupied = 1;.*?"
-            r"int32 height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool isOccupied = 1;.*?"
+            r"optional int32 height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -767,37 +800,46 @@ class TestProtobufExporter:
 
         assert re.search(
             r"message Message \{.*?"
-            r"bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
-            r"int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW1_CENTER_isOccupied = 3;.*?"
-            r"int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW1_RIGHT_isOccupied = 5;.*?"
-            r"int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_LEFT_isOccupied = 7;.*?"
-            r"int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_CENTER_isOccupied = 9;.*?"
-            r"int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_RIGHT_isOccupied = 11;.*?"
-            r"int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_LEFT_isOccupied = 13;.*?"
-            r"int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_CENTER_isOccupied = 15;.*?"
-            r"int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_RIGHT_isOccupied = 17;.*?"
-            r"int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19;.*?"
-            r"int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
+            r"optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
+            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21;.*?"
-            r"int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
+            r"optional bool Cabin_seats_ROW1_CENTER_isOccupied = 3;.*?"
+            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23;.*?"
-            r"int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
+            r"optional bool Cabin_seats_ROW1_RIGHT_isOccupied = 5;.*?"
+            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25;.*?"
-            r"int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
+            r"optional bool Cabin_seats_ROW2_LEFT_isOccupied = 7;.*?"
+            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"float Cabin_temperature = 27 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional bool Cabin_seats_ROW2_CENTER_isOccupied = 9;.*?"
+            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_seats_ROW2_RIGHT_isOccupied = 11;.*?"
+            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_seats_ROW3_LEFT_isOccupied = 13;.*?"
+            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_seats_ROW3_CENTER_isOccupied = 15;.*?"
+            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_seats_ROW3_RIGHT_isOccupied = 17;.*?"
+            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19;.*?"
+            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21;.*?"
+            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23;.*?"
+            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25;.*?"
+            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
+            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional float Cabin_temperature = 27 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -853,7 +895,7 @@ class TestProtobufExporter:
             r"\}.*?"
             r"Cabin_Seat SEAT = 1;.*?"
             r"Cabin_Door DOOR = 2;.*?"
-            r"float TEMPERATURE = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional float TEMPERATURE = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -862,8 +904,8 @@ class TestProtobufExporter:
         assert re.search(
             r"message Door \{.*?"
             r'option \(source\) = "Door";.*?'
-            r"bool IS_LOCKED = 1;.*?"
-            r"int32 POSITION = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool IS_LOCKED = 1;.*?"
+            r"optional int32 POSITION = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -872,8 +914,8 @@ class TestProtobufExporter:
         assert re.search(
             r"message Seat \{.*?"
             r'option \(source\) = "Seat";.*?'
-            r"bool IS_OCCUPIED = 1;.*?"
-            r"int32 HEIGHT = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"optional bool IS_OCCUPIED = 1;.*?"
+            r"optional int32 HEIGHT = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -894,46 +936,46 @@ class TestProtobufExporter:
 
         assert re.search(
             r"message Message \{.*?"
-            r"bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
-            r"int32 Cabin_seats_ROW1_LEFT_height = 2 "
+            r"optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
+            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW1_CENTER_is_occupied = 3;.*?"
-            r"int32 Cabin_seats_ROW1_CENTER_height = 4 "
+            r"optional bool Cabin_seats_ROW1_CENTER_is_occupied = 3;.*?"
+            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW1_RIGHT_is_occupied = 5;.*?"
-            r"int32 Cabin_seats_ROW1_RIGHT_height = 6 "
+            r"optional bool Cabin_seats_ROW1_RIGHT_is_occupied = 5;.*?"
+            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_LEFT_is_occupied = 7;.*?"
-            r"int32 Cabin_seats_ROW2_LEFT_height = 8 "
+            r"optional bool Cabin_seats_ROW2_LEFT_is_occupied = 7;.*?"
+            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_CENTER_is_occupied = 9;.*?"
-            r"int32 Cabin_seats_ROW2_CENTER_height = 10 "
+            r"optional bool Cabin_seats_ROW2_CENTER_is_occupied = 9;.*?"
+            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW2_RIGHT_is_occupied = 11;.*?"
-            r"int32 Cabin_seats_ROW2_RIGHT_height = 12 "
+            r"optional bool Cabin_seats_ROW2_RIGHT_is_occupied = 11;.*?"
+            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_LEFT_is_occupied = 13;.*?"
-            r"int32 Cabin_seats_ROW3_LEFT_height = 14 "
+            r"optional bool Cabin_seats_ROW3_LEFT_is_occupied = 13;.*?"
+            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_CENTER_is_occupied = 15;.*?"
-            r"int32 Cabin_seats_ROW3_CENTER_height = 16 "
+            r"optional bool Cabin_seats_ROW3_CENTER_is_occupied = 15;.*?"
+            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_seats_ROW3_RIGHT_is_occupied = 17;.*?"
-            r"int32 Cabin_seats_ROW3_RIGHT_height = 18 "
+            r"optional bool Cabin_seats_ROW3_RIGHT_is_occupied = 17;.*?"
+            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19;.*?"
-            r"int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
+            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19;.*?"
+            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21;.*?"
-            r"int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
+            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21;.*?"
+            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23;.*?"
-            r"int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
+            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23;.*?"
+            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25;.*?"
-            r"int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
+            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25;.*?"
+            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"float Cabin_temperature = 27 "
+            r"optional float Cabin_temperature = 27 "
             r"\[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,

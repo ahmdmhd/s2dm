@@ -430,12 +430,20 @@ class ProtobufTransformer:
 
     def _get_field_proto_type(self, field_type: GraphQLType) -> str:
         """Get the Protobuf type string for a GraphQL field type."""
+        proto_type = self._get_base_proto_type(field_type)
+
+        if not is_non_null_type(field_type):
+            return f"optional {proto_type}"
+        return proto_type
+
+    def _get_base_proto_type(self, field_type: GraphQLType) -> str:
+        """Get the base Protobuf type string without optional prefix."""
         if is_non_null_type(field_type):
-            return self._get_field_proto_type(cast(GraphQLNonNull[Any], field_type).of_type)
+            return self._get_base_proto_type(cast(GraphQLNonNull[Any], field_type).of_type)
 
         if is_list_type(field_type):
             list_type = cast(GraphQLList[Any], field_type)
-            item_type = self._get_field_proto_type(list_type.of_type)
+            item_type = self._get_base_proto_type(list_type.of_type)
             return f"repeated {item_type}"
 
         if is_scalar_type(field_type):
@@ -465,6 +473,9 @@ class ProtobufTransformer:
     def process_directives(self, field: GraphQLField, proto_type: str) -> str | None:
         """Process GraphQL directives and convert them to protovalidate constraints."""
         rules = []
+
+        if is_non_null_type(field.type):
+            rules.append("(buf.validate.field).required = true")
 
         repeated_rules = []
 
@@ -501,7 +512,7 @@ class ProtobufTransformer:
 
     def _get_validation_type(self, proto_type: str) -> str | None:
         """Get the protovalidate scalar type from protobuf type."""
-        validation_type = proto_type.replace("repeated ", "")
+        validation_type = proto_type.replace("repeated ", "").replace("optional ", "")
         return validation_type if validation_type in PROTOBUF_DATA_TYPES else None
 
     def _handle_expanded_instance_field(
