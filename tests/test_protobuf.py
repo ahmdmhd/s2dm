@@ -2,10 +2,11 @@ import re
 from pathlib import Path
 
 import pytest
-from graphql import build_schema, parse
+from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, build_schema, parse
 
 from s2dm.exporters.protobuf import translate_to_protobuf
 from s2dm.exporters.utils.schema import load_schema_with_naming
+from s2dm.exporters.utils.schema_loader import prune_schema_using_query_selection
 
 
 class TestProtobufExporter:
@@ -1045,6 +1046,22 @@ class TestProtobufExporter:
         """Test that flatten mode without root_type flattens all root-level types."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
 
+        vehicle_type = graphql_schema.type_map["Vehicle"]
+        cabin_type = graphql_schema.type_map["Cabin"]
+        door_type = graphql_schema.type_map["Door"]
+
+        query_type = GraphQLObjectType(
+            "Query",
+            {
+                "vehicle": GraphQLField(vehicle_type),
+                "cabin": GraphQLField(cabin_type),
+                "door": GraphQLField(door_type),
+            },
+        )
+
+        types = [type_def for type_def in graphql_schema.type_map.values() if type_def.name != "Query"]
+        graphql_schema = GraphQLSchema(query=query_type, types=types, directives=graphql_schema.directives)
+
         # Selection query that selects vehicle, cabin, and door at the top level
         query_str = """
         query {
@@ -1064,6 +1081,7 @@ class TestProtobufExporter:
         }
         """
         selection_query = parse(query_str)
+        graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
 
         result = translate_to_protobuf(
             graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
@@ -1073,16 +1091,12 @@ class TestProtobufExporter:
             r"message Message \{.*?"
             r"optional repeated Door Vehicle_doors = 1;.*?"
             r"optional string Vehicle_model = 2;.*?"
-            r"optional int32 Vehicle_year = 3;.*?"
-            r"optional repeated string Vehicle_features = 4 "
-            r"\[\(buf\.validate\.field\)\.repeated = \{unique: true, min_items: 1, max_items: 10\}\];.*?"
-            r"optional repeated Seat Cabin_seats = 5;.*?"
-            r"optional repeated Door Cabin_doors = 6;.*?"
-            r"optional float Cabin_temperature = 7 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"optional bool Door_isLocked = 8;.*?"
-            r"optional int32 Door_position = 9 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"RowEnum\.Enum Door_instanceTag_row = 10 \[\(buf\.validate\.field\)\.required = true\];.*?"
-            r"SideEnum\.Enum Door_instanceTag_side = 11 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"optional repeated Seat Cabin_seats = 3;.*?"
+            r"optional float Cabin_temperature = 4 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional bool Door_isLocked = 5;.*?"
+            r"optional int32 Door_position = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"RowEnum\.Enum Door_instanceTag_row = 7 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"SideEnum\.Enum Door_instanceTag_side = 8 \[\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,
             re.DOTALL,
