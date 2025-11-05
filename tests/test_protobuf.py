@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import cast
 
 import pytest
 from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, build_schema, parse
@@ -1046,9 +1047,9 @@ class TestProtobufExporter:
         """Test that flatten mode without root_type flattens all root-level types."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
 
-        vehicle_type = graphql_schema.type_map["Vehicle"]
-        cabin_type = graphql_schema.type_map["Cabin"]
-        door_type = graphql_schema.type_map["Door"]
+        vehicle_type = cast(GraphQLObjectType, graphql_schema.type_map["Vehicle"])
+        cabin_type = cast(GraphQLObjectType, graphql_schema.type_map["Cabin"])
+        door_type = cast(GraphQLObjectType, graphql_schema.type_map["Door"])
 
         query_type = GraphQLObjectType(
             "Query",
