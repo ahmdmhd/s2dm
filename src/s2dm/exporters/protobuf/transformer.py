@@ -1,6 +1,7 @@
 from typing import Any, cast
 
 from graphql import (
+    DocumentNode,
     GraphQLEnumType,
     GraphQLField,
     GraphQLInterfaceType,
@@ -26,7 +27,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from s2dm import log
 from s2dm.exporters.protobuf.models import ProtoEnum, ProtoEnumValue, ProtoField, ProtoMessage, ProtoSchema, ProtoUnion
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
-from s2dm.exporters.utils.extraction import get_all_named_types
+from s2dm.exporters.utils.extraction import get_all_named_types, get_root_level_types_from_query
 from s2dm.exporters.utils.field import get_cardinality
 from s2dm.exporters.utils.instance_tag import expand_instance_tag, get_instance_tag_object, is_instance_tag_field
 from s2dm.exporters.utils.naming import convert_name, get_target_case_for_element
@@ -84,6 +85,7 @@ class ProtobufTransformer:
         package_name: str | None = None,
         naming_config: dict[str, Any] | None = None,
         expanded_instances: bool = False,
+        selection_query: DocumentNode | None = None,
     ):
         self.graphql_schema = graphql_schema
         self.root_type = root_type
@@ -91,6 +93,7 @@ class ProtobufTransformer:
         self.package_name = package_name
         self.naming_config = naming_config
         self.expanded_instances = expanded_instances
+        self.selection_query = selection_query
 
         self.env = Environment(
             loader=PackageLoader("s2dm.exporters.protobuf", "templates"),
@@ -137,17 +140,23 @@ class ProtobufTransformer:
         proto_schema = ProtoSchema(
             package=self.package_name,
             enums=[],
-            flatten_mode=self.flatten_naming and self.root_type is not None,
+            flatten_mode=self.flatten_naming,
         )
 
-        if self.flatten_naming and self.root_type:
+        if self.flatten_naming:
             # In flatten mode, we need a second filtering pass to remove types that were completely flattened.
             # When object fields are flattened, they become prefixed fields in the parent (e.g., parent_child_field).
             # If no fields reference that object type directly (non-flattened), the type definition is no longer needed.
             # However, unions and enums cannot be flattened and must remain as separate type definitions.
-            proto_schema.flattened_fields, referenced_type_names = self._build_flattened_fields(message_types)
+            (
+                proto_schema.flattened_fields,
+                referenced_type_names,
+                flattened_root_types,
+            ) = self._build_flattened_fields(message_types)
             message_types = [
-                message_type for message_type in message_types if message_type.name in referenced_type_names
+                message_type
+                for message_type in message_types
+                if message_type.name in referenced_type_names and message_type.name not in flattened_root_types
             ]
             union_types = [union_type for union_type in union_types if union_type.name in referenced_type_names]
             enum_types = [enum_type for enum_type in enum_types if enum_type.name in referenced_type_names]
@@ -156,7 +165,7 @@ class ProtobufTransformer:
         proto_schema.unions = self._build_unions(union_types)
         proto_schema.messages = self._build_messages(message_types)
 
-        template_name = "proto_flattened.j2" if self.flatten_naming and self.root_type else "proto_standard.j2"
+        template_name = "proto_flattened.j2" if self.flatten_naming else "proto_standard.j2"
         template = self.env.get_template(template_name)
 
         template_vars = self._build_template_vars(proto_schema)
@@ -312,20 +321,47 @@ class ProtobufTransformer:
 
     def _build_flattened_fields(
         self, message_types: list[GraphQLObjectType | GraphQLInterfaceType]
-    ) -> tuple[list[ProtoField], set[str]]:
-        """Build flattened fields for flatten_naming mode."""
-        root_object = None
-        for message_type in message_types:
-            if message_type.name == self.root_type:
-                root_object = message_type
-                break
+    ) -> tuple[list[ProtoField], set[str], set[str]]:
+        """Build flattened fields for flatten_naming mode.
 
-        if not root_object:
-            log.warning(f"Root type '{self.root_type}' not found, creating empty message")
-            return [], set()
+        Returns:
+            tuple: (flattened_fields, referenced_types, flattened_root_types)
+        """
+        type_cache = {type_def.name: type_def for type_def in message_types}
 
-        fields, referenced_types, _ = self._flatten_fields(root_object, root_object.name, message_types, 1)
-        return fields, referenced_types
+        if self.root_type:
+            root_object = type_cache.get(self.root_type)
+            if not root_object:
+                log.warning(f"Root type '{self.root_type}' not found, creating empty message")
+                return [], set(), set()
+
+            fields, referenced_types, _ = self._flatten_fields(root_object, root_object.name, message_types, 1)
+            return fields, referenced_types, {self.root_type}
+
+        root_level_type_names = get_root_level_types_from_query(self.graphql_schema, self.selection_query)
+        if not root_level_type_names:
+            log.warning("No root-level types found in selection query, creating empty message")
+            return [], set(), set()
+
+        all_fields: list[ProtoField] = []
+        all_referenced_types: set[str] = set()
+        flattened_root_types: set[str] = set()
+        field_counter = 1
+
+        for type_name in root_level_type_names:
+            root_object = type_cache.get(type_name)
+            if not root_object:
+                log.warning(f"Root-level type '{type_name}' not found in message types")
+                continue
+
+            flattened_root_types.add(type_name)
+            fields, referenced_types, field_counter = self._flatten_fields(
+                root_object, type_name, message_types, field_counter, type_cache
+            )
+            all_fields.extend(fields)
+            all_referenced_types.update(referenced_types)
+
+        return all_fields, all_referenced_types, flattened_root_types
 
     def _create_proto_field_with_validation(
         self, field: GraphQLField, field_name: str, proto_type: str, field_number: int

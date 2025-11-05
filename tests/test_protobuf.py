@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
-from graphql import build_schema
+from graphql import build_schema, parse
 
 from s2dm.exporters.protobuf import translate_to_protobuf
 from s2dm.exporters.utils.schema import load_schema_with_naming
@@ -1040,3 +1040,56 @@ class TestProtobufExporter:
             result,
             re.DOTALL,
         ), "Transmission message with enum field and validation"
+
+    def test_flatten_naming_multiple_root_types(self, test_schema_path: list[Path]) -> None:
+        """Test that flatten mode without root_type flattens all root-level types."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+
+        # Selection query that selects vehicle, cabin, and door at the top level
+        query_str = """
+        query {
+            vehicle {
+                doors { isLocked }
+                model
+            }
+            cabin {
+                seats { isOccupied }
+                temperature
+            }
+            door {
+                isLocked
+                position
+                instanceTag { row side }
+            }
+        }
+        """
+        selection_query = parse(query_str)
+
+        result = translate_to_protobuf(
+            graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
+        )
+
+        assert re.search(
+            r"message Message \{.*?"
+            r"optional repeated Door Vehicle_doors = 1;.*?"
+            r"optional string Vehicle_model = 2;.*?"
+            r"optional int32 Vehicle_year = 3;.*?"
+            r"optional repeated string Vehicle_features = 4 "
+            r"\[\(buf\.validate\.field\)\.repeated = \{unique: true, min_items: 1, max_items: 10\}\];.*?"
+            r"optional repeated Seat Cabin_seats = 5;.*?"
+            r"optional repeated Door Cabin_doors = 6;.*?"
+            r"optional float Cabin_temperature = 7 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional bool Door_isLocked = 8;.*?"
+            r"optional int32 Door_position = 9 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"RowEnum\.Enum Door_instanceTag_row = 10 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"SideEnum\.Enum Door_instanceTag_side = 11 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Message with flattened fields from all root-level types (Vehicle, Cabin, Door)"
+
+        assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
+
+        assert "message Vehicle {" not in result, "Vehicle should be completely flattened"
+        assert "message Cabin {" not in result, "Cabin should be completely flattened"
+        assert "message Door {" not in result, "Door should be completely flattened"

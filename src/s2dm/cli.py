@@ -574,7 +574,7 @@ def jsonschema(
     "-f",
     is_flag=True,
     default=False,
-    help="Flatten nested field names. Requires --root-type to be set.",
+    help="Flatten nested field names.",
 )
 @click.option(
     "--package-name",
@@ -598,12 +598,13 @@ def protobuf(
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
 
+    query_document = None
     if selection_query:
         query_document = parse(selection_query.read_text())
         graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)
 
     result = translate_to_protobuf(
-        graphql_schema, root_type, flatten_naming, package_name, naming_config, expanded_instances
+        graphql_schema, root_type, flatten_naming, package_name, naming_config, expanded_instances, query_document
     )
     _ = output.write_text(result)
 

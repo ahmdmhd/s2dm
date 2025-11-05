@@ -1,6 +1,6 @@
 from typing import Any
 
-from graphql import GraphQLSchema
+from graphql import DocumentNode, GraphQLSchema
 
 from s2dm import log
 
@@ -14,6 +14,7 @@ def transform(
     package_name: str | None = None,
     naming_config: dict[str, Any] | None = None,
     expanded_instances: bool = False,
+    selection_query: DocumentNode | None = None,
 ) -> str:
     """
     Transform a GraphQL schema object to Protocol Buffers format.
@@ -25,6 +26,7 @@ def transform(
         package_name: Optional package name for the .proto file
         naming_config: Optional naming configuration
         expanded_instances: If True, expand instance tags into nested structures
+        selection_query: Optional selection query document to determine root-level types
 
     Returns:
         str: Protocol Buffers representation as a string
@@ -36,12 +38,8 @@ def transform(
             raise ValueError(f"Root type '{root_type}' not found in schema")
         log.info(f"Using root type: {root_type}")
 
-    if flatten_naming and not root_type:
-        log.warning("Flatten naming mode requires a root type, falling back to standard mode")
-        flatten_naming = False
-
     transformer = ProtobufTransformer(
-        graphql_schema, root_type, flatten_naming, package_name, naming_config, expanded_instances
+        graphql_schema, root_type, flatten_naming, package_name, naming_config, expanded_instances, selection_query
     )
     proto_content = transformer.transform()
 
@@ -57,6 +55,7 @@ def translate_to_protobuf(
     package_name: str | None = None,
     naming_config: dict[str, Any] | None = None,
     expanded_instances: bool = False,
+    selection_query: DocumentNode | None = None,
 ) -> str:
     """
     Translate a GraphQL schema to Protocol Buffers format.
@@ -68,8 +67,11 @@ def translate_to_protobuf(
         package_name: Optional package name for the .proto file
         naming_config: Optional naming configuration
         expanded_instances: If True, expand instance tags into nested structures
+        selection_query: Optional selection query document to determine root-level types
 
     Returns:
         str: Protocol Buffers (.proto) representation as a string
     """
-    return transform(schema, root_type, flatten_naming, package_name, naming_config, expanded_instances)
+    return transform(
+        schema, root_type, flatten_naming, package_name, naming_config, expanded_instances, selection_query
+    )
