@@ -220,7 +220,7 @@ This will include only the `Vehicle` type and all types transitively referenced 
 
 #### Flatten Naming Mode
 
-Use the `--flatten-naming` flag to flatten nested object structures into a single message with prefixed field names. This mode requires `--root-type` to be set:
+Use the `--flatten-naming` flag to flatten nested object structures into a single message with prefixed field names:
 
 ```bash
 s2dm export protobuf --schema schema.graphql --output vehicle.proto --root-type Vehicle --flatten-naming
