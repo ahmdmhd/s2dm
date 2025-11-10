@@ -25,7 +25,7 @@ from s2dm.exporters.utils.instance_tag import (
     is_instance_tag_field,
 )
 from s2dm.exporters.utils.naming import apply_naming_to_instance_values
-from s2dm.exporters.utils.schema import load_schema_with_naming
+from s2dm.exporters.utils.schema_loader import load_schema_with_naming
 
 UNITS_DICT = {  # TODO: move to a separate file or use the vss tools to get the mapping directly from dynamic_units
     # Using the QUDT unit names
