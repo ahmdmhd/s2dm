@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from s2dm.exporters.jsonschema import translate_to_jsonschema
-from s2dm.exporters.utils.schema import load_schema_with_naming
+from s2dm.exporters.utils.schema_loader import load_schema_with_naming
 
 
 class TestExpandedInstances:

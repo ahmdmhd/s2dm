@@ -6,8 +6,7 @@ import pytest
 from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, build_schema, parse
 
 from s2dm.exporters.protobuf import translate_to_protobuf
-from s2dm.exporters.utils.schema import load_schema_with_naming
-from s2dm.exporters.utils.schema_loader import prune_schema_using_query_selection
+from s2dm.exporters.utils.schema_loader import load_schema_with_naming, prune_schema_using_query_selection
 
 
 class TestProtobufExporter:
