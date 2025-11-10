@@ -27,6 +27,7 @@ from graphql import (
     is_non_null_type,
     is_object_type,
     is_union_type,
+    parse,
     print_schema,
     validate_schema,
 )
@@ -41,6 +42,8 @@ from s2dm.exporters.utils.directive import (
     has_given_directive,
 )
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type
+from s2dm.exporters.utils.instance_tag import expand_instances_in_schema
+from s2dm.exporters.utils.naming import apply_naming_to_schema, load_naming_config
 
 SPEC_DIR_PATH = Path(__file__).parent.parent.parent / "spec"
 SPEC_FILES = [
@@ -132,6 +135,14 @@ def load_schema(graphql_schema_paths: Path | list[Path]) -> GraphQLSchema:
 
     schema_str = build_schema_str(graphql_schema_paths)
     return build_schema_with_query(schema_str)
+
+
+def load_schema_with_naming(schema_paths: list[Path], naming_config: dict[str, Any] | None = None) -> GraphQLSchema:
+    """Load schema and apply naming conversion."""
+    schema = load_schema(schema_paths)
+    if naming_config:
+        apply_naming_to_schema(schema, naming_config)
+    return schema
 
 
 def filter_schema(graphql_schema: GraphQLSchema, root_type: str) -> GraphQLSchema:
@@ -539,13 +550,16 @@ def _validate_schema(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSc
     return schema
 
 
-def prune_schema_using_query_selection(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSchema:
+def prune_schema_using_query_selection(
+    schema: GraphQLSchema, document: DocumentNode, include_instance_tag_fields: bool = False
+) -> GraphQLSchema:
     """
     Filter schema by pruning unselected fields and types based on query selections.
 
     Args:
         schema: The original GraphQL schema
         document: Parsed query document
+        include_instance_tag_fields: Whether to preserve instanceTag fields
 
     Returns:
         The modified schema with only the selected fields and types
@@ -574,6 +588,13 @@ def prune_schema_using_query_selection(schema: GraphQLSchema, document: Document
             fields_to_keep[type_name] = set()
 
         obj_type = cast(GraphQLObjectType | GraphQLInterfaceType, type_obj)
+
+        if include_instance_tag_fields and "instanceTag" in obj_type.fields:
+            fields_to_keep[type_name].add("instanceTag")
+            instance_tag_field = obj_type.fields["instanceTag"]
+            instance_tag_type = get_named_type(instance_tag_field.type)
+            if instance_tag_type:
+                types_to_keep.add(instance_tag_type.name)
 
         for selection in selection_set.selections:
             if hasattr(selection, "name"):
@@ -655,3 +676,42 @@ def prune_schema_using_query_selection(schema: GraphQLSchema, document: Document
     log.debug(f"Composed filtered schema with {len(fields_to_keep)} object types")
 
     return schema
+
+
+def load_and_process_schema(
+    schema_paths: list[Path],
+    naming_config_path: Path | None = None,
+    selection_query_path: Path | None = None,
+    root_type: str | None = None,
+    expanded_instances: bool = False,
+) -> tuple[GraphQLSchema, dict[str, Any] | None, DocumentNode | None]:
+    """Load schema with naming config and apply filtering based on selection query and root type.
+
+    Args:
+        schema_paths: List of paths to GraphQL schema files or directories
+        naming_config_path: Optional path to naming configuration YAML file
+        selection_query_path: Optional path to GraphQL query file for filtering
+        root_type: Optional root type name to filter the schema
+        expanded_instances: Whether to include instance tag fields when filtering by root type
+
+    Returns:
+        Tuple of (filtered GraphQL schema, naming config dict, selection query document)
+    """
+    schema = load_schema(schema_paths)
+
+    query_document = None
+    if selection_query_path:
+        query_document = parse(selection_query_path.read_text())
+        schema = prune_schema_using_query_selection(schema, query_document, expanded_instances)
+
+    if root_type:
+        schema = filter_schema(schema, root_type)
+
+    if expanded_instances:
+        schema = expand_instances_in_schema(schema)
+    
+    naming_config = load_naming_config(naming_config_path)
+    if naming_config:
+        apply_naming_to_schema(schema, naming_config)
+
+    return schema, naming_config, query_document
