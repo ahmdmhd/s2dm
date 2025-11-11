@@ -456,7 +456,7 @@ def jsonschema(
         schemas, naming_config, selection_query, root_type, expanded_instances
     )
 
-    result = translate_to_jsonschema(graphql_schema, root_type, strict, expanded_instances, naming_config_dict)
+    result = translate_to_jsonschema(graphql_schema, root_type, strict)
     _ = output.write_text(result)
 
 
