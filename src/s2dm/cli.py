@@ -16,7 +16,7 @@ from s2dm.exporters.jsonschema import translate_to_jsonschema
 from s2dm.exporters.protobuf import translate_to_protobuf
 from s2dm.exporters.shacl import translate_to_shacl
 from s2dm.exporters.spec_history import SpecHistoryExporter
-from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_types
+from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_types, get_root_level_types_from_query
 from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_introspection_type
 from s2dm.exporters.utils.schema import search_schema
 from s2dm.exporters.utils.schema_loader import (
@@ -497,9 +497,11 @@ def protobuf(
         schemas, naming_config, selection_query, root_type, expanded_instances
     )
 
-    result = translate_to_protobuf(
-        graphql_schema, query_document, root_type, flatten_naming, package_name, naming_config_dict, expanded_instances
-    )
+    flatten_root_types = None
+    if flatten_naming:
+        flatten_root_types = get_root_level_types_from_query(graphql_schema, query_document)
+
+    result = translate_to_protobuf(graphql_schema, query_document, package_name, flatten_root_types)
     _ = output.write_text(result)
 
 
