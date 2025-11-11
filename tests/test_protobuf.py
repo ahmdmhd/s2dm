@@ -6,6 +6,7 @@ import pytest
 from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, build_schema, parse
 
 from s2dm.exporters.protobuf import translate_to_protobuf
+from s2dm.exporters.utils.extraction import get_root_level_types_from_query
 from s2dm.exporters.utils.schema_loader import load_schema_with_naming, prune_schema_using_query_selection
 
 
@@ -34,7 +35,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { scalarType { stringField intField floatField boolField idField } }")
-        result = translate_to_protobuf(schema, root_type="ScalarType", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert 'syntax = "proto3";' in result
         assert re.search(
@@ -83,7 +84,7 @@ class TestProtobufExporter:
             "customScalarType { int8Field uint8Field int16Field uint16Field uint32Field int64Field uint64Field } "
             "}"
         )
-        result = translate_to_protobuf(schema, root_type="CustomScalarType", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message CustomScalarType \{.*?"
@@ -119,7 +120,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { door { lockStatus } }")
-        result = translate_to_protobuf(schema, root_type="Door", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message LockStatus \{.*?"
@@ -160,7 +161,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { features requiredFeatures model vin } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -193,7 +194,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { speed { average current } model } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Speed \{.*?"
@@ -272,7 +273,7 @@ class TestProtobufExporter:
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { speed { average { value timestamp } current } model } }")
         result = translate_to_protobuf(
-            schema, root_type="Vehicle", flatten_naming=True, selection_query=selection_query
+            schema, root_type="Vehicle", flatten_root_types=["Vehicle"], selection_query=selection_query
         )
 
         assert re.search(
@@ -322,7 +323,7 @@ class TestProtobufExporter:
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { id features { name enabled } } }")
         result = translate_to_protobuf(
-            schema, root_type="Vehicle", flatten_naming=True, selection_query=selection_query
+            schema, flatten_root_types=["Vehicle"], selection_query=selection_query
         )
 
         assert re.search(
@@ -385,7 +386,7 @@ class TestProtobufExporter:
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { model } }")
         result = translate_to_protobuf(
-            schema, root_type="Vehicle", package_name="package.name", selection_query=selection_query
+            schema, package_name="package.name", selection_query=selection_query
         )
 
         assert "package package.name;" in result
@@ -405,7 +406,7 @@ class TestProtobufExporter:
         '''
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { vin } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"// Represents a motor vehicle\s*\n\s*"
@@ -440,7 +441,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { testType { vehicle } }")
-        result = translate_to_protobuf(schema, root_type="TestType", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Car \{.*?" r'option \(message_source\) = "Car".*?;.*?' r"string brand = 1.*?;.*?" r"\}",
@@ -493,7 +494,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { electricVehicle { vin batteryCapacity } }")
-        result = translate_to_protobuf(schema, root_type="ElectricVehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?" r'option \(message_source\) = "Vehicle".*?;.*?' r"string vin = 1.*?;.*?" r"\}",
@@ -516,7 +517,7 @@ class TestProtobufExporter:
         graphql_schema = load_schema_with_naming(test_schema_path, None)
         selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
         result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", expanded_instances=False, selection_query=selection_query
+            graphql_schema, selection_query=selection_query
         )
 
         assert re.search(
@@ -641,7 +642,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { message enum service } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -675,7 +676,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { speed engineTemp sensors features wheels } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -711,7 +712,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { speed tags vin } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -732,10 +733,8 @@ class TestProtobufExporter:
         selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
         result = translate_to_protobuf(
             graphql_schema,
-            root_type="Cabin",
-            flatten_naming=True,
-            expanded_instances=False,
             selection_query=selection_query,
+            flatten_root_types=["Cabin"]
         )
 
         assert re.search(
@@ -758,10 +757,8 @@ class TestProtobufExporter:
         selection_query = parse("query Selection { vehicle { doors { isLocked } model year features } }")
         result = translate_to_protobuf(
             graphql_schema,
-            root_type="Vehicle",
-            flatten_naming=True,
-            expanded_instances=False,
             selection_query=selection_query,
+            flatten_root_types=["Vehicle"]
         )
 
         assert re.search(
@@ -829,331 +826,6 @@ class TestProtobufExporter:
             "SeatPositionEnum" not in result
         ), "SeatPositionEnum should not be included as it's not referenced by Vehicle"
 
-    def test_expanded_instances_default(self, test_schema_path: list[Path]) -> None:
-        """Test that instance tags are NOT expanded by default (treated as regular types)."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
-        result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", expanded_instances=False, selection_query=selection_query
-        )
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(message_source\) = "Cabin".*?;.*?'
-            r"repeated Seat seats = 1.*?;.*?"
-            r"repeated Door doors = 2.*?;.*?"
-            r"float temperature = 3.*?;.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with source option and repeated fields"
-
-        assert re.search(
-            r"message Seat \{.*?" r'option \(message_source\) = "Seat";', result, re.DOTALL
-        ), "Seat message with source option"
-
-        assert re.search(
-            r"message Door \{.*?" r'option \(message_source\) = "Door";', result, re.DOTALL
-        ), "Door message with source option"
-
-        assert "message Cabin_seats" not in result
-        assert "message Cabin_doors" not in result
-
-    def test_expanded_instances(self, test_schema_path: list[Path]) -> None:
-        """Test that instance tags are expanded into nested messages when enabled."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
-        result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", expanded_instances=True, selection_query=selection_query
-        )
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(message_source\) = "Cabin";.*?'
-            r"message Cabin_Seat \{.*?"
-            r"message Cabin_Seat_ROW1 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW2 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW3 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
-            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Door \{.*?"
-            r"message Cabin_Door_ROW1 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"message Cabin_Door_ROW2 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Seat Seat = 1;.*?"
-            r"Cabin_Door Door = 2;.*?"
-            r"optional float temperature = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with complete nested expanded instance structure"
-
-        assert re.search(
-            r"message Door \{.*?"
-            r'option \(message_source\) = "Door";.*?'
-            r"optional bool isLocked = 1;.*?"
-            r"optional int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Door message with fields"
-
-        assert re.search(
-            r"message Seat \{.*?"
-            r'option \(message_source\) = "Seat";.*?'
-            r"optional bool isOccupied = 1;.*?"
-            r"optional int32 height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Seat message with fields"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_expanded_instances_with_flatten_naming(self, test_schema_path: list[Path]) -> None:
-        """Test that expanded instances only expand in flatten mode when flag is set."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        selection_query = parse(
-            "query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }"
-        )
-        result = translate_to_protobuf(
-            graphql_schema,
-            root_type="Cabin",
-            flatten_naming=True,
-            expanded_instances=True,
-            selection_query=selection_query,
-        )
-
-        assert re.search(
-            r"message Selection \{.*?"
-            r'option \(message_source\) = "query: Selection";.*?'
-            r'optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW1_CENTER_isOccupied = 3 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW1_RIGHT_isOccupied = 5 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_LEFT_isOccupied = 7 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_CENTER_isOccupied = 9 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_RIGHT_isOccupied = 11 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_LEFT_isOccupied = 13 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_CENTER_isOccupied = 15 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_RIGHT_isOccupied = 17 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional float Cabin_temperature = 27 \[\(field_source\) = "Cabin", '
-            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Message with all flattened expanded instance fields with source options"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
-        """Test that naming config is applied to expanded instance field names in non-flatten mode."""
-        naming_config = {"field": {"object": "MACROCASE"}}
-        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
-        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
-        result = translate_to_protobuf(
-            graphql_schema,
-            root_type="Cabin",
-            expanded_instances=True,
-            naming_config=naming_config,
-            selection_query=selection_query,
-        )
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(message_source\) = "Cabin";.*?'
-            r"message Cabin_Seat \{.*?"
-            r"message Cabin_Seat_ROW1 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW2 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW3 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
-            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Door \{.*?"
-            r"message Cabin_Door_ROW1 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"message Cabin_Door_ROW2 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Seat SEAT = 1;.*?"
-            r"Cabin_Door DOOR = 2;.*?"
-            r"optional float TEMPERATURE = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with complete nested expanded instance structure and MACROCASE field names"
-
-        assert re.search(
-            r"message Door \{.*?"
-            r'option \(message_source\) = "Door";.*?'
-            r"optional bool IS_LOCKED = 1;.*?"
-            r"optional int32 POSITION = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Door message with MACROCASE fields"
-
-        assert re.search(
-            r"message Seat \{.*?"
-            r'option \(message_source\) = "Seat";.*?'
-            r"optional bool IS_OCCUPIED = 1;.*?"
-            r"optional int32 HEIGHT = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Seat message with MACROCASE fields"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_flatten_mode_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
-        """Test that naming config is applied to type name in flattened prefix with expanded instances."""
-        naming_config = {"field": {"object": "snake_case"}}
-        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
-        selection_query = parse(
-            "query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }"
-        )
-        result = translate_to_protobuf(
-            graphql_schema,
-            root_type="Cabin",
-            flatten_naming=True,
-            expanded_instances=True,
-            naming_config=naming_config,
-            selection_query=selection_query,
-        )
-
-        assert re.search(
-            r"message Selection \{.*?"
-            r'option \(message_source\) = "query: Selection";.*?'
-            r'optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW1_CENTER_is_occupied = 3 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW1_RIGHT_is_occupied = 5 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_LEFT_is_occupied = 7 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_CENTER_is_occupied = 9 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW2_RIGHT_is_occupied = 11 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_LEFT_is_occupied = 13 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_CENTER_is_occupied = 15 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_seats_ROW3_RIGHT_is_occupied = 17 \[\(field_source\) = "Seat"\];.*?'
-            r'optional int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(field_source\) = "Seat", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25 \[\(field_source\) = "Door"\];.*?'
-            r'optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 \[\(field_source\) = "Door", '
-            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'optional float Cabin_temperature = 27 \[\(field_source\) = "Cabin", '
-            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Message with all flattened expanded instance fields in snake_case"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
     def test_complete_proto_file(self) -> None:
         """Test that the complete Protobuf output includes syntax, imports, and source option definition."""
         schema_str = """
@@ -1176,7 +848,7 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { transmission { currentGear rpm } }")
-        result = translate_to_protobuf(schema, root_type="Transmission", selection_query=selection_query)
+        result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
             r'syntax = "proto3";.*?'
@@ -1254,9 +926,8 @@ class TestProtobufExporter:
         selection_query = parse(query_str)
         graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
 
-        result = translate_to_protobuf(
-            graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
-        )
+        flatten_root_types = get_root_level_types_from_query(graphql_schema, selection_query)
+        result = translate_to_protobuf(graphql_schema, flatten_root_types=flatten_root_types)
 
         assert re.search(
             r"message Selection \{.*?"
@@ -1357,7 +1028,7 @@ class TestProtobufExporter:
         graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
 
         result = translate_to_protobuf(
-            graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
+            graphql_schema, selection_query=selection_query, flatten_root_types=["Vehicle", "Cabin", "Door"]
         )
 
         assert re.search(
