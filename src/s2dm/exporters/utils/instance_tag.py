@@ -152,6 +152,8 @@ def is_expandable_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
     """
     Check if a field is expandable (is a list with a base type that has a valid instance tag field).
 
+    Note: Only list fields (field: [Type]) are expanded, not single object fields (field: Type).
+
     Args:
         field: The GraphQL field to check
         schema: The GraphQL schema to validate against
@@ -197,6 +199,7 @@ def _collect_expandable_fields(
 def _create_intermediate_types(
     base_type: GraphQLObjectType,
     instance_tag_dict: dict[str, list[str]],
+    list_item_nullable: bool,
 ) -> list[GraphQLObjectType]:
     """
     Create intermediate GraphQL types for instance expansion.
@@ -204,6 +207,7 @@ def _create_intermediate_types(
     Args:
         base_type: The base type (e.g., Door)
         instance_tag_dict: Dict of enum field names to their values
+        list_item_nullable: Whether the original list items were nullable
 
     Returns:
         List of intermediate types, with first intermediate type at the end
@@ -217,14 +221,19 @@ def _create_intermediate_types(
 
         intermediate_type_name = f"{base_type.name}_{enum_field_name.capitalize()}"
 
-        if i == len(enum_fields) - 1:
+        is_leaf_level = i == len(enum_fields) - 1
+        if is_leaf_level:
             target_type = base_type
         else:
             target_type = intermediate_types[-1]
 
         intermediate_fields = {}
         for enum_value in enum_values:
-            intermediate_fields[enum_value] = GraphQLField(target_type)
+            if is_leaf_level and list_item_nullable:
+                field_type = target_type
+            else:
+                field_type = GraphQLNonNull(target_type)
+            intermediate_fields[enum_value] = GraphQLField(field_type)
 
         intermediate_type = GraphQLObjectType(
             name=intermediate_type_name,
@@ -271,10 +280,15 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
 
         log.debug(f"Processing field '{field_name}' in type '{parent_type.name}' with base type '{base_type.name}'")
 
+        unwrapped_type = original_field.type
+        if is_non_null_type(unwrapped_type):
+            unwrapped_type = unwrapped_type.of_type
+        list_item_nullable = not is_non_null_type(unwrapped_type.of_type)
+
         instance_tag_object = cast(GraphQLObjectType, get_instance_tag_object(base_type, schema))
         instance_tag_dict = get_instance_tag_dict(instance_tag_object)
 
-        intermediate_types = _create_intermediate_types(base_type, instance_tag_dict)
+        intermediate_types = _create_intermediate_types(base_type, instance_tag_dict, list_item_nullable)
         first_intermediate_type = intermediate_types[-1]
 
         for intermediate_type in intermediate_types:
@@ -282,7 +296,7 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
 
         new_field_name = base_type.name
         new_field = GraphQLField(
-            type_=first_intermediate_type,
+            type_=GraphQLNonNull(first_intermediate_type),
             description=original_field.description,
         )
 
