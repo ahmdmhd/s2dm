@@ -6,6 +6,7 @@ import pytest
 from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, build_schema, parse
 
 from s2dm.exporters.protobuf import translate_to_protobuf
+from s2dm.exporters.utils.extraction import get_root_level_types_from_query
 from s2dm.exporters.utils.schema_loader import load_schema_with_naming, prune_schema_using_query_selection
 
 
@@ -29,7 +30,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="ScalarType")
+        result = translate_to_protobuf(schema)
 
         assert 'syntax = "proto3";' in result
         assert re.search(
@@ -69,7 +70,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="CustomScalarType")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message CustomScalarType \{.*?"
@@ -100,7 +101,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Door")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message LockStatus \{.*?"
@@ -136,7 +137,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -164,7 +165,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Speed \{.*?"
@@ -205,7 +206,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", flatten_naming=True)
+        result = translate_to_protobuf(schema, flatten_root_types=["Vehicle"])
 
         assert re.search(
             r"message Message \{.*?"
@@ -247,7 +248,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", flatten_naming=True)
+        result = translate_to_protobuf(schema, flatten_root_types=["Vehicle"])
 
         assert re.search(
             r"message Feature \{.*?"
@@ -303,7 +304,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", package_name="package.name")
+        result = translate_to_protobuf(schema, package_name="package.name")
 
         assert "package package.name;" in result
 
@@ -317,7 +318,7 @@ class TestProtobufExporter:
         }
         '''
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"// Represents a motor vehicle\s*\n\s*"
@@ -347,7 +348,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="TestType")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Car \{.*?" r'option \(source\) = "Car".*?;.*?' r"string brand = 1.*?;.*?" r"\}", result, re.DOTALL
@@ -390,7 +391,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="ElectricVehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Vehicle \{.*?" r'option \(source\) = "Vehicle".*?;.*?' r"string vin = 1.*?;.*?" r"\}",
@@ -411,7 +412,7 @@ class TestProtobufExporter:
     def test_include_instance_tag_types_without_expansion(self, test_schema_path: list[Path]) -> None:
         """Test that types with @instanceTag directive are included when expansion is disabled."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=False)
+        result = translate_to_protobuf(graphql_schema)
 
         assert re.search(
             r"message DoorPosition \{.*?"
@@ -530,7 +531,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -559,7 +560,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -590,7 +591,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -608,7 +609,7 @@ class TestProtobufExporter:
     def test_flatten_naming_without_expansion(self, test_schema_path: list[Path]) -> None:
         """Test that flatten mode WITHOUT -e flag keeps arrays as repeated."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=False)
+        result = translate_to_protobuf(graphql_schema, flatten_root_types=["Cabin"])
 
         assert re.search(
             r"message Message \{.*?"
@@ -626,9 +627,7 @@ class TestProtobufExporter:
     def test_flatten_naming_includes_referenced_types_transitively(self, test_schema_path: list[Path]) -> None:
         """Test that flatten mode includes types referenced by non-flattened types and their dependencies."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(
-            graphql_schema, root_type="Vehicle", flatten_naming=True, expanded_instances=False
-        )
+        result = translate_to_protobuf(graphql_schema, flatten_root_types=["Vehicle"])
 
         assert re.search(
             r"message Message \{.*?"
@@ -694,300 +693,6 @@ class TestProtobufExporter:
             "SeatPositionEnum" not in result
         ), "SeatPositionEnum should not be included as it's not referenced by Vehicle"
 
-    def test_expanded_instances_default(self, test_schema_path: list[Path]) -> None:
-        """Test that instance tags are NOT expanded by default (treated as regular types)."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=False)
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(source\) = "Cabin".*?;.*?'
-            r"repeated Seat seats = 1.*?;.*?"
-            r"repeated Door doors = 2.*?;.*?"
-            r"float temperature = 3.*?;.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with source option and repeated fields"
-
-        assert re.search(
-            r"message Seat \{.*?" r'option \(source\) = "Seat";', result, re.DOTALL
-        ), "Seat message with source option"
-
-        assert re.search(
-            r"message Door \{.*?" r'option \(source\) = "Door";', result, re.DOTALL
-        ), "Door message with source option"
-
-        assert "message Cabin_seats" not in result
-        assert "message Cabin_doors" not in result
-
-    def test_expanded_instances(self, test_schema_path: list[Path]) -> None:
-        """Test that instance tags are expanded into nested messages when enabled."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=True)
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(source\) = "Cabin";.*?'
-            r"message Cabin_Seat \{.*?"
-            r"message Cabin_Seat_ROW1 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW2 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW3 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
-            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Door \{.*?"
-            r"message Cabin_Door_ROW1 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"message Cabin_Door_ROW2 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Seat Seat = 1;.*?"
-            r"Cabin_Door Door = 2;.*?"
-            r"optional float temperature = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with complete nested expanded instance structure"
-
-        assert re.search(
-            r"message Door \{.*?"
-            r'option \(source\) = "Door";.*?'
-            r"optional bool isLocked = 1;.*?"
-            r"optional int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Door message with fields"
-
-        assert re.search(
-            r"message Seat \{.*?"
-            r'option \(source\) = "Seat";.*?'
-            r"optional bool isOccupied = 1;.*?"
-            r"optional int32 height = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Seat message with fields"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_expanded_instances_with_flatten_naming(self, test_schema_path: list[Path]) -> None:
-        """Test that expanded instances only expand in flatten mode when flag is set."""
-        graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True)
-
-        assert re.search(
-            r"message Message \{.*?"
-            r"optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
-            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_CENTER_isOccupied = 3;.*?"
-            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_RIGHT_isOccupied = 5;.*?"
-            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_LEFT_isOccupied = 7;.*?"
-            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_CENTER_isOccupied = 9;.*?"
-            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_RIGHT_isOccupied = 11;.*?"
-            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_LEFT_isOccupied = 13;.*?"
-            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_CENTER_isOccupied = 15;.*?"
-            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_RIGHT_isOccupied = 17;.*?"
-            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19;.*?"
-            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21;.*?"
-            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23;.*?"
-            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25;.*?"
-            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional float Cabin_temperature = 27 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Message with all flattened expanded instance fields"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
-        """Test that naming config is applied to expanded instance field names in non-flatten mode."""
-        naming_config = {"field": {"object": "MACROCASE"}}
-        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
-        result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", expanded_instances=True, naming_config=naming_config
-        )
-
-        assert re.search(
-            r"message Cabin \{.*?"
-            r'option \(source\) = "Cabin";.*?'
-            r"message Cabin_Seat \{.*?"
-            r"message Cabin_Seat_ROW1 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW2 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Seat_ROW3 \{.*?"
-            r"Seat LEFT = 1;.*?"
-            r"Seat CENTER = 2;.*?"
-            r"Seat RIGHT = 3;.*?"
-            r"\}.*?"
-            r"Cabin_Seat_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Seat_ROW2 ROW2 = 2;.*?"
-            r"Cabin_Seat_ROW3 ROW3 = 3;.*?"
-            r"\}.*?"
-            r"message Cabin_Door \{.*?"
-            r"message Cabin_Door_ROW1 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"message Cabin_Door_ROW2 \{.*?"
-            r"Door DRIVERSIDE = 1;.*?"
-            r"Door PASSENGERSIDE = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Door_ROW1 ROW1 = 1;.*?"
-            r"Cabin_Door_ROW2 ROW2 = 2;.*?"
-            r"\}.*?"
-            r"Cabin_Seat SEAT = 1;.*?"
-            r"Cabin_Door DOOR = 2;.*?"
-            r"optional float TEMPERATURE = 3 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Cabin message with complete nested expanded instance structure and MACROCASE field names"
-
-        assert re.search(
-            r"message Door \{.*?"
-            r'option \(source\) = "Door";.*?'
-            r"optional bool IS_LOCKED = 1;.*?"
-            r"optional int32 POSITION = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Door message with MACROCASE fields"
-
-        assert re.search(
-            r"message Seat \{.*?"
-            r'option \(source\) = "Seat";.*?'
-            r"optional bool IS_OCCUPIED = 1;.*?"
-            r"optional int32 HEIGHT = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Seat message with MACROCASE fields"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
-    def test_flatten_mode_expanded_instances_with_naming_config(self, test_schema_path: list[Path]) -> None:
-        """Test that naming config is applied to type name in flattened prefix with expanded instances."""
-        naming_config = {"field": {"object": "snake_case"}}
-        graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
-        result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True, naming_config=naming_config
-        )
-
-        assert re.search(
-            r"message Message \{.*?"
-            r"optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
-            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_CENTER_is_occupied = 3;.*?"
-            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_RIGHT_is_occupied = 5;.*?"
-            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_LEFT_is_occupied = 7;.*?"
-            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_CENTER_is_occupied = 9;.*?"
-            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_RIGHT_is_occupied = 11;.*?"
-            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_LEFT_is_occupied = 13;.*?"
-            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_CENTER_is_occupied = 15;.*?"
-            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_RIGHT_is_occupied = 17;.*?"
-            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19;.*?"
-            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21;.*?"
-            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23;.*?"
-            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25;.*?"
-            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional float Cabin_temperature = 27 "
-            r"\[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"\}",
-            result,
-            re.DOTALL,
-        ), "Message with all flattened expanded instance fields in snake_case"
-
-        assert "SeatRowEnum" not in result
-        assert "SeatPositionEnum" not in result
-        assert "RowEnum" not in result
-        assert "SideEnum" not in result
-
     def test_complete_proto_file(self) -> None:
         """Test that the complete Protobuf output includes syntax, imports, and source option definition."""
         schema_str = """
@@ -1005,7 +710,7 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Transmission")
+        result = translate_to_protobuf(schema)
 
         assert re.search(
             r'syntax = "proto3";.*?'
@@ -1083,9 +788,8 @@ class TestProtobufExporter:
         selection_query = parse(query_str)
         graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
 
-        result = translate_to_protobuf(
-            graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
-        )
+        flatten_root_types = get_root_level_types_from_query(graphql_schema, selection_query)
+        result = translate_to_protobuf(graphql_schema, flatten_root_types=flatten_root_types)
 
         assert re.search(
             r"message Message \{.*?"
