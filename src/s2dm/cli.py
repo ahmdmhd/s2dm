@@ -483,7 +483,7 @@ def jsonschema(
     )
     assert_correct_schema(graphql_schema)
 
-    result = translate_to_jsonschema(graphql_schema, root_type, strict, expanded_instances, naming_config_dict)
+    result = translate_to_jsonschema(graphql_schema, root_type, strict)
     _ = output.write_text(result)
 
 
