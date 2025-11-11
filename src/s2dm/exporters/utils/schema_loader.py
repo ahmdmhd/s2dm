@@ -709,7 +709,7 @@ def load_and_process_schema(
 
     if expanded_instances:
         schema = expand_instances_in_schema(schema)
-    
+
     naming_config = load_naming_config(naming_config_path)
     if naming_config:
         apply_naming_to_schema(schema, naming_config)

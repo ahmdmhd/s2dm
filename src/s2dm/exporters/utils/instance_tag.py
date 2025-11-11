@@ -116,7 +116,9 @@ def get_instance_tag_object(object_type: GraphQLObjectType, schema: GraphQLSchem
     if instance_tag_field_name in object_type.fields:
         field = object_type.fields[instance_tag_field_name]
         instance_tag_type = schema.get_type(get_named_type(field.type).name)
-        if isinstance(instance_tag_type, GraphQLObjectType): # and has_given_directive(instance_tag_type, instance_tag_field_name):
+        if isinstance(
+            instance_tag_type, GraphQLObjectType
+        ):  # and has_given_directive(instance_tag_type, instance_tag_field_name):
             return instance_tag_type
     return None
 
@@ -222,17 +224,13 @@ def _create_intermediate_types(
         intermediate_type_name = f"{base_type.name}_{enum_field_name.capitalize()}"
 
         is_leaf_level = i == len(enum_fields) - 1
-        if is_leaf_level:
-            target_type = base_type
-        else:
-            target_type = intermediate_types[-1]
+        target_type = base_type if is_leaf_level else intermediate_types[-1]
 
         intermediate_fields = {}
         for enum_value in enum_values:
-            if is_leaf_level and list_item_nullable:
-                field_type = target_type
-            else:
-                field_type = GraphQLNonNull(target_type)
+            field_type: GraphQLObjectType | GraphQLNonNull[GraphQLObjectType] = (
+                target_type if is_leaf_level and list_item_nullable else GraphQLNonNull(target_type)
+            )
             intermediate_fields[enum_value] = GraphQLField(field_type)
 
         intermediate_type = GraphQLObjectType(
