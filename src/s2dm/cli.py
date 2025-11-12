@@ -18,6 +18,7 @@ from s2dm.exporters.shacl import translate_to_shacl
 from s2dm.exporters.spec_history import SpecHistoryExporter
 from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_types, get_root_level_types_from_query
 from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_introspection_type
+from s2dm.exporters.utils.naming import load_naming_config
 from s2dm.exporters.utils.schema import search_schema
 from s2dm.exporters.utils.schema_loader import (
     create_tempfile_to_composed_schema,
@@ -299,8 +300,17 @@ def validate() -> None:
 @schema_option
 @selection_query_option()
 @root_type_option
+@naming_config_option
 @output_option
-def compose(schemas: list[Path], root_type: str | None, selection_query: Path | None, output: Path) -> None:
+@expanded_instances_option
+def compose(
+    schemas: list[Path],
+    root_type: str | None,
+    selection_query: Path | None,
+    naming_config: Path | None,
+    output: Path,
+    expanded_instances: bool,
+) -> None:
     """Compose GraphQL schema files into a single output file."""
     try:
         composed_schema_str = load_schema_as_str(schemas, add_references=True)
@@ -310,10 +320,14 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
         if selection_query:
             query_document = parse(selection_query.read_text())
 
+        naming_config_dict = load_naming_config(naming_config)
+
         graphql_schema = process_schema(
             schema=graphql_schema,
+            naming_config=naming_config_dict,
             query_document=query_document,
             root_type=root_type,
+            expanded_instances=expanded_instances,
         )
         composed_schema_str = print_schema_with_directives_preserved(graphql_schema)
 
@@ -343,6 +357,7 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
 @schema_option
 @selection_query_option()
 @output_option
+@root_type_option
 @naming_config_option
 @click.option(
     "--serialization-format",
@@ -384,19 +399,28 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
     help="The prefix for the data model",
     show_default=True,
 )
+@expanded_instances_option
 def shacl(
     schemas: list[Path],
     selection_query: Path | None,
     output: Path,
+    root_type: str | None,
     naming_config: Path | None,
     serialization_format: str,
     shapes_namespace: str,
     shapes_namespace_prefix: str,
     model_namespace: str,
     model_namespace_prefix: str,
+    expanded_instances: bool,
 ) -> None:
     """Generate SHACL shapes from a given GraphQL schema."""
-    graphql_schema, naming_config_dict, _ = load_and_process_schema(schemas, naming_config, selection_query)
+    graphql_schema, naming_config_dict, _ = load_and_process_schema(
+        schema_paths=schemas,
+        naming_config_path=naming_config,
+        selection_query_path=selection_query,
+        root_type=root_type,
+        expanded_instances=expanded_instances,
+    )
 
     result = translate_to_shacl(
         graphql_schema,
@@ -416,10 +440,25 @@ def shacl(
 @schema_option
 @selection_query_option()
 @output_option
+@root_type_option
 @naming_config_option
-def vspec(schemas: list[Path], selection_query: Path | None, output: Path, naming_config: Path | None) -> None:
+@expanded_instances_option
+def vspec(
+    schemas: list[Path],
+    selection_query: Path | None,
+    output: Path,
+    root_type: str | None,
+    naming_config: Path | None,
+    expanded_instances: bool,
+) -> None:
     """Generate VSPEC from a given GraphQL schema."""
-    graphql_schema, naming_config_dict, _ = load_and_process_schema(schemas, naming_config, selection_query)
+    graphql_schema, naming_config_dict, _ = load_and_process_schema(
+        schema_paths=schemas,
+        naming_config_path=naming_config,
+        selection_query_path=selection_query,
+        root_type=root_type,
+        expanded_instances=expanded_instances,
+    )
 
     result = translate_to_vspec(graphql_schema, naming_config_dict)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -452,8 +491,12 @@ def jsonschema(
     expanded_instances: bool,
 ) -> None:
     """Generate JSON Schema from a given GraphQL schema."""
-    graphql_schema, naming_config_dict, _ = load_and_process_schema(
-        schemas, naming_config, selection_query, root_type, expanded_instances
+    graphql_schema, _, _ = load_and_process_schema(
+        schema_paths=schemas,
+        naming_config_path=naming_config,
+        selection_query_path=selection_query,
+        root_type=root_type,
+        expanded_instances=expanded_instances,
     )
 
     result = translate_to_jsonschema(graphql_schema, root_type, strict)
@@ -494,7 +537,11 @@ def protobuf(
 ) -> None:
     """Generate Protocol Buffers (.proto) file from GraphQL schema."""
     graphql_schema, naming_config_dict, query_document = load_and_process_schema(
-        schemas, naming_config, selection_query, root_type, expanded_instances
+        schema_paths=schemas,
+        naming_config_path=naming_config,
+        selection_query_path=selection_query,
+        root_type=root_type,
+        expanded_instances=expanded_instances,
     )
 
     flatten_root_types = None
