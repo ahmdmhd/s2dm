@@ -98,7 +98,6 @@ def build_schema_str_with_optional_source_map(
             for type_name in type_names:
                 source_map[type_name] = graphql_file.name
 
-    # Read spec files
     spec_contents = []
     for spec_file in SPEC_FILES:
         content = spec_file.read_text()
@@ -250,26 +249,6 @@ def load_schema_as_str(graphql_schema_paths: list[Path], add_references: bool = 
     schema_str, source_map = build_schema_str_with_optional_source_map(graphql_schema_paths, add_references)
     schema = build_schema_with_query(schema_str)
     return print_schema_with_directives_preserved(schema, source_map)
-
-
-def load_schema_as_str_filtered(graphql_schema_paths: list[Path], root_type: str, add_references: bool = False) -> str:
-    """Load and build GraphQL schema filtered by root type, return as str.
-
-    Args:
-        graphql_schema_paths: List of paths to the GraphQL schema files or directories
-        root_type: Root type name to filter the schema
-        add_references: Whether to add @reference directives to types
-
-    Returns:
-        Filtered GraphQL schema as string
-
-    Raises:
-        ValueError: If root type is not found in schema
-    """
-    schema_str, source_map = build_schema_str_with_optional_source_map(graphql_schema_paths, add_references)
-    schema = build_schema_with_query(schema_str)
-    filtered_schema = filter_schema(schema, root_type)
-    return print_schema_with_directives_preserved(filtered_schema, source_map)
 
 
 def create_tempfile_to_composed_schema(graphql_schema_paths: list[Path]) -> Path:
@@ -678,6 +657,40 @@ def prune_schema_using_query_selection(
     return schema
 
 
+def process_schema(
+    schema: GraphQLSchema,
+    naming_config: dict[str, Any] | None = None,
+    query_document: DocumentNode | None = None,
+    root_type: str | None = None,
+    expanded_instances: bool = False,
+) -> GraphQLSchema:
+    """Apply transformations to a GraphQL schema.
+
+    Args:
+        schema: The GraphQL schema to process
+        naming_config: Optional naming configuration dict
+        query_document: Optional parsed GraphQL query document for filtering
+        root_type: Optional root type name to filter the schema
+        expanded_instances: Whether to expand instance tags into nested structures
+
+    Returns:
+        Processed GraphQL schema
+    """
+    if query_document:
+        schema = prune_schema_using_query_selection(schema, query_document, expanded_instances)
+
+    if root_type:
+        schema = filter_schema(schema, root_type)
+
+    if expanded_instances:
+        schema = expand_instances_in_schema(schema)
+
+    if naming_config:
+        apply_naming_to_schema(schema, naming_config)
+
+    return schema
+
+
 def load_and_process_schema(
     schema_paths: list[Path],
     naming_config_path: Path | None = None,
@@ -702,16 +715,9 @@ def load_and_process_schema(
     query_document = None
     if selection_query_path:
         query_document = parse(selection_query_path.read_text())
-        schema = prune_schema_using_query_selection(schema, query_document, expanded_instances)
-
-    if root_type:
-        schema = filter_schema(schema, root_type)
-
-    if expanded_instances:
-        schema = expand_instances_in_schema(schema)
 
     naming_config = load_naming_config(naming_config_path)
-    if naming_config:
-        apply_naming_to_schema(schema, naming_config)
+
+    schema = process_schema(schema, naming_config, query_document, root_type, expanded_instances)
 
     return schema, naming_config, query_document

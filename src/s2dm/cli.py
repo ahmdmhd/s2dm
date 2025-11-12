@@ -26,9 +26,8 @@ from s2dm.exporters.utils.schema_loader import (
     load_and_process_schema,
     load_schema,
     load_schema_as_str,
-    load_schema_as_str_filtered,
     print_schema_with_directives_preserved,
-    prune_schema_using_query_selection,
+    process_schema,
     resolve_graphql_files,
 )
 from s2dm.exporters.vspec import translate_to_vspec
@@ -327,18 +326,19 @@ def validate() -> None:
 def compose(schemas: list[Path], root_type: str | None, selection_query: Path | None, output: Path) -> None:
     """Compose GraphQL schema files into a single output file."""
     try:
-        if root_type:
-            composed_schema_str = load_schema_as_str_filtered(schemas, root_type, add_references=True)
-        else:
-            composed_schema_str = load_schema_as_str(schemas, add_references=True)
-
+        composed_schema_str = load_schema_as_str(schemas, add_references=True)
         graphql_schema = build_schema(composed_schema_str)
         assert_correct_schema(graphql_schema)
 
+        query_document = None
         if selection_query:
             query_document = parse(selection_query.read_text())
-            graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)
 
+        graphql_schema = process_schema(
+            schema=graphql_schema,
+            query_document=query_document,
+            root_type=root_type,
+        )
         composed_schema_str = print_schema_with_directives_preserved(graphql_schema)
 
         output.write_text(composed_schema_str)
