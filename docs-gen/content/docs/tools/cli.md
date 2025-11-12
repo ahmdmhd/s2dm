@@ -117,9 +117,11 @@ This exporter translates the given GraphQL schema to [Protocol Buffers](https://
 #### Key Features
 
 - **Complete GraphQL Type Support**: Handles all GraphQL types including scalars, objects, enums, unions, interfaces, and lists
+- **Selection Query (Required)**: Use the `--selection-query` flag to specify which types and fields to export via a GraphQL query
 - **Root Type Filtering**: Use the `--root-type` flag to export only a specific type and its dependencies
 - **Flatten Naming Mode**: Use the `--flatten-naming` flag to flatten nested structures into a single message with prefixed field names
 - **Expanded Instance Tags**: Use the `--expanded-instances` flag to transform instance tag arrays into nested message structures
+- **Field Nullability**: Properly handles nullable vs non-nullable fields from GraphQL schema
 - **Directive Support**: Converts S2DM directives like `@cardinality`, `@range`, and `@noDuplicates` to protovalidate constraints
 - **Package Name Support**: Use the `--package-name` flag to specify a protobuf package namespace
 
@@ -208,22 +210,55 @@ message Door {
 }
 ```
 
-#### Root Type Filtering
+#### Selection Query (Required)
 
-Use the `--root-type` flag to export only a specific type and its dependencies:
+The protobuf exporter requires a selection query to determine which types and fields to export:
 
 ```bash
-s2dm export protobuf --schema schema.graphql --output vehicle.proto --root-type Vehicle
+s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto
 ```
 
-This will include only the `Vehicle` type and all types transitively referenced by it.
+Given a query file `query.graphql` that matches the schema above:
+
+```graphql
+query Selection {
+  cabin {
+    doors {
+      isLocked
+      instanceTag {
+        row
+        side
+      }
+    }
+    temperature
+  }
+}
+```
+
+The exporter will include only the selected types and fields from the schema.
+
+#### Root Type Filtering
+
+Use the `--root-type` flag in combination with the selection query to further filter the export:
+
+```bash
+s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto --root-type Cabin
+```
+
+This will include only the `Cabin` type and all types transitively referenced by it from the selection query.
 
 #### Flatten Naming Mode
 
-Use the `--flatten-naming` flag to flatten nested object structures into a single message with prefixed field names:
+Use the `--flatten-naming` flag to flatten nested object structures into a single message with prefixed field names. This mode works with the selection query to flatten all root-level types selected in the query:
 
 ```bash
-s2dm export protobuf --schema schema.graphql --output vehicle.proto --root-type Vehicle --flatten-naming
+s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output vehicle.proto --flatten-naming
+```
+
+You can optionally combine it with `--root-type` to flatten only a specific root type:
+
+```bash
+s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output vehicle.proto --root-type Vehicle --flatten-naming
 ```
 
 **Example transformation:**
@@ -267,7 +302,7 @@ message Message {
 The `--expanded-instances` flag transforms instance tag objects into nested message structures instead of repeated fields. This provides compile-time type safety for accessing specific instances.
 
 ```bash
-s2dm export protobuf --schema schema.graphql --output cabin.proto --expanded-instances
+s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto --expanded-instances
 ```
 
 **Default behavior (without flag):**
@@ -473,6 +508,33 @@ GraphQL types are mapped to protobuf types as follows:
 - Inside the message, an `Enum` nested enum is created
 - An `UNSPECIFIED` value is added at position 0
 - References use the `.Enum` suffix (e.g., `LockStatus.Enum`)
+
+**Field Nullability:**
+
+GraphQL field nullability is preserved in protobuf using the `optional` keyword and protovalidate constraints:
+
+- **Nullable fields** (e.g., `name: String`) → `optional` proto3 fields
+- **Non-nullable fields** (e.g., `id: ID!`) → fields with `[(buf.validate.field).required = true]`
+
+Example:
+
+```graphql
+type User {
+  id: ID!              # Non-nullable
+  name: String         # Nullable
+}
+```
+
+Produces:
+
+```protobuf
+message User {
+  option (source) = "User";
+
+  string id = 1 [(buf.validate.field).required = true];
+  optional string name = 2;
+}
+```
 
 You can call the help for usage reference:
 
