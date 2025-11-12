@@ -102,6 +102,377 @@ s2dm compose -s schema.graphql --expanded-instances -o output.graphql
 
 ## Export Commands
 
+### JSON Schema
+
+This exporter translates the given GraphQL schema to [JSON Schema](https://json-schema.org/) format.
+
+#### Key Features
+
+- **Complete GraphQL Type Support**: Handles all GraphQL types including scalars, objects, enums, unions, interfaces, and lists
+- **Selection Query**: Use the `--selection-query` flag to specify which types and fields to export via a GraphQL query. See [Selection Query Filtering](#selection-query-filtering) for more details.
+- **Root Type Filtering**: Use the `--root-type` flag to export only a specific type and its dependencies
+- **Naming Configuration**: Use the `--naming-config` flag to transform type and field names during export. See [Naming Configuration](#naming-configuration) for more details.
+- **Expanded Instance Tags**: Use the `--expanded-instances` flag to transform instance tag arrays into nested object structures
+- **Strict Nullability Mode**: Use the `--strict` flag to enforce GraphQL nullability in JSON Schema validation
+- **Directive Support**: Converts S2DM directives like `@cardinality`, `@range`, and `@noDuplicates` to JSON Schema constraints
+- **Reference-based Output**: Uses JSON Schema `$ref` for type references, creating clean and maintainable schemas
+
+#### Example Transformation
+
+Consider the following GraphQL schema:
+
+```gql
+directive @instanceTag on OBJECT
+directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
+
+type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
+    id: ID!
+    door: Door!
+}
+
+type Door {
+    locked: Boolean!
+    instanceTag: InCabinArea2x3
+}
+
+enum TwoRowsInCabinEnum {
+    ROW1
+    ROW2
+}
+
+enum ThreeColumnsInCabinEnum {
+    DRIVERSIDE
+    MIDDLE
+    PASSENGERSIDE
+}
+
+type InCabinArea2x3 @instanceTag {
+    row: TwoRowsInCabinEnum
+    column: ThreeColumnsInCabinEnum
+}
+```
+
+The JSON Schema exporter with `--expanded-instances` produces:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Vehicle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "Door": {
+          "$ref": "#/$defs/Door_Row"
+        }
+      },
+      "type": "object",
+      "$comment": "Vehicle entity",
+      "x-metadata": {
+        "vssType": "branch"
+      },
+      "required": [
+        "id",
+        "Door"
+      ]
+    },
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "required": [
+        "locked"
+      ]
+    },
+    "Door_Row": {
+      "additionalProperties": false,
+      "properties": {
+        "ROW1": {
+          "$ref": "#/$defs/Door_Column"
+        },
+        "ROW2": {
+          "$ref": "#/$defs/Door_Column"
+        }
+      },
+      "type": "object"
+    },
+    "Door_Column": {
+      "additionalProperties": false,
+      "properties": {
+        "DRIVERSIDE": {
+          "$ref": "#/$defs/Door"
+        },
+        "MIDDLE": {
+          "$ref": "#/$defs/Door"
+        },
+        "PASSENGERSIDE": {
+          "$ref": "#/$defs/Door"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
+}
+```
+
+#### Root Type Filtering
+
+Use the `--root-type` flag to export only a specific type and its dependencies:
+
+```bash
+s2dm export jsonschema --schema schema.graphql --output vehicle.json --root-type Vehicle
+```
+
+This creates a JSON Schema that references the Vehicle type as the root:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle",
+  "$defs": {
+    "Vehicle": { ... },
+    "Engine": { ... },
+    "FuelType": { ... }
+  }
+}
+```
+
+#### Directive Support
+
+S2DM directives are converted to JSON Schema constraints:
+
+- `@cardinality(min: 1, max: 5)` → `"minItems": 1, "maxItems": 5`
+- `@range(min: 0.0, max: 100.0)` → `"minimum": 0.0, "maximum": 100.0`
+- `@noDuplicates` → `"uniqueItems": true`
+- `@metadata(comment: "Description", vssType: "branch")` → `"$comment": "Description", "x-metadata": {"vssType": "branch"}`
+- Custom directives → `"x-directiveName": true` or `"x-directiveName": {...}`
+
+#### Strict Nullability Mode
+
+The `--strict` flag enforces GraphQL field nullability in the resulting JSON Schema:
+
+```bash
+s2dm export jsonschema --schema schema.graphql --output schema.json --strict
+```
+
+##### Examples
+
+Given this GraphQL schema:
+
+```graphql
+type Vehicle {
+  id: ID!                    # Non-null
+  description: String        # Nullable
+  year: Int                  # Nullable
+  category: VehicleCategory  # Nullable enum
+  parts: [Part]              # Nullable list of nullable parts
+  doors: [Door!]!            # Non-null list of non-null doors
+  wheels: [Wheel]!           # Non-null list of nullable wheels
+}
+
+enum VehicleCategory {
+  CAR
+  TRUCK
+}
+```
+
+**Default mode** produces:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Vehicle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/VehicleCategory"
+        },
+        "doorsOptional": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        },
+        "doorsRequired": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        },
+        "doors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "doorsRequired",
+        "doors"
+      ]
+    },
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "id"
+      ]
+    },
+    "VehicleCategory": {
+      "type": "string",
+      "enum": [
+        "CAR",
+        "TRUCK"
+      ]
+    }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
+}
+```
+
+**Strict mode** produces:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Vehicle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "category": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/VehicleCategory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doorsOptional": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/Door"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doorsRequired": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Door"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "doors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Door"
+          }
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "doorsRequired",
+        "doors"
+      ]
+    },
+    "Door": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "id"
+      ]
+    },
+    "VehicleCategory": {
+      "type": "string",
+      "enum": [
+        "CAR",
+        "TRUCK"
+      ]
+    }
+  },
+  "title": "Vehicle",
+  "$ref": "#/$defs/Vehicle"
+}
+```
+
+##### Nullability Rules
+
+| GraphQL Type | Strict Mode JSON Schema |
+|-------------|------------------------|
+| `String` | `{"type": ["string", "null"]}` |
+| `String!` | `{"type": "string"}` |
+| `VehicleType` (enum) | `{"oneOf": [{"$ref": "#/$defs/VehicleType"}, {"type": "null"}]}` |
+| `VehicleType!` (enum) | `{"$ref": "#/$defs/VehicleType"}` |
+| `[String]` | Array and items both nullable |
+| `[String!]` | Array nullable, items non-null |
+| `[String]!` | Array non-null, items nullable |
+| `[String!]!` | Array and items both non-null |
+
+You can call the help for usage reference:
+
+```bash
+s2dm export jsonschema --help
+```
+
 ### Protocol Buffers (Protobuf)
 
 This exporter translates the given GraphQL schema to [Protocol Buffers](https://protobuf.dev/) (`.proto`) format.
@@ -749,6 +1120,7 @@ s2dm compose -s schema.graphql -o composed.graphql -r Vehicle
 ```
 
 The output will include:
+
 - The `Vehicle` type
 - All types transitively referenced by `Vehicle`
 - Enums used in fields of these types
