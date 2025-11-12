@@ -264,6 +264,7 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
     log.info(f"Found {len(expandable_fields)} expandable fields")
 
     base_types_to_clean: set[GraphQLObjectType] = set()
+    instance_tag_types_to_remove: set[str] = set()
     new_types: dict[str, GraphQLObjectType] = {}
 
     # TODO: Optimization - Cache expanded types to avoid creating duplicate intermediate types
@@ -285,6 +286,7 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
 
         instance_tag_object = cast(GraphQLObjectType, get_instance_tag_object(base_type, schema))
         instance_tag_dict = get_instance_tag_dict(instance_tag_object)
+        instance_tag_types_to_remove.add(instance_tag_object.name)
 
         intermediate_types = _create_intermediate_types(base_type, instance_tag_dict, list_item_nullable)
         first_intermediate_type = intermediate_types[-1]
@@ -308,6 +310,10 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
     for base_type in base_types_to_clean:
         del base_type.fields["instanceTag"]
         log.debug(f"Removed 'instanceTag' field from type '{base_type.name}'")
+
+    for instance_tag_type_name in instance_tag_types_to_remove:
+        del schema.type_map[instance_tag_type_name]
+        log.debug(f"Removed type '{instance_tag_type_name}' with @instanceTag directive from schema")
 
     for type_name, new_type in new_types.items():
         schema.type_map[type_name] = new_type
