@@ -148,6 +148,9 @@ class TestProtobufE2E:
         assert "RowEnum" in result
         assert "SideEnum" in result
 
+        assert not re.search(r"message DoorPosition \{", result), "DoorPosition type should be removed"
+        assert not re.search(r"message SeatPosition \{", result), "SeatPosition type should be removed"
+
     def test_expanded_instances_with_flatten_naming(self, test_schema_path: list[Path], tmp_path: Path) -> None:
         """Test that expanded instances only expand in flatten mode when flag is set."""
 
@@ -292,6 +295,9 @@ class TestProtobufE2E:
         assert "SeatPositionEnum" in result
         assert "RowEnum" in result
         assert "SideEnum" in result
+
+        assert not re.search(r"message DoorPosition \{", result), "DoorPosition type should be removed"
+        assert not re.search(r"message SeatPosition \{", result), "SeatPosition type should be removed"
 
     def test_flatten_mode_expanded_instances_with_naming_config(
         self, test_schema_path: list[Path], tmp_path: Path) -> None:
