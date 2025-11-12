@@ -19,6 +19,8 @@ s2dm compose -s <schema1> -s <schema2> -o <output_file>
 - `-s, --schema PATH`: GraphQL schema file or directory (required, can be specified multiple times)
 - `-r, --root-type TEXT`: Root type name for filtering the schema (optional)
 - `-q, --selection-query PATH`: GraphQL query file for filtering schema based on selected fields (optional)
+- `-n, --naming-config PATH`: YAML file with naming configuration for transforming type and field names (optional)
+- `-e, --expanded-instances`: Transform instance tag arrays into nested structures (optional)
 - `-o, --output FILE`: Output file path (required)
 
 ### Examples
@@ -38,48 +40,6 @@ Merge all `.graphql` files from multiple directories:
 ```bash
 s2dm compose -s ./schemas/vehicle -s ./schemas/person -o composed.graphql
 ```
-
-#### Filter by Root Type
-
-Compose only types reachable from a specific root type:
-
-```bash
-s2dm compose -s schema1.graphql -s schema2.graphql -o composed.graphql -r Vehicle
-```
-
-This will include only the `Vehicle` type and all types transitively referenced by it, filtering out unreferenced types like `Person` if they're not connected to `Vehicle`.
-
-#### Filter by Selection Query
-
-Compose only types and fields selected in a GraphQL query:
-
-```bash
-s2dm compose -s schema1.graphql -s schema2.graphql -q query.graphql -o composed.graphql
-```
-
-Given a query file `query.graphql`:
-
-```graphql
-query Selection {
-  vehicle(instance: "id") {
-    averageSpeed
-    adas {
-      abs {
-        isEngaged
-      }
-    }
-  }
-}
-```
-
-The composed schema will include:
-
-- Only the selected types: `vehicle`, `adas`, `abs`
-- Only the selected fields within each type
-- Types referenced by field arguments (e.g., enums used in field arguments)
-- Only directive definitions that are actually used in the filtered schema
-
-**Note:** The query must be valid against the composed schema. Root fields in the query (e.g., `vehicle`) must exist in the `Query` type of the schema.
 
 ### Reference Directives
 
@@ -107,6 +67,38 @@ type InCabinArea2x2 @instanceTag @reference(source: "S2DM Spec") {
 ```
 
 **Note:** If a type already has a `@reference` directive in the source schema, it will be preserved and not overwritten.
+
+#### Filter by Root Type
+
+See [Root Type Filtering](#root-type-filtering) for details.
+
+```bash
+s2dm compose -s schema.graphql --root-type Vehicle -o filtered.graphql
+```
+
+#### Filter by Selection Query
+
+See [Selection Query Filtering](#selection-query-filtering) for details.
+
+```bash
+s2dm compose -s schema.graphql -q query.graphql -o filtered.graphql
+```
+
+#### With Naming Configuration
+
+See [Naming Configuration](#naming-configuration) for details.
+
+```bash
+s2dm compose -s schema.graphql -n naming.yaml -o output.graphql
+```
+
+#### With Expanded Instances
+
+See [Expanded Instances](#expanded-instances) for details.
+
+```bash
+s2dm compose -s schema.graphql --expanded-instances -o output.graphql
+```
 
 ## Export Commands
 
@@ -251,17 +243,11 @@ The protobuf exporter requires a selection query to determine which types and fi
 s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto
 ```
 
-Given a query file `query.graphql` (presented above), the exporter will include only the selected types and fields from the schema.
+See the [Selection Query Filtering](#selection-query-filtering) section for details on how selection queries work.
 
 #### Root Type Filtering
 
-Use the `--root-type` flag in combination with the selection query to further filter the export:
-
-```bash
-s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto --root-type Cabin
-```
-
-This will include only the `Cabin` type and all types transitively referenced by it from the selection query.
+The `--root-type` flag can be used to further filter the export. See the [Root Type Filtering](#root-type-filtering) section for details.
 
 #### Flatten Naming Mode
 
@@ -430,8 +416,8 @@ message SideEnum {
 message Door {
   option (source) = "Door";
 
-  bool isLocked = 1;
-  DoorPosition instanceTag = 2;
+  optional bool isLocked = 1;
+  optional DoorPosition instanceTag = 2;
 }
 
 
@@ -445,8 +431,8 @@ message Cabin {
 message DoorPosition {
   option (source) = "DoorPosition";
 
-  RowEnum.Enum row = 1;
-  SideEnum.Enum side = 2;
+  optional RowEnum.Enum row = 1;
+  optional SideEnum.Enum side = 2;
 }
 
 message Selection {
@@ -470,32 +456,50 @@ extend google.protobuf.MessageOptions {
   string source = 50001;
 }
 
+message RowEnum {
+  option (source) = "RowEnum";
+
+  enum Enum {
+    ROWENUM_UNSPECIFIED = 0;
+    ROW1 = 1;
+    ROW2 = 2;
+  }
+}
+
+message SideEnum {
+  option (source) = "SideEnum";
+
+  enum Enum {
+    SIDEENUM_UNSPECIFIED = 0;
+    DRIVERSIDE = 1;
+    PASSENGERSIDE = 2;
+  }
+}
+
 message Door {
   option (source) = "Door";
 
-  bool isLocked = 1;
+  optional bool isLocked = 1;
 }
-
 
 message Cabin {
   option (source) = "Cabin";
 
-  message Cabin_Door {
-    message Cabin_Door_ROW1 {
-      Door DRIVERSIDE = 1;
-      Door PASSENGERSIDE = 2;
-    }
+  Door_Row Door = 1 [(buf.validate.field).required = true];
+}
 
-    message Cabin_Door_ROW2 {
-      Door DRIVERSIDE = 1;
-      Door PASSENGERSIDE = 2;
-    }
+message Door_Side {
+  option (source) = "Door_Side";
 
-    Cabin_Door_ROW1 ROW1 = 1;
-    Cabin_Door_ROW2 ROW2 = 2;
-  }
+  optional Door DRIVERSIDE = 1;
+  optional Door PASSENGERSIDE = 2;
+}
 
-  Cabin_Door Door = 1;
+message Door_Row {
+  option (source) = "Door_Row";
+
+  Door_Side ROW1 = 1 [(buf.validate.field).required = true];
+  Door_Side ROW2 = 2 [(buf.validate.field).required = true];
 }
 
 message Selection {
@@ -507,11 +511,12 @@ message Selection {
 
 **Key differences:**
 
-- Instance tag enums (`RowEnum`, `SideEnum`) are excluded from the output when using expanded instances
+- Instance tag enums (`RowEnum`, `SideEnum`) remain in the output
 - Types with `@instanceTag` directive (`DoorPosition`) are excluded from the output
 - The `instanceTag` field is excluded from the Door message
-- Nested messages are created inside the parent message
-- Field names use the GraphQL type name (`Door` not `doors`)
+- Intermediate types (`Door_Row`, `Door_Side`) are created as top-level messages
+- Field names use the type name (`Door` not `doors`)
+- The field becomes required and non-repeated
 
 #### Directive Support
 
@@ -675,14 +680,100 @@ Field number changes break compatibility if you have:
 - **Message queues**: Messages enqueued before regeneration will fail to deserialize correctly
 - **Archived data**: Historical protobuf-encoded logs or backups become unreadable
 
+## Common Features
+
+### Selection Query Filtering
+
+All export commands (except for protobuf where it's required) and the compose command support the `--selection-query` flag to filter the schema based on a GraphQL query.
+
+#### Usage
+
+```bash
+s2dm export <format> --selection-query query.graphql ...
+```
+
+Or with the compose command:
+
+```bash
+s2dm compose --selection-query query.graphql ...
+```
+
+#### Behavior
+
+Given a query file `query.graphql`:
+
+```graphql
+query Selection {
+  vehicle(instance: "id") {
+    averageSpeed
+    adas {
+      abs {
+        isEngaged
+      }
+    }
+  }
+}
+```
+
+The filtered schema will include:
+
+- Only the selected types: `vehicle`, `adas`, `abs`
+- Only the selected fields within each type
+- Types referenced by field arguments (e.g., enums used in field arguments)
+- Only directive definitions that are actually used in the filtered schema
+
+**Note:** The query must be valid against the schema. Root fields in the query (e.g., `vehicle`) must exist in the `Query` type of the schema.
+
+### Root Type Filtering
+
+All export commands and the compose command support the `--root-type` flag to filter the schema to only a specific type and its transitive dependencies.
+
+#### Usage
+
+```bash
+s2dm export <format> --root-type Vehicle ...
+```
+
+Or with the compose command:
+
+```bash
+s2dm compose --root-type Vehicle ...
+```
+
+#### Behavior
+
+When you specify a root type:
+
+```bash
+s2dm compose -s schema.graphql -o composed.graphql -r Vehicle
+```
+
+The output will include:
+- The `Vehicle` type
+- All types transitively referenced by `Vehicle`
+- Enums used in fields of these types
+- Scalar types used in fields
+
+> Types not connected to `Vehicle` will be filtered out.
+
+**Combining with Selection Query:**
+
+When used with `--selection-query`, root type filtering is applied after the selection query filtering, further narrowing the results to only types reachable from the specified root type.
+
 ### Naming Configuration
 
-All export commands support a global naming configuration feature that allows you to transform element names during the export process using the `[--naming-config | -n]` flag.
+All export commands and the compose command support a naming configuration feature that allows you to transform element names using the `--naming-config` flag.
 
 Apply naming configuration to any export command:
 
 ```bash
-s2dm export [--naming-config | -n] naming.yaml ...
+s2dm export <format> --naming-config naming.yaml ...
+```
+
+Or to the compose command:
+
+```bash
+s2dm compose --naming-config naming.yaml ...
 ```
 
 #### Configuration Format
@@ -796,4 +887,97 @@ The naming configuration system enforces several validation rules to ensure cons
 
 - Built-in GraphQL types (`String`, `Int`, `Float`, `Boolean`, `ID`, `Query`, `Mutation`, `Subscription`) are never transformed
 - If a configuration is not provided for an element type, the original names are preserved
-- Configuration is loaded once at the command level and applied consistently across the entire export process
+- Configuration is loaded once at the command level and applied consistently across the entire export or composition process
+
+### Expanded Instances
+
+All export commands and the compose command support the `--expanded-instances` flag that transforms instance tag arrays into nested structures.
+
+#### Usage
+
+```bash
+s2dm export <format> --expanded-instances ...
+```
+
+Or with the compose command:
+
+```bash
+s2dm compose --expanded-instances ...
+```
+
+#### Transformation Behavior
+
+Given a schema with instance tags:
+
+```graphql
+type Cabin {
+  doors: [Door]
+}
+
+type Door {
+  isLocked: Boolean
+  instanceTag: DoorPosition
+}
+
+type DoorPosition @instanceTag {
+  row: RowEnum
+  side: SideEnum
+}
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum SideEnum {
+  DRIVERSIDE
+  PASSENGERSIDE
+}
+```
+
+**Without `--expanded-instances` (default):**
+
+The schema structure remains as-is with list fields and instanceTag preserved.
+
+**With `--expanded-instances`:**
+
+The schema is transformed to use nested intermediate types:
+
+```graphql
+type Cabin {
+  Door: Door_Row
+}
+
+type Door_Row {
+  ROW1: Door_Side
+  ROW2: Door_Side
+}
+
+type Door_Side {
+  DRIVERSIDE: Door
+  PASSENGERSIDE: Door
+}
+
+type Door {
+  isLocked: Boolean
+}
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum SideEnum {
+  DRIVERSIDE
+  PASSENGERSIDE
+}
+```
+
+#### Key Changes
+
+- **Field names**: Plural list fields (`doors`) are renamed to singular (`Door`)
+- **Field types**: List types (`[Door]`) become intermediate types (`Door_Row`)
+- **Intermediate types**: New types are created representing the cartesian product of instance tag enums (`Door_Row`, `Door_Side`)
+- **Instance tag removal**: The `instanceTag` field is removed from the base type (`Door`)
+- **Type removal**: Types with `@instanceTag` directive (`DoorPosition`) are removed from the schema
+- **Enum preservation**: Instance tag enums (`RowEnum`, `SideEnum`) remain in the schema
