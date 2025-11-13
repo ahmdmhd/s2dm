@@ -443,7 +443,7 @@ def shacl(
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=expanded_instances,
+        expanded_instances=False,
     )
     assert_correct_schema(graphql_schema)
 
@@ -482,7 +482,7 @@ def vspec(
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=expanded_instances,
+        expanded_instances=False,
     )
     assert_correct_schema(graphql_schema)
 
