@@ -419,7 +419,7 @@ def shacl(
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=expanded_instances,
+        expanded_instances=False,
     )
 
     result = translate_to_shacl(
@@ -457,7 +457,7 @@ def vspec(
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=expanded_instances,
+        expanded_instances=False,
     )
 
     result = translate_to_vspec(graphql_schema, naming_config_dict)
