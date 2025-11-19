@@ -35,6 +35,11 @@ from graphql import validate as graphql_validate
 from graphql.language.ast import DirectiveNode, EnumValueNode, SelectionSetNode
 
 from s2dm import log
+from s2dm.exporters.utils.annotated_schema import (
+    AnnotatedSchema,
+    FieldMetadata,
+    TypeMetadata,
+)
 from s2dm.exporters.utils.directive import (
     GRAPHQL_TYPE_DEFINITION_PATTERN,
     add_directives_to_schema,
@@ -43,7 +48,12 @@ from s2dm.exporters.utils.directive import (
 )
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type
 from s2dm.exporters.utils.instance_tag import expand_instances_in_schema
-from s2dm.exporters.utils.naming import apply_naming_to_schema, load_naming_config
+from s2dm.exporters.utils.naming import (
+    apply_naming_to_schema,
+    convert_name,
+    get_target_case_for_element,
+    load_naming_config,
+)
 
 SPEC_DIR_PATH = Path(__file__).parent.parent.parent / "spec"
 SPEC_FILES = [
@@ -83,12 +93,14 @@ def resolve_graphql_files(paths: list[Path]) -> list[Path]:
 
 
 def build_schema_str_with_optional_source_map(
-    graphql_schema_paths: list[Path], with_source_map: bool
+    graphql_schema_paths: list[Path], with_source_map: bool, naming_config: dict[str, Any] | None = None
 ) -> tuple[str, dict[str, str]]:
     """Build a GraphQL schema from a file or folder, returning also a source map."""
     schema_str = ""
     source_map: dict[str, str] = {}
     S2DM_SPEC_SOURCE = "S2DM Spec"
+
+    type_case = get_target_case_for_element("type", "object", naming_config) if naming_config else None
 
     for graphql_file in graphql_schema_paths:
         content = load_schema_from_path(graphql_file)
@@ -96,7 +108,8 @@ def build_schema_str_with_optional_source_map(
         if with_source_map:
             type_names = _extract_type_names_from_content(content)
             for type_name in type_names:
-                source_map[type_name] = graphql_file.name
+                transformed_name = convert_name(type_name, type_case) if type_case else type_name
+                source_map[transformed_name] = graphql_file.name
 
     spec_contents = []
     for spec_file in SPEC_FILES:
@@ -105,7 +118,8 @@ def build_schema_str_with_optional_source_map(
         if with_source_map:
             type_names = _extract_type_names_from_content(content)
             for type_name in type_names:
-                source_map[type_name] = S2DM_SPEC_SOURCE
+                transformed_name = convert_name(type_name, type_case) if type_case else type_name
+                source_map[transformed_name] = S2DM_SPEC_SOURCE
 
     schema_str = "\n".join(spec_contents) + "\n" + schema_str
 
@@ -134,6 +148,17 @@ def load_schema(graphql_schema_paths: Path | list[Path]) -> GraphQLSchema:
 
     schema_str = build_schema_str(graphql_schema_paths)
     return build_schema_with_query(schema_str)
+
+
+def load_schema_with_source_map(
+    graphql_schema_paths: list[Path], naming_config: dict[str, Any] | None = None
+) -> tuple[GraphQLSchema, dict[str, str]]:
+    """Load and build a GraphQL schema from files or folders, returning schema and source map."""
+    schema_str, source_map = build_schema_str_with_optional_source_map(
+        graphql_schema_paths, with_source_map=True, naming_config=naming_config
+    )
+    schema = build_schema_with_query(schema_str)
+    return schema, source_map
 
 
 def load_schema_with_naming(schema_paths: list[Path], naming_config: dict[str, Any] | None = None) -> GraphQLSchema:
@@ -657,24 +682,67 @@ def prune_schema_using_query_selection(
     return schema
 
 
+def build_annotated_schema(
+    schema: GraphQLSchema,
+    source_map: dict[str, str],
+    expansion_type_meta: dict[str, TypeMetadata],
+    expansion_field_meta: dict[tuple[str, str], FieldMetadata],
+) -> AnnotatedSchema:
+    """Build an annotated schema by combining source map and expansion metadata."""
+    source_type_metadata = {
+        name: TypeMetadata(source=source_map[name], is_intermediate_type=False)
+        for name in schema.type_map
+        if name in source_map and name not in expansion_type_meta
+    }
+
+    type_metadata = {**source_type_metadata, **expansion_type_meta}
+
+    non_expanded_field_metadata = {}
+    for type_name, type_obj in schema.type_map.items():
+        if is_introspection_or_root_type(type_name):
+            continue
+
+        if not is_object_type(type_obj) and not is_interface_type(type_obj):
+            continue
+
+        obj_type = cast(GraphQLObjectType | GraphQLInterfaceType, type_obj)
+        for field_name, field in obj_type.fields.items():
+            if (type_name, field_name) in expansion_field_meta:
+                continue
+
+            field_type = get_named_type(field.type)
+            non_expanded_field_metadata[(type_name, field_name)] = FieldMetadata(
+                resolved_names=[field_name],
+                resolved_type=field_type.name,
+                is_expanded=False,
+                instances=[],
+            )
+
+    field_metadata = {**non_expanded_field_metadata, **expansion_field_meta}
+
+    return AnnotatedSchema(schema=schema, type_metadata=type_metadata, field_metadata=field_metadata)
+
+
 def process_schema(
     schema: GraphQLSchema,
+    source_map: dict[str, str],
     naming_config: dict[str, Any] | None = None,
     query_document: DocumentNode | None = None,
     root_type: str | None = None,
     expanded_instances: bool = False,
-) -> GraphQLSchema:
+) -> AnnotatedSchema:
     """Apply transformations to a GraphQL schema.
 
     Args:
         schema: The GraphQL schema to process
+        source_map: Mapping of type names to their source files
         naming_config: Optional naming configuration dict
         query_document: Optional parsed GraphQL query document for filtering
         root_type: Optional root type name to filter the schema
         expanded_instances: Whether to expand instance tags into nested structures
 
     Returns:
-        Processed GraphQL schema
+        Annotated schema with metadata
     """
     if query_document:
         schema = prune_schema_using_query_selection(schema, query_document, expanded_instances)
@@ -682,13 +750,16 @@ def process_schema(
     if root_type:
         schema = filter_schema(schema, root_type)
 
-    if expanded_instances:
-        schema = expand_instances_in_schema(schema)
-
     if naming_config:
         apply_naming_to_schema(schema, naming_config)
 
-    return schema
+    expansion_type_meta: dict[str, TypeMetadata] = {}
+    expansion_field_meta: dict[tuple[str, str], FieldMetadata] = {}
+
+    if expanded_instances:
+        schema, expansion_type_meta, expansion_field_meta = expand_instances_in_schema(schema, naming_config)
+
+    return build_annotated_schema(schema, source_map, expansion_type_meta, expansion_field_meta)
 
 
 def load_and_process_schema(
@@ -697,7 +768,7 @@ def load_and_process_schema(
     selection_query_path: Path | None = None,
     root_type: str | None = None,
     expanded_instances: bool = False,
-) -> tuple[GraphQLSchema, dict[str, Any] | None, DocumentNode | None]:
+) -> tuple[AnnotatedSchema, dict[str, Any] | None, DocumentNode | None]:
     """Load schema with naming config and apply filtering based on selection query and root type.
 
     Args:
@@ -708,16 +779,16 @@ def load_and_process_schema(
         expanded_instances: Whether to include instance tag fields when filtering by root type
 
     Returns:
-        Tuple of (filtered GraphQL schema, naming config dict, selection query document)
+        Tuple of (annotated schema, naming config dict, selection query document)
     """
-    schema = load_schema(schema_paths)
+    naming_config = load_naming_config(naming_config_path)
+
+    schema, source_map = load_schema_with_source_map(schema_paths, naming_config)
 
     query_document = None
     if selection_query_path:
         query_document = parse(selection_query_path.read_text())
 
-    naming_config = load_naming_config(naming_config_path)
+    annotated_schema = process_schema(schema, source_map, naming_config, query_document, root_type, expanded_instances)
 
-    schema = process_schema(schema, naming_config, query_document, root_type, expanded_instances)
-
-    return schema, naming_config, query_document
+    return annotated_schema, naming_config, query_document

@@ -13,9 +13,10 @@ from graphql import (
 )
 
 from s2dm import log
+from s2dm.exporters.utils.annotated_schema import FieldMetadata, TypeMetadata
 from s2dm.exporters.utils.directive import has_given_directive
 from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
-from s2dm.exporters.utils.naming import apply_naming_to_instance_values
+from s2dm.exporters.utils.naming import apply_naming_to_instance_values, convert_name, get_target_case_for_element
 
 
 def is_instance_tag_field(field_name: str) -> bool:
@@ -152,9 +153,9 @@ def get_instance_tag_dict(
 
 def is_expandable_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
     """
-    Check if a field is expandable (is a list with a base type that has a valid instance tag field).
+    Check if a field is expandable (has a base type with instanceTag).
 
-    Note: Only list fields (field: [Type]) are expanded, not single object fields (field: Type).
+    Expandable fields can be either list fields or single object fields.
 
     Args:
         field: The GraphQL field to check
@@ -163,14 +164,9 @@ def is_expandable_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
     Returns:
         True if the field is expandable, False otherwise
     """
-    field_type = field.type
-    if is_non_null_type(field_type):
-        field_type = cast(GraphQLNonNull[Any], field_type).of_type
-
-    if is_list_type(field_type):
-        base_type = get_named_type(field.type)
-        if isinstance(base_type, GraphQLObjectType):
-            return has_valid_instance_tag_field(base_type, schema)
+    base_type = get_named_type(field.type)
+    if isinstance(base_type, GraphQLObjectType):
+        return has_valid_instance_tag_field(base_type, schema)
 
     return False
 
@@ -244,7 +240,10 @@ def _create_intermediate_types(
     return intermediate_types
 
 
-def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
+def expand_instances_in_schema(
+    schema: GraphQLSchema,
+    naming_config: dict[str, Any] | None = None,
+) -> tuple[GraphQLSchema, dict[str, "TypeMetadata"], dict[tuple[str, str], "FieldMetadata"]]:
     """
     Expand instance-tagged fields in a GraphQL schema into nested object structures.
 
@@ -254,9 +253,10 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
 
     Args:
         schema: The GraphQL schema to modify
+        naming_config: Optional naming configuration for transforming type and field names
 
     Returns:
-        The modified GraphQL schema with expanded instances
+        Tuple of (modified schema, type metadata dict, field metadata dict)
     """
     log.info("Starting instance expansion in schema")
 
@@ -266,6 +266,8 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
     base_types_to_clean: set[GraphQLObjectType] = set()
     instance_tag_types_to_remove: set[str] = set()
     new_types: dict[str, GraphQLObjectType] = {}
+    type_metadata: dict[str, TypeMetadata] = {}
+    field_metadata: dict[tuple[str, str], FieldMetadata] = {}
 
     # TODO: Optimization - Cache expanded types to avoid creating duplicate intermediate types
     # When multiple fields reference the same base type (e.g., Cabin.doors and Vehicle.doors both reference [Door]),
@@ -282,7 +284,9 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
         unwrapped_type = original_field.type
         if is_non_null_type(unwrapped_type):
             unwrapped_type = unwrapped_type.of_type
-        list_item_nullable = not is_non_null_type(unwrapped_type.of_type)
+
+        target_type = unwrapped_type.of_type if is_list_type(unwrapped_type) else unwrapped_type
+        list_item_nullable = not is_non_null_type(target_type)
 
         instance_tag_object = cast(GraphQLObjectType, get_instance_tag_object(base_type, schema))
         instance_tag_dict = get_instance_tag_dict(instance_tag_object)
@@ -291,13 +295,31 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
         intermediate_types = _create_intermediate_types(base_type, instance_tag_dict, list_item_nullable)
         first_intermediate_type = intermediate_types[-1]
 
-        for intermediate_type in intermediate_types:
-            new_types[intermediate_type.name] = intermediate_type
+        type_case = get_target_case_for_element("type", "object", naming_config) if naming_config else None
+        field_case = get_target_case_for_element("field", "object", naming_config) if naming_config else None
 
-        new_field_name = base_type.name
+        for intermediate_type in intermediate_types:
+            type_name = convert_name(intermediate_type.name, type_case) if type_case else intermediate_type.name
+            intermediate_type.name = type_name
+            new_types[type_name] = intermediate_type
+            type_metadata[type_name] = TypeMetadata(source=None, is_intermediate_type=True)
+
+        new_field_name = convert_name(base_type.name, field_case) if field_case else base_type.name
+
+        resolved_names = [
+            f"{new_field_name}.{'.'.join(instance_product)}"
+            for instance_product in product(*instance_tag_dict.values())
+        ]
+
+        instances = list(instance_tag_dict.values())
+
         new_field = GraphQLField(
             type_=GraphQLNonNull(first_intermediate_type),
             description=original_field.description,
+        )
+
+        field_metadata[(parent_type.name, new_field_name)] = FieldMetadata(
+            resolved_names=resolved_names, resolved_type=base_type.name, is_expanded=True, instances=instances
         )
 
         del parent_type.fields[field_name]
@@ -315,9 +337,15 @@ def expand_instances_in_schema(schema: GraphQLSchema) -> GraphQLSchema:
         del schema.type_map[instance_tag_type_name]
         log.debug(f"Removed type '{instance_tag_type_name}' with @instanceTag directive from schema")
 
+    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), "instanceTag")
+    for instance_tag_type in all_instance_tag_types:
+        if instance_tag_type.name in schema.type_map:
+            del schema.type_map[instance_tag_type.name]
+            log.debug(f"Removed unreferenced type '{instance_tag_type.name}' with @instanceTag directive from schema")
+
     for type_name, new_type in new_types.items():
         schema.type_map[type_name] = new_type
 
     log.info(f"Instance expansion complete. Created {len(new_types)} intermediate types")
 
-    return schema
+    return schema, type_metadata, field_metadata

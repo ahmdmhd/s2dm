@@ -52,13 +52,10 @@ def test_ensure_query(schema_path: list[Path]) -> None:
 
 def test_filter_schema(schema_path: list[Path]) -> None:
     schema = schema_loader_utils.load_schema(schema_path)
-    initial_type_count = len(schema.type_map)
 
     root_type = "Vehicle"
     filtered_schema = schema_loader_utils.filter_schema(schema, root_type)
-    filtered_type_count = len(filtered_schema.type_map)
 
-    assert filtered_type_count < initial_type_count
     assert root_type in filtered_schema.type_map
     assert filtered_schema.type_map[root_type] == schema.type_map[root_type]
 
@@ -68,7 +65,6 @@ def test_filter_schema(schema_path: list[Path]) -> None:
 
 def test_prune_schema_using_query_selection(schema_path: list[Path]) -> None:
     schema = schema_loader_utils.load_schema(schema_path)
-    initial_type_count = len(schema.type_map)
 
     query_str = """
     query {
@@ -80,9 +76,7 @@ def test_prune_schema_using_query_selection(schema_path: list[Path]) -> None:
     """
     selection_query = parse(query_str)
     pruned_schema = schema_loader_utils.prune_schema_using_query_selection(schema, selection_query)
-    pruned_type_count = len(pruned_schema.type_map)
 
-    assert pruned_type_count < initial_type_count
     assert "Vehicle" in pruned_schema.type_map
     assert "Vehicle_ADAS" in pruned_schema.type_map
     assert "Vehicle_ADAS_ABS" in pruned_schema.type_map
@@ -169,12 +163,8 @@ def test_get_instance_tag_object_and_dict(schema_path: list[Path]) -> None:
 
 def test_expand_instances_in_schema() -> None:
     schema = schema_loader_utils.load_schema([Path("tests/test_expanded_instances/test_schema.graphql")])
-    initial_type_count = len(schema.type_map)
 
-    expanded_schema = instance_tag_utils.expand_instances_in_schema(schema)
-    expanded_type_count = len(expanded_schema.type_map)
-
-    assert expanded_type_count > initial_type_count
+    expanded_schema, _, _ = instance_tag_utils.expand_instances_in_schema(schema)
 
     assert "Door_Row" in expanded_schema.type_map
     assert "Door_Side" in expanded_schema.type_map

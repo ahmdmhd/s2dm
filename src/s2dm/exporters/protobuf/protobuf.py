@@ -1,6 +1,7 @@
 from graphql import DocumentNode, GraphQLSchema
 
 from s2dm import log
+from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 
 from .transformer import ProtobufTransformer
 
@@ -37,7 +38,7 @@ def transform(
 
 
 def translate_to_protobuf(
-    schema: GraphQLSchema,
+    annotated_schema: AnnotatedSchema,
     selection_query: DocumentNode,
     package_name: str | None = None,
     flatten_root_types: list[str] | None = None,
@@ -46,7 +47,7 @@ def translate_to_protobuf(
     Translate a GraphQL schema to Protocol Buffers format.
 
     Args:
-        schema: The GraphQL schema object
+        annotated_schema: The annotated GraphQL schema object
         selection_query: Required selection query document to determine root-level types
         package_name: Optional package name for the .proto file
         flatten_root_types: Optional list of root type names for flatten mode
@@ -57,4 +58,4 @@ def translate_to_protobuf(
     Raises:
         ValueError: If selection_query is not provided
     """
-    return transform(schema, selection_query, package_name, flatten_root_types)
+    return transform(annotated_schema.schema, selection_query, package_name, flatten_root_types)
