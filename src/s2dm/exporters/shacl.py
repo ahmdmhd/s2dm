@@ -13,6 +13,7 @@ from rdflib import RDF, RDFS, SH, XSD, BNode, Graph, Literal, Namespace, Node, U
 from rdflib.collection import Collection
 
 from s2dm import log
+from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_argument_content, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_object_types
 from s2dm.exporters.utils.field import Cardinality, FieldCase, get_cardinality, get_field_case_extended, print_field_sdl
@@ -56,7 +57,7 @@ def add_comment_to_property_node(field: GraphQLField, property_node: BNode, grap
 
 
 def translate_to_shacl(
-    schema: GraphQLSchema,
+    annotated_schema: AnnotatedSchema,
     shapes_namespace: str,
     shapes_namespace_prefix: str,
     model_namespace: str,
@@ -64,6 +65,7 @@ def translate_to_shacl(
     naming_config: dict[str, Any] | None = None,
 ) -> Graph:
     """Translate a GraphQL schema to SHACL."""
+    schema = annotated_schema.schema
     namespaces = Namespaces(
         Namespace(shapes_namespace),
         Namespace(shapes_namespace_prefix),
@@ -97,7 +99,7 @@ def process_object_type(
     naming_config: dict[str, Any] | None = None,
 ) -> None:
     """Process a GraphQL object type and generate the corresponding SHACL triples."""
-    log.info(f"Processing object type '{object_type.name}'.")
+    log.debug(f"Processing object type '{object_type.name}'.")
     shape_node = namespaces.shapes[object_type.name]
     _ = graph.add((shape_node, RDF.type, SH.NodeShape))
     _ = graph.add((shape_node, SH.name, Literal(object_type.name)))
@@ -191,7 +193,7 @@ def process_field(
     naming_config: dict[str, Any] | None = None,
 ) -> None:
     """Process a field of a GraphQL object type and generate the corresponding SHACL triples."""
-    log.info(f"Processing field... '{print_field_sdl(field)}'")
+    log.debug(f"Processing field... '{print_field_sdl(field)}'")
     field_case = get_field_case_extended(field)
     log.debug(f"Field case: {field_case}")
     if field_case not in SUPPORTED_FIELD_CASES:

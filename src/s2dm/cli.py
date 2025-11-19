@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import rich_click as click
-from graphql import build_schema, parse
+from graphql import parse
 from rich.traceback import install
 
 from s2dm import __version__, log
@@ -24,7 +24,7 @@ from s2dm.exporters.utils.schema_loader import (
     create_tempfile_to_composed_schema,
     load_and_process_schema,
     load_schema,
-    load_schema_as_str,
+    load_schema_with_source_map,
     print_schema_with_directives_preserved,
     process_schema,
     resolve_graphql_files,
@@ -313,8 +313,7 @@ def compose(
 ) -> None:
     """Compose GraphQL schema files into a single output file."""
     try:
-        composed_schema_str = load_schema_as_str(schemas, add_references=True)
-        graphql_schema = build_schema(composed_schema_str)
+        graphql_schema, source_map = load_schema_with_source_map(schemas)
 
         query_document = None
         if selection_query:
@@ -322,14 +321,15 @@ def compose(
 
         naming_config_dict = load_naming_config(naming_config)
 
-        graphql_schema = process_schema(
+        annotated_schema = process_schema(
             schema=graphql_schema,
+            source_map=source_map,
             naming_config=naming_config_dict,
             query_document=query_document,
             root_type=root_type,
             expanded_instances=expanded_instances,
         )
-        composed_schema_str = print_schema_with_directives_preserved(graphql_schema)
+        composed_schema_str = print_schema_with_directives_preserved(annotated_schema.schema, source_map)
 
         output.write_text(composed_schema_str)
 
@@ -414,7 +414,7 @@ def shacl(
     expanded_instances: bool,
 ) -> None:
     """Generate SHACL shapes from a given GraphQL schema."""
-    graphql_schema, naming_config_dict, _ = load_and_process_schema(
+    annotated_schema, naming_config_dict, _ = load_and_process_schema(
         schema_paths=schemas,
         naming_config_path=naming_config,
         selection_query_path=selection_query,
@@ -423,7 +423,7 @@ def shacl(
     )
 
     result = translate_to_shacl(
-        graphql_schema,
+        annotated_schema,
         shapes_namespace,
         shapes_namespace_prefix,
         model_namespace,
@@ -452,15 +452,15 @@ def vspec(
     expanded_instances: bool,
 ) -> None:
     """Generate VSPEC from a given GraphQL schema."""
-    graphql_schema, naming_config_dict, _ = load_and_process_schema(
+    annotated_schema, naming_config_dict, _ = load_and_process_schema(
         schema_paths=schemas,
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=False,
+        expanded_instances=expanded_instances,
     )
 
-    result = translate_to_vspec(graphql_schema, naming_config_dict)
+    result = translate_to_vspec(annotated_schema)
     output.parent.mkdir(parents=True, exist_ok=True)
     _ = output.write_text(result)
 
@@ -491,7 +491,7 @@ def jsonschema(
     expanded_instances: bool,
 ) -> None:
     """Generate JSON Schema from a given GraphQL schema."""
-    graphql_schema, _, _ = load_and_process_schema(
+    annotated_schema, _, _ = load_and_process_schema(
         schema_paths=schemas,
         naming_config_path=naming_config,
         selection_query_path=selection_query,
@@ -499,7 +499,7 @@ def jsonschema(
         expanded_instances=expanded_instances,
     )
 
-    result = translate_to_jsonschema(graphql_schema, root_type, strict)
+    result = translate_to_jsonschema(annotated_schema, root_type, strict)
     _ = output.write_text(result)
 
 
@@ -536,7 +536,7 @@ def protobuf(
     expanded_instances: bool,
 ) -> None:
     """Generate Protocol Buffers (.proto) file from GraphQL schema."""
-    graphql_schema, naming_config_dict, query_document = load_and_process_schema(
+    annotated_schema, _, query_document = load_and_process_schema(
         schema_paths=schemas,
         naming_config_path=naming_config,
         selection_query_path=selection_query,
@@ -546,9 +546,9 @@ def protobuf(
 
     flatten_root_types = None
     if flatten_naming:
-        flatten_root_types = get_root_level_types_from_query(graphql_schema, query_document)
+        flatten_root_types = get_root_level_types_from_query(annotated_schema.schema, query_document)
 
-    result = translate_to_protobuf(graphql_schema, query_document, package_name, flatten_root_types)
+    result = translate_to_protobuf(annotated_schema, query_document, package_name, flatten_root_types)
     _ = output.write_text(result)
 
 

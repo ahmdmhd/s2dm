@@ -23,14 +23,14 @@ class TestProtobufE2E:
         query_file.write_text("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
 
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=query_file,
             root_type=root_type,
             expanded_instances=False,
         )
-        result = translate_to_protobuf(graphql_schema)
+        result = translate_to_protobuf(annotated_schema)
 
         assert re.search(
             r"message Cabin \{.*?"
@@ -61,14 +61,14 @@ class TestProtobufE2E:
         query_file.write_text("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
 
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=query_file,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_protobuf(graphql_schema)
+        result = translate_to_protobuf(annotated_schema)
 
         assert re.search(
             r"message Cabin \{.*?"
@@ -158,14 +158,14 @@ class TestProtobufE2E:
         query_file.write_text("query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }")
 
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=query_file,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_protobuf(graphql_schema, flatten_root_types=["Cabin"])
+        result = translate_to_protobuf(annotated_schema, flatten_root_types=["Cabin"])
 
         assert re.search(
             r"message Message \{.*?"
@@ -229,14 +229,14 @@ class TestProtobufE2E:
         query_file.write_text("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
 
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=naming_config_file,
             selection_query_path=query_file,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_protobuf(graphql_schema)
+        result = translate_to_protobuf(annotated_schema)
 
         assert re.search(
             r"message Cabin \{.*?"
@@ -302,7 +302,7 @@ class TestProtobufE2E:
     def test_flatten_mode_expanded_instances_with_naming_config(
         self, test_schema_path: list[Path], tmp_path: Path) -> None:
         """Test that naming config is applied to type name in flattened prefix with expanded instances."""
-        naming_config = {"field": {"object": "snake_case"}}
+        naming_config = {"field": {"object": "snake_case"}, "enumValue": "PascalCase", "instanceTag": "PascalCase"}
         naming_config_file = tmp_path / "naming_config.json"
         naming_config_file.write_text(json.dumps(naming_config))
 
@@ -310,61 +310,63 @@ class TestProtobufE2E:
         query_file.write_text("query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }")
 
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=naming_config_file,
             selection_query_path=query_file,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_protobuf(graphql_schema, flatten_root_types=["Cabin"])
+        result = translate_to_protobuf(annotated_schema, flatten_root_types=["Cabin"])
+
+        print(result)
 
         assert re.search(
             r"message Message \{.*?"
             r"optional float Cabin_temperature = 1.*?"
-            r"optional bool Cabin_seat_row1_left_is_occupied = 2;.*?"
-            r"optional int32 Cabin_seat_row1_left_height = 3 "
+            r"optional bool Cabin_seat_Row1_Left_is_occupied = 2;.*?"
+            r"optional int32 Cabin_seat_Row1_Left_height = 3 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row1_center_is_occupied = 4;.*?"
-            r"optional int32 Cabin_seat_row1_center_height = 5 "
+            r"optional bool Cabin_seat_Row1_Center_is_occupied = 4;.*?"
+            r"optional int32 Cabin_seat_Row1_Center_height = 5 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row1_right_is_occupied = 6;.*?"
-            r"optional int32 Cabin_seat_row1_right_height = 7 "
+            r"optional bool Cabin_seat_Row1_Right_is_occupied = 6;.*?"
+            r"optional int32 Cabin_seat_Row1_Right_height = 7 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row2_left_is_occupied = 8;.*?"
-            r"optional int32 Cabin_seat_row2_left_height = 9 "
+            r"optional bool Cabin_seat_Row2_Left_is_occupied = 8;.*?"
+            r"optional int32 Cabin_seat_Row2_Left_height = 9 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row2_center_is_occupied = 10;.*?"
-            r"optional int32 Cabin_seat_row2_center_height = 11 "
+            r"optional bool Cabin_seat_Row2_Center_is_occupied = 10;.*?"
+            r"optional int32 Cabin_seat_Row2_Center_height = 11 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row2_right_is_occupied = 12;.*?"
-            r"optional int32 Cabin_seat_row2_right_height = 13 "
+            r"optional bool Cabin_seat_Row2_Right_is_occupied = 12;.*?"
+            r"optional int32 Cabin_seat_Row2_Right_height = 13 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row3_left_is_occupied = 14;.*?"
-            r"optional int32 Cabin_seat_row3_left_height = 15 "
+            r"optional bool Cabin_seat_Row3_Left_is_occupied = 14;.*?"
+            r"optional int32 Cabin_seat_Row3_Left_height = 15 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row3_center_is_occupied = 16;.*?"
-            r"optional int32 Cabin_seat_row3_center_height = 17 "
+            r"optional bool Cabin_seat_Row3_Center_is_occupied = 16;.*?"
+            r"optional int32 Cabin_seat_Row3_Center_height = 17 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seat_row3_right_is_occupied = 18;.*?"
-            r"optional int32 Cabin_seat_row3_right_height = 19 "
+            r"optional bool Cabin_seat_Row3_Right_is_occupied = 18;.*?"
+            r"optional int32 Cabin_seat_Row3_Right_height = 19 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_door_row1_driverside_is_locked = 20;.*?"
-            r"optional int32 Cabin_door_row1_driverside_position = 21 "
+            r"optional bool Cabin_door_Row1_Driverside_is_locked = 20;.*?"
+            r"optional int32 Cabin_door_Row1_Driverside_position = 21 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_door_row1_passengerside_is_locked = 22;.*?"
-            r"optional int32 Cabin_door_row1_passengerside_position = 23 "
+            r"optional bool Cabin_door_Row1_Passengerside_is_locked = 22;.*?"
+            r"optional int32 Cabin_door_Row1_Passengerside_position = 23 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_door_row2_driverside_is_locked = 24;.*?"
-            r"optional int32 Cabin_door_row2_driverside_position = 25 "
+            r"optional bool Cabin_door_Row2_Driverside_is_locked = 24;.*?"
+            r"optional int32 Cabin_door_Row2_Driverside_position = 25 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_door_row2_passengerside_is_locked = 26;.*?"
-            r"optional int32 Cabin_door_row2_passengerside_position = 27 "
+            r"optional bool Cabin_door_Row2_Passengerside_is_locked = 26;.*?"
+            r"optional int32 Cabin_door_Row2_Passengerside_position = 27 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with all flattened expanded instance fields in snake_case"
+        ), "Message with all flattened expanded instance fields with PascalCase enum values"
 
         assert "SeatRowEnum" not in result
         assert "SeatPositionEnum" not in result

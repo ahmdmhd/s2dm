@@ -39,15 +39,15 @@ class TestLoadAndProcessSchema:
         return config_file
 
     def test_load_with_selection_query(self, schema_path: list[Path], valid_query_path: Path) -> None:
-        schema, naming_config, query_document = load_and_process_schema(
+        annotated_schema, naming_config, query_document = load_and_process_schema(
             schema_path, None, valid_query_path, None, False
         )
 
         assert query_document is not None
         assert naming_config is None
 
-        assert "Vehicle" in schema.type_map
-        vehicle_type = cast(GraphQLObjectType, schema.type_map["Vehicle"])
+        assert "Vehicle" in annotated_schema.schema.type_map
+        vehicle_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Vehicle"])
         assert "averageSpeed" in vehicle_type.fields
         assert "lowVoltageSystemState" in vehicle_type.fields
         assert "adas" in vehicle_type.fields
@@ -56,44 +56,46 @@ class TestLoadAndProcessSchema:
         assert "body" not in vehicle_type.fields
 
     def test_load_with_root_type(self, schema_path: list[Path]) -> None:
-        schema, naming_config, query_document = load_and_process_schema(schema_path, None, None, "Vehicle", False)
+        annotated_schema, naming_config, query_document = load_and_process_schema(
+            schema_path, None, None, "Vehicle", False
+        )
 
         assert query_document is None
         assert naming_config is None
-        assert "Vehicle" in schema.type_map
+        assert "Vehicle" in annotated_schema.schema.type_map
 
-        assert "Cabin" not in schema.type_map
-        assert "Seat" not in schema.type_map
+        assert "Cabin" not in annotated_schema.schema.type_map
+        assert "Seat" not in annotated_schema.schema.type_map
 
     def test_load_with_expanded_instances(self, expanded_schema_path: list[Path]) -> None:
-        schema, naming_config, query_document = load_and_process_schema(
+        annotated_schema, naming_config, query_document = load_and_process_schema(
             expanded_schema_path, None, None, None, expanded_instances=True
         )
 
         assert query_document is None
         assert naming_config is None
 
-        assert "Door_Row" in schema.type_map
-        assert "Door_Side" in schema.type_map
-        assert "Seat_Row" in schema.type_map
-        assert "Seat_Position" in schema.type_map
+        assert "Door_Row" in annotated_schema.schema.type_map
+        assert "Door_Side" in annotated_schema.schema.type_map
+        assert "Seat_Row" in annotated_schema.schema.type_map
+        assert "Seat_Position" in annotated_schema.schema.type_map
 
-        cabin_type = cast(GraphQLObjectType, schema.type_map["Cabin"])
+        cabin_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Cabin"])
         assert "Door" in cabin_type.fields
         assert "doors" not in cabin_type.fields
         assert "Seat" in cabin_type.fields
         assert "seats" not in cabin_type.fields
 
     def test_load_with_naming_config(self, schema_path: list[Path], naming_config_path: Path) -> None:
-        schema, naming_config, query_document = load_and_process_schema(
+        annotated_schema, naming_config, query_document = load_and_process_schema(
             schema_path, naming_config_path, None, None, False
         )
 
         assert query_document is None
         assert naming_config is not None
 
-        assert "VEHICLE" in schema.type_map
-        vehicle_type = cast(GraphQLObjectType, schema.type_map["VEHICLE"])
+        assert "VEHICLE" in annotated_schema.schema.type_map
+        vehicle_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["VEHICLE"])
         assert "average_speed" in vehicle_type.fields
         assert "low_voltage_system_state" in vehicle_type.fields
         assert "averageSpeed" not in vehicle_type.fields
@@ -120,7 +122,7 @@ class TestLoadAndProcessSchema:
             }
         """)
 
-        schema, naming_config, query_document = load_and_process_schema(
+        annotated_schema, naming_config, query_document = load_and_process_schema(
             schema_path,
             naming_config_path,
             query_file,
@@ -131,8 +133,8 @@ class TestLoadAndProcessSchema:
         assert query_document is not None
         assert naming_config is not None
 
-        assert "VEHICLE" in schema.type_map
-        vehicle_type = cast(GraphQLObjectType, schema.type_map["VEHICLE"])
+        assert "VEHICLE" in annotated_schema.schema.type_map
+        vehicle_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["VEHICLE"])
         assert "average_speed" in vehicle_type.fields
         assert "low_voltage_system_state" in vehicle_type.fields
         assert "adas" in vehicle_type.fields
@@ -140,5 +142,5 @@ class TestLoadAndProcessSchema:
         assert "is_auto_power_optimize" not in vehicle_type.fields
         assert "body" not in vehicle_type.fields
 
-        assert "CABIN" not in schema.type_map
-        assert "SEAT" not in schema.type_map
+        assert "CABIN" not in annotated_schema.schema.type_map
+        assert "SEAT" not in annotated_schema.schema.type_map

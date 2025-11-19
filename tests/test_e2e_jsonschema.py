@@ -29,7 +29,7 @@ class TestJsonSchemaE2E:
         schema_file.write_text(schema_str)
 
         root_type = "Vehicle"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=[schema_file],
             naming_config_path=None,
             selection_query_path=None,
@@ -37,7 +37,7 @@ class TestJsonSchemaE2E:
             expanded_instances=False,
         )
 
-        result = transform(graphql_schema, root_type=root_type, strict=False)
+        result = transform(annotated_schema.schema, root_type=root_type, strict=False)
         schema = json.loads(result)
 
         assert "Vehicle" in schema["$defs"]
@@ -50,14 +50,14 @@ class TestJsonSchemaE2E:
     def test_instance_tag_expansion(self, test_schema_path: list[Path]) -> None:
         """Test expanded instances for seats with 3-level nesting."""
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_jsonschema(graphql_schema, root_type=root_type)
+        result = translate_to_jsonschema(annotated_schema, root_type=root_type)
         schema = json.loads(result)
 
         cabin_def = schema["$defs"]["Cabin"]
@@ -80,14 +80,14 @@ class TestJsonSchemaE2E:
     def test_default_behavior_creates_arrays(self, test_schema_path: list[Path]) -> None:
         """Test that the default behavior creates arrays for instance tagged objects."""
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=False,
         )
-        result = translate_to_jsonschema(graphql_schema, root_type=root_type)
+        result = translate_to_jsonschema(annotated_schema, root_type=root_type)
         schema = json.loads(result)
 
         doors_def = schema["$defs"]["Cabin"]["properties"]["doors"]
@@ -139,14 +139,14 @@ class TestJsonSchemaE2E:
 
         try:
             root_type = "TestObject"
-            graphql_schema, _, _ = load_and_process_schema(
+            annotated_schema, _, _ = load_and_process_schema(
                 schema_paths=[temp_path],
                 naming_config_path=None,
                 selection_query_path=None,
                 root_type=root_type,
                 expanded_instances=True,
             )
-            result = translate_to_jsonschema(graphql_schema, root_type=root_type)
+            result = translate_to_jsonschema(annotated_schema, root_type=root_type)
             schema = json.loads(result)
 
             doors_def = schema["$defs"]["TestObject"]["properties"]["Door"]
@@ -162,14 +162,14 @@ class TestJsonSchemaE2E:
     def test_expanded_instances_with_strict_mode(self, test_schema_path: list[Path]) -> None:
         """Test that expanded instances work correctly with strict mode."""
         root_type = "Cabin"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_jsonschema(graphql_schema, root_type=root_type, strict=True)
+        result = translate_to_jsonschema(annotated_schema, root_type=root_type, strict=True)
         schema = json.loads(result)
 
         cabin_def = schema["$defs"]["Cabin"]
@@ -189,23 +189,23 @@ class TestJsonSchemaE2E:
     def test_singular_naming_for_expanded_instances(self, test_schema_path: list[Path]) -> None:
         """Test that expanded instances use singular type names instead of field names."""
         root_type = "Cabin"
-        graphql_schema_normal, _, _ = load_and_process_schema(
+        annotated_schema_normal, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=False,
         )
-        result_normal = translate_to_jsonschema(graphql_schema_normal, root_type=root_type)
+        result_normal = translate_to_jsonschema(annotated_schema_normal, root_type=root_type)
 
-        graphql_schema_expanded, _, _ = load_and_process_schema(
+        annotated_schema_expanded, _, _ = load_and_process_schema(
             schema_paths=test_schema_path,
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=True,
         )
-        result_expanded = translate_to_jsonschema(graphql_schema_expanded, root_type=root_type)
+        result_expanded = translate_to_jsonschema(annotated_schema_expanded, root_type=root_type)
 
         schema_normal = json.loads(result_normal)
         schema_expanded = json.loads(result_expanded)
@@ -224,14 +224,14 @@ class TestJsonSchemaE2E:
         nested_schema_path = Path(__file__).parent / "test_expanded_instances" / "test_nested_schema.graphql"
 
         root_type = "Chassis"
-        graphql_schema, _, _ = load_and_process_schema(
+        annotated_schema, _, _ = load_and_process_schema(
             schema_paths=[nested_schema_path],
             naming_config_path=None,
             selection_query_path=None,
             root_type=root_type,
             expanded_instances=True,
         )
-        result = translate_to_jsonschema(graphql_schema, root_type=root_type)
+        result = translate_to_jsonschema(annotated_schema, root_type=root_type)
         schema = json.loads(result)
 
         chassis_def = schema["$defs"]["Chassis"]
