@@ -52,15 +52,6 @@ class PathResolverOption(click.Option):
         if not value:
             return None
         paths = set(value)
-
-        # Include the default QUDT units directory if it exists, otherwise warn and don't include it
-        if DEFAULT_QUDT_UNITS_DIR.exists():
-            paths.add(DEFAULT_QUDT_UNITS_DIR)
-        else:
-            log.warning(
-                f"No QUDT units directory found at {DEFAULT_QUDT_UNITS_DIR}. Please run 's2dm units sync' first."
-            )
-
         return resolve_graphql_files(list(paths))
 
 
@@ -108,6 +99,15 @@ optional_output_option = click.option(
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     required=False,
     help="Output file",
+)
+
+units_directory_option = click.option(
+    "--directory",
+    "-d",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=DEFAULT_QUDT_UNITS_DIR,
+    help="Directory for QUDT unit enums",
+    show_default=True,
 )
 
 
@@ -315,39 +315,48 @@ def units() -> None:
         "QUDT version tag (e.g., 3.1.6). Defaults to the latest tag, falls back to 'main' when tags are unavailable."
     ),
 )
+@units_directory_option
 @click.option(
     "--dry-run",
     is_flag=True,
     help="Show what would be generated without actually writing files",
 )
-def units_sync(version: str | None, dry_run: bool) -> None:
-    """Fetch QUDT quantity kinds and generate GraphQL enums under the output directory."""
+def units_sync(version: str | None, directory: Path, dry_run: bool) -> None:
+    """Fetch QUDT quantity kinds and generate GraphQL enums under the specified directory.
+
+    Args:
+        version: QUDT version tag. Defaults to the latest tag.
+        directory: Output directory for generated QUDT unit enums (default: ~/.s2dm/units/qudt)
+        dry_run: Show what would be generated without actually writing files
+    """
 
     version_to_use = version or get_latest_qudt_version()
 
     try:
-        written = sync_qudt_units(DEFAULT_QUDT_UNITS_DIR, version_to_use, dry_run=dry_run)
+        written = sync_qudt_units(directory, version_to_use, dry_run=dry_run)
     except UnitEnumError as e:
         log.error(f"Units sync failed: {e}")
         sys.exit(1)
 
     if dry_run:
-        log.info(f"Would generate {len(written)} enum files under {DEFAULT_QUDT_UNITS_DIR}")
+        log.info(f"Would generate {len(written)} enum files under {directory}")
         log.print(f"Version: {version_to_use}")
         log.hint("Use without --dry-run to actually write files")
     else:
-        log.success(f"Generated {len(written)} enum files under {DEFAULT_QUDT_UNITS_DIR}")
+        log.success(f"Generated {len(written)} enum files under {directory}")
         log.print(f"Version: {version_to_use}")
 
 
 @units.command(name="check-version")
-def units_check_version() -> None:
+@units_directory_option
+def units_check_version(directory: Path) -> None:
     """Compare local synced QUDT version with the latest remote version and print a message.
+
     Args:
-        qudt_units_dir: Directory containing generated QUDT unit enums (default: ~/.s2dm/units/qudt)
+        directory: Directory containing generated QUDT unit enums (default: ~/.s2dm/units/qudt)
     """
 
-    meta_path = DEFAULT_QUDT_UNITS_DIR / UNITS_META_FILENAME
+    meta_path = directory / UNITS_META_FILENAME
     if not meta_path.exists():
         log.warning("No metadata.json found. Run 's2dm units sync' first.")
         sys.exit(1)
