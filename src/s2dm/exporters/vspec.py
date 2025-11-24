@@ -26,6 +26,7 @@ from s2dm.exporters.utils.instance_tag import (
 )
 from s2dm.exporters.utils.naming import apply_naming_to_instance_values
 from s2dm.exporters.utils.schema import load_schema_with_naming
+from s2dm.exporters.utils.schema_loader import assert_correct_schema
 
 UNITS_DICT = {  # TODO: move to a separate file or use the vss tools to get the mapping directly from dynamic_units
     # Using the QUDT unit names
@@ -194,6 +195,7 @@ CustomDumper.add_representer(list, CustomDumper.represent_list)
 
 def translate_to_vspec(schema: GraphQLSchema, naming_config: dict[str, Any] | None = None) -> str:
     """Translate a GraphQL schema to YAML."""
+    assert_correct_schema(schema)
 
     all_object_types = get_all_object_types(schema)
     log.debug(f"Object types: {all_object_types}")

@@ -23,6 +23,7 @@ from s2dm.exporters.utils.instance_tag import (
     has_valid_instance_tag_field,
     is_instance_tag_field,
 )
+from s2dm.exporters.utils.schema_loader import assert_correct_schema
 
 SUPPORTED_FIELD_CASES = {
     FieldCase.DEFAULT,
@@ -70,6 +71,7 @@ def translate_to_shacl(
         Namespace(model_namespace),
         Namespace(model_namespace_prefix),
     )
+    assert_correct_schema(schema)
     graph = Graph()
     graph.bind(namespaces.shapes_prefix, namespaces.shapes)
     graph.bind(namespaces.model_prefix, namespaces.model)
