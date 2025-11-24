@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from graphql import GraphQLSchema
+from graphql import GraphQLField, GraphQLSchema
 
 
 @dataclass
@@ -14,6 +14,7 @@ class FieldMetadata:
     resolved_names: list[str]
     resolved_type: str
     is_expanded: bool
+    original_field: GraphQLField | None = None
     instances: list[list[str]] = field(default_factory=list)
 
 
