@@ -21,6 +21,7 @@ from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_
 from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_introspection_type
 from s2dm.exporters.utils.schema import load_schema_with_naming, search_schema
 from s2dm.exporters.utils.schema_loader import (
+    assert_correct_schema,
     create_tempfile_to_composed_schema,
     load_schema,
     load_schema_as_str,
@@ -407,6 +408,7 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
             composed_schema_str = load_schema_as_str(schemas, add_references=True)
 
         graphql_schema = build_schema(composed_schema_str)
+        assert_correct_schema(graphql_schema)
 
         if selection_query:
             query_document = parse(selection_query.read_text())
