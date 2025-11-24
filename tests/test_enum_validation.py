@@ -1,4 +1,3 @@
-import pytest
 from graphql import build_schema
 
 from s2dm.exporters.utils.schema_loader import check_enum_defaults
