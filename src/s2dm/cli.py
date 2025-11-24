@@ -442,7 +442,7 @@ def shacl(
         naming_config_path=naming_config,
         selection_query_path=selection_query,
         root_type=root_type,
-        expanded_instances=False,
+        expanded_instances=expanded_instances,
     )
     assert_correct_schema(annotated_schema.schema)
 
@@ -452,7 +452,6 @@ def shacl(
         shapes_namespace_prefix,
         model_namespace,
         model_namespace_prefix,
-        naming_config_dict,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     _ = result.serialize(destination=output, format=serialization_format)

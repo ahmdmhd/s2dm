@@ -89,7 +89,7 @@ def resolve_graphql_files(paths: list[Path]) -> list[Path]:
             for file in path.rglob("*.graphql"):
                 resolved_files.add(file)
 
-    return sorted(resolved_files)
+    return list(resolved_files)
 
 
 def build_schema_str_with_optional_source_map(

@@ -153,9 +153,7 @@ def get_instance_tag_dict(
 
 def is_expandable_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
     """
-    Check if a field is expandable (has a base type with instanceTag).
-
-    Expandable fields can be either list fields or single object fields.
+    Check if a field is expandable (has a base type that has instanceTag).
 
     Args:
         field: The GraphQL field to check
@@ -304,7 +302,8 @@ def expand_instances_in_schema(
             new_types[type_name] = intermediate_type
             type_metadata[type_name] = TypeMetadata(source=None, is_intermediate_type=True)
 
-        new_field_name = convert_name(base_type.name, field_case) if field_case else base_type.name
+        base_name = base_type.name if is_list_type(unwrapped_type) else field_name
+        new_field_name = convert_name(base_name, field_case) if field_case else base_name
 
         resolved_names = [
             f"{new_field_name}.{'.'.join(instance_product)}"
@@ -319,7 +318,11 @@ def expand_instances_in_schema(
         )
 
         field_metadata[(parent_type.name, new_field_name)] = FieldMetadata(
-            resolved_names=resolved_names, resolved_type=base_type.name, is_expanded=True, instances=instances
+            resolved_names=resolved_names,
+            resolved_type=base_type.name,
+            is_expanded=True,
+            original_field=original_field,
+            instances=instances,
         )
 
         del parent_type.fields[field_name]
@@ -329,19 +332,18 @@ def expand_instances_in_schema(
 
         base_types_to_clean.add(base_type)
 
+    all_types_to_remove = set(instance_tag_types_to_remove)
+    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), "instanceTag")
+    all_types_to_remove.update(t.name for t in all_instance_tag_types)
+
     for base_type in base_types_to_clean:
         del base_type.fields["instanceTag"]
         log.debug(f"Removed 'instanceTag' field from type '{base_type.name}'")
 
-    for instance_tag_type_name in instance_tag_types_to_remove:
-        del schema.type_map[instance_tag_type_name]
-        log.debug(f"Removed type '{instance_tag_type_name}' with @instanceTag directive from schema")
-
-    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), "instanceTag")
-    for instance_tag_type in all_instance_tag_types:
-        if instance_tag_type.name in schema.type_map:
-            del schema.type_map[instance_tag_type.name]
-            log.debug(f"Removed unreferenced type '{instance_tag_type.name}' with @instanceTag directive from schema")
+    for type_name in all_types_to_remove:
+        if type_name in schema.type_map:
+            del schema.type_map[type_name]
+            log.debug(f"Removed type '{type_name}' with @instanceTag directive from schema")
 
     for type_name, new_type in new_types.items():
         schema.type_map[type_name] = new_type
