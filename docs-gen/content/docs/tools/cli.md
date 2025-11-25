@@ -127,7 +127,9 @@ This exporter translates the given GraphQL schema to [Protocol Buffers](https://
 
 #### Example Transformation
 
-Consider the following GraphQL schema:
+Consider the following GraphQL schema and selection query:
+
+GraphQL Schema:
 
 ```graphql
 type Cabin {
@@ -154,9 +156,32 @@ enum SideEnum {
   DRIVERSIDE
   PASSENGERSIDE
 }
+
+type Query {
+  cabin: Cabin
+}
+```
+
+Selection Query:
+
+```graphql
+query Selection {
+  cabin {
+    doors {
+      isLocked
+      instanceTag {
+        row
+        side
+      }
+    }
+    temperature
+  }
+}
 ```
 
 The Protobuf exporter produces:
+
+> See [Selection Query](#selection-query-required) for more details on the command.
 
 ```protobuf
 syntax = "proto3";
@@ -208,7 +233,15 @@ message Door {
   bool isLocked = 1;
   DoorPosition instanceTag = 2;
 }
+
+message Selection {
+  option (source) = "Query";
+
+  optional Cabin cabin = 1;
+}
 ```
+
+> The `Query` type from the GraphQL schema is renamed to match the selection query operation name (`Selection` in this example).
 
 #### Selection Query (Required)
 
@@ -218,24 +251,7 @@ The protobuf exporter requires a selection query to determine which types and fi
 s2dm export protobuf --schema schema.graphql --selection-query query.graphql --output cabin.proto
 ```
 
-Given a query file `query.graphql` that matches the schema above:
-
-```graphql
-query Selection {
-  cabin {
-    doors {
-      isLocked
-      instanceTag {
-        row
-        side
-      }
-    }
-    temperature
-  }
-}
-```
-
-The exporter will include only the selected types and fields from the schema.
+Given a query file `query.graphql` (presented above), the exporter will include only the selected types and fields from the schema.
 
 #### Root Type Filtering
 
@@ -263,7 +279,9 @@ s2dm export protobuf --schema schema.graphql --selection-query query.graphql --o
 
 **Example transformation:**
 
-Given a GraphQL schema:
+Given a GraphQL schema and the selection query:
+
+GraphQL Schema:
 
 ```graphql
 type Vehicle {
@@ -276,6 +294,24 @@ type ADAS {
 
 type ABS {
   isEngaged: Boolean
+}
+
+type Query {
+  vehicle: Vehicle
+}
+```
+
+Selection Query:
+
+```graphql
+query Selection {
+  vehicle {
+    adas {
+      abs {
+        isEngaged
+      }
+    }
+  }
 }
 ```
 
@@ -291,11 +327,13 @@ extend google.protobuf.MessageOptions {
   string source = 50001;
 }
 
-message Message {
+message Selection {
   bool Vehicle_adas_abs_isEngaged = 1;
 }
 
 ```
+
+> The output message name is derived from the selection query operation name (`Selection` in this example).
 
 #### Expanded Instance Tags
 
@@ -307,7 +345,9 @@ s2dm export protobuf --schema schema.graphql --selection-query query.graphql --o
 
 **Default behavior (without flag):**
 
-Given a GraphQL schema with instance tags:
+Given a GraphQL schema with instance tags and a selection query:
+
+GraphQL Schema:
 
 ```graphql
 type Cabin {
@@ -332,6 +372,26 @@ enum RowEnum {
 enum SideEnum {
   DRIVERSIDE
   PASSENGERSIDE
+}
+
+type Query {
+  cabin: Cabin
+}
+```
+
+Selection Query:
+
+```graphql
+query Selection {
+  cabin {
+    doors {
+      isLocked
+      instanceTag {
+        row
+        side
+      }
+    }
+  }
 }
 ```
 
@@ -388,11 +448,17 @@ message DoorPosition {
   RowEnum.Enum row = 1;
   SideEnum.Enum side = 2;
 }
+
+message Selection {
+  option (source) = "Query";
+
+  optional Cabin cabin = 1;
+}
 ```
 
 **With `--expanded-instances` flag:**
 
-The same schema produces nested messages representing the cartesian product of instance tag values:
+The same schema and selection query produce nested messages representing the cartesian product of instance tag values:
 
 ```protobuf
 syntax = "proto3";
@@ -431,6 +497,12 @@ message Cabin {
 
   Cabin_Door Door = 1;
 }
+
+message Selection {
+  option (source) = "Query";
+
+  optional Cabin cabin = 1;
+}
 ```
 
 **Key differences:**
@@ -449,12 +521,27 @@ S2DM directives are converted to [protovalidate](https://github.com/bufbuild/pro
 - `@noDuplicates` → `[(buf.validate.field).repeated = {unique: true}]`
 - `@cardinality(min: 1, max: 5)` → `[(buf.validate.field).repeated = {min_items: 1, max_items: 5}]`
 
-Example:
+GraphQL Schema:
 
 ```graphql
 type Vehicle {
   speed: Int @range(min: 0, max: 300)
   tags: [String] @noDuplicates @cardinality(min: 1, max: 10)
+}
+
+type Query {
+  vehicle: Vehicle
+}
+```
+
+Selection Query:
+
+```graphql
+query Selection {
+  vehicle {
+    speed
+    tags
+  }
 }
 ```
 
@@ -475,6 +562,12 @@ message Vehicle {
 
   int32 speed = 1 [(buf.validate.field).int32 = {gte: 0, lte: 300}];
   repeated string tags = 2 [(buf.validate.field).repeated = {unique: true, min_items: 1, max_items: 10}];
+}
+
+message Selection {
+  option (source) = "Query";
+
+  optional Vehicle vehicle = 1;
 }
 ```
 
