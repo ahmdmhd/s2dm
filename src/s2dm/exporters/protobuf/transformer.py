@@ -13,6 +13,8 @@ from graphql import (
     GraphQLSchema,
     GraphQLType,
     GraphQLUnionType,
+    OperationDefinitionNode,
+    OperationType,
     get_named_type,
     is_enum_type,
     is_interface_type,
@@ -193,6 +195,23 @@ class ProtobufTransformer:
             message.source for message in proto_schema.messages
         )
 
+    def _get_query_operation_name(self) -> str:
+        """Extract the operation name from the selection query, defaulting to appropriate fallback."""
+        default_name = "Message" if self.flatten_naming else "Query"
+
+        if not self.selection_query:
+            return default_name
+
+        for definition in self.selection_query.definitions:
+            if not isinstance(definition, OperationDefinitionNode) or definition.operation != OperationType.QUERY:
+                continue
+
+            if definition.name:
+                return definition.name.value
+            return default_name
+
+        return default_name
+
     def _build_template_vars(self, proto_schema: ProtoSchema) -> dict[str, Any]:
         """Build all template variables from proto schema."""
         has_source_option = self._has_source_option(proto_schema)
@@ -207,6 +226,7 @@ class ProtobufTransformer:
         template_vars = proto_schema.model_dump()
         template_vars["imports"] = imports
         template_vars["has_source_option"] = has_source_option
+        template_vars["message_name"] = self._get_query_operation_name()
 
         return template_vars
 
@@ -238,9 +258,13 @@ class ProtobufTransformer:
         for message_type in message_types:
             fields, nested_messages = self._build_message_fields(message_type)
 
+            message_name = message_type.name
+            if message_type.name == "Query":
+                message_name = self._get_query_operation_name()
+
             messages.append(
                 ProtoMessage(
-                    name=message_type.name,
+                    name=message_name,
                     fields=fields,
                     description=message_type.description,
                     source=message_type.name,

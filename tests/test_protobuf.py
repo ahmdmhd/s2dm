@@ -187,6 +187,58 @@ class TestProtobufExporter:
             re.DOTALL,
         ), "Vehicle message with source option and optional fields in order"
 
+    def test_query_type_renamed_with_selection_query(self) -> None:
+        """Test that Query type is renamed to the selection query operation name in standard mode."""
+        schema_str = """
+        type Speed {
+            average: Float
+            current: Float
+        }
+
+        type Vehicle {
+            speed: Speed
+            model: String
+        }
+
+        type Query {
+            vehicle: Vehicle
+        }
+        """
+        schema = build_schema(schema_str)
+        selection_query = parse("query SelectionQuery { vehicle { speed { average } model } }")
+        result = translate_to_protobuf(schema, selection_query=selection_query)
+
+        assert re.search(
+            r"message SelectionQuery \{.*?"
+            r'option \(source\) = "Query".*?;.*?'
+            r"optional Vehicle vehicle = 1.*?;.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "Query type renamed to SelectionQuery with source option and fields"
+
+        assert "message Query {" not in result, "Original Query type name should not appear"
+
+    def test_query_type_keeps_name_without_selection_query(self) -> None:
+        """Test that Query type keeps its name when no selection query is provided."""
+        schema_str = """
+        type Vehicle {
+            model: String
+        }
+
+        type Query {
+            vehicle: Vehicle
+        }
+        """
+        schema = build_schema(schema_str)
+        result = translate_to_protobuf(schema)
+
+        assert re.search(
+            r"message Query \{.*?" r'option \(source\) = "Query".*?;.*?' r"optional Vehicle vehicle = 1.*?;.*?" r"\}",
+            result,
+            re.DOTALL,
+        ), "Query type should keep its name when no selection query is provided"
+
     def test_flattened_naming_mode(self) -> None:
         """Test that flatten_naming mode creates flattened field names."""
         schema_str = """
@@ -1043,8 +1095,8 @@ class TestProtobufExporter:
             re.DOTALL,
         ), "Transmission message with enum field and validation"
 
-    def test_flatten_naming_multiple_root_types(self, test_schema_path: list[Path]) -> None:
-        """Test that flatten mode without root_type flattens all root-level types."""
+    def test_flatten_naming_multiple_root_types_unnamed_query(self, test_schema_path: list[Path]) -> None:
+        """Test that flatten mode without root_type flattens all root-level types with unnamed query."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
 
         vehicle_type = cast(GraphQLObjectType, graphql_schema.type_map["Vehicle"])
@@ -1102,6 +1154,71 @@ class TestProtobufExporter:
             result,
             re.DOTALL,
         ), "Message with flattened fields from all root-level types (Vehicle, Cabin, Door)"
+
+        assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
+
+        assert "message Vehicle {" not in result, "Vehicle should be completely flattened"
+        assert "message Cabin {" not in result, "Cabin should be completely flattened"
+        assert "message Door {" not in result, "Door should be completely flattened"
+
+    def test_flatten_naming_multiple_root_types_named_query(self, test_schema_path: list[Path]) -> None:
+        """Test that flatten mode uses the selection query name for the output message."""
+        graphql_schema = load_schema_with_naming(test_schema_path, None)
+
+        vehicle_type = cast(GraphQLObjectType, graphql_schema.type_map["Vehicle"])
+        cabin_type = cast(GraphQLObjectType, graphql_schema.type_map["Cabin"])
+        door_type = cast(GraphQLObjectType, graphql_schema.type_map["Door"])
+
+        query_type = GraphQLObjectType(
+            "Query",
+            {
+                "vehicle": GraphQLField(vehicle_type),
+                "cabin": GraphQLField(cabin_type),
+                "door": GraphQLField(door_type),
+            },
+        )
+
+        types = [type_def for type_def in graphql_schema.type_map.values() if type_def.name != "Query"]
+        graphql_schema = GraphQLSchema(query=query_type, types=types, directives=graphql_schema.directives)
+
+        query_str = """
+        query SelectionQuery {
+            vehicle {
+                doors { isLocked }
+                model
+            }
+            cabin {
+                seats { isOccupied }
+                temperature
+            }
+            door {
+                isLocked
+                position
+                instanceTag { row side }
+            }
+        }
+        """
+        selection_query = parse(query_str)
+        graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
+
+        result = translate_to_protobuf(
+            graphql_schema, flatten_naming=True, expanded_instances=False, selection_query=selection_query
+        )
+
+        assert re.search(
+            r"message SelectionQuery \{.*?"
+            r"optional repeated Door Vehicle_doors = 1;.*?"
+            r"optional string Vehicle_model = 2;.*?"
+            r"optional repeated Seat Cabin_seats = 3;.*?"
+            r"optional float Cabin_temperature = 4 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r"optional bool Door_isLocked = 5;.*?"
+            r"optional int32 Door_position = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r"RowEnum\.Enum Door_instanceTag_row = 7 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"SideEnum\.Enum Door_instanceTag_side = 8 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r"\}",
+            result,
+            re.DOTALL,
+        ), "SelectionQuery message with flattened fields from all root-level types"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 

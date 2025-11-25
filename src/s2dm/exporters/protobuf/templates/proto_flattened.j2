@@ -74,7 +74,7 @@ message {{ union.name }} {
 {% endfor %}{# endfor union #}
 {% endif %}{# endif unions #}
 
-message Message {
+message {{ message_name }} {
 {% for field in flattened_fields %}{# for field in flattened_fields #}
   {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.validation_rules %} {{ field.validation_rules }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
 
