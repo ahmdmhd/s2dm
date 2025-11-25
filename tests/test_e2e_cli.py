@@ -157,7 +157,7 @@ def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) 
 
     assert "package package.name;" in content
 
-    assert "message Message" in content
+    assert "message Selection" in content
 
     assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
     assert "enum Enum" in content

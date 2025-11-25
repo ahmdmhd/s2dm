@@ -205,17 +205,17 @@ class TestProtobufExporter:
         }
         """
         schema = build_schema(schema_str)
-        selection_query = parse("query SelectionQuery { vehicle { speed { average } model } }")
+        selection_query = parse("query Selection { vehicle { speed { average } model } }")
         result = translate_to_protobuf(schema, selection_query=selection_query)
 
         assert re.search(
-            r"message SelectionQuery \{.*?"
+            r"message Selection \{.*?"
             r'option \(source\) = "Query".*?;.*?'
             r"optional Vehicle vehicle = 1.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Query type renamed to SelectionQuery with source option and fields"
+        ), "Query type renamed to Selection with source option and fields"
 
         assert "message Query {" not in result, "Original Query type name should not appear"
 
@@ -1182,7 +1182,7 @@ class TestProtobufExporter:
         graphql_schema = GraphQLSchema(query=query_type, types=types, directives=graphql_schema.directives)
 
         query_str = """
-        query SelectionQuery {
+        query Selection {
             vehicle {
                 doors { isLocked }
                 model
@@ -1206,7 +1206,7 @@ class TestProtobufExporter:
         )
 
         assert re.search(
-            r"message SelectionQuery \{.*?"
+            r"message Selection \{.*?"
             r"optional repeated Door Vehicle_doors = 1;.*?"
             r"optional string Vehicle_model = 2;.*?"
             r"optional repeated Seat Cabin_seats = 3;.*?"
@@ -1218,7 +1218,7 @@ class TestProtobufExporter:
             r"\}",
             result,
             re.DOTALL,
-        ), "SelectionQuery message with flattened fields from all root-level types"
+        ), "Selection message with flattened fields from all root-level types"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 
