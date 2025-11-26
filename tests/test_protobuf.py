@@ -244,7 +244,8 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { speed { average } model } }")
-        result = translate_to_protobuf(schema, selection_query=selection_query)
+        annotated_schema = process_schema(schema, {}, None, None, None, False)
+        result = translate_to_protobuf(annotated_schema, selection_query=selection_query)
 
         assert re.search(
             r"message Selection \{.*?"
@@ -1050,8 +1051,10 @@ class TestProtobufExporter:
         selection_query = parse(query_str)
         graphql_schema = prune_schema_using_query_selection(graphql_schema, selection_query)
 
+        root_types = get_root_level_types_from_query(graphql_schema, selection_query)
+        annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
         result = translate_to_protobuf(
-            graphql_schema, selection_query=selection_query, flatten_root_types=["Vehicle", "Cabin", "Door"]
+            annotated_schema, selection_query=selection_query, flatten_root_types=root_types
         )
 
         assert re.search(

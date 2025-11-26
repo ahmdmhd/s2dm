@@ -91,6 +91,7 @@ class ProtobufTransformer:
         self.package_name = package_name
         self.flatten_root_types = flatten_root_types or []
         self.flatten_naming = len(self.flatten_root_types) > 0
+        self.selection_query = selection_query
 
         self.env = Environment(
             loader=PackageLoader("s2dm.exporters.protobuf", "templates"),
