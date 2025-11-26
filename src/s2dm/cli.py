@@ -587,7 +587,7 @@ def jsonschema(
 def protobuf(
     ctx: click.Context,
     schemas: list[Path],
-    selection_query: Path | None,
+    selection_query: Path,
     output: Path,
     root_type: str | None,
     flatten_naming: bool,
@@ -598,13 +598,11 @@ def protobuf(
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
 
-    query_document = None
-    if selection_query:
-        query_document = parse(selection_query.read_text())
-        graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)
+    query_document = parse(selection_query.read_text())
+    graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)
 
     result = translate_to_protobuf(
-        graphql_schema, root_type, flatten_naming, package_name, naming_config, expanded_instances, query_document
+        graphql_schema, query_document, root_type, flatten_naming, package_name, naming_config, expanded_instances
     )
     _ = output.write_text(result)
 

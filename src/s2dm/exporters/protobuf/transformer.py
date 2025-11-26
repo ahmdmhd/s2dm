@@ -82,13 +82,16 @@ class ProtobufTransformer:
     def __init__(
         self,
         graphql_schema: GraphQLSchema,
+        selection_query: DocumentNode,
         root_type: str | None = None,
         flatten_naming: bool = False,
         package_name: str | None = None,
         naming_config: dict[str, Any] | None = None,
         expanded_instances: bool = False,
-        selection_query: DocumentNode | None = None,
     ):
+        if selection_query is None:
+            raise ValueError("selection_query is required")
+
         self.graphql_schema = graphql_schema
         self.root_type = root_type
         self.flatten_naming = flatten_naming
@@ -151,7 +154,7 @@ class ProtobufTransformer:
             # If no fields reference that object type directly (non-flattened), the type definition is no longer needed.
             # However, unions and enums cannot be flattened and must remain as separate type definitions.
             (
-                proto_schema.flattened_fields,
+                flattened_fields,
                 referenced_type_names,
                 flattened_root_types,
             ) = self._build_flattened_fields(message_types)
@@ -167,7 +170,17 @@ class ProtobufTransformer:
         proto_schema.unions = self._build_unions(union_types)
         proto_schema.messages = self._build_messages(message_types)
 
-        template_name = "proto_flattened.j2" if self.flatten_naming else "proto_standard.j2"
+        if self.flatten_naming:
+            root_message_name = self._get_query_operation_name()
+            root_message_source = f"query: {root_message_name}"
+            root_message = ProtoMessage(
+                name=root_message_name,
+                fields=flattened_fields,
+                source=root_message_source,
+            )
+            proto_schema.messages.append(root_message)
+
+        template_name = "proto_standard.j2"
         template = self.env.get_template(template_name)
 
         template_vars = self._build_template_vars(proto_schema)
@@ -185,9 +198,7 @@ class ProtobufTransformer:
                 return True
             return any(check_message(nested) for nested in message.nested_messages)
 
-        return any(field.validation_rules for field in proto_schema.flattened_fields) or any(
-            check_message(message) for message in proto_schema.messages
-        )
+        return any(check_message(message) for message in proto_schema.messages)
 
     def _has_source_option(self, proto_schema: ProtoSchema) -> bool:
         """Check if any type in the schema has a source option."""
@@ -198,9 +209,6 @@ class ProtobufTransformer:
     def _get_query_operation_name(self) -> str:
         """Extract the operation name from the selection query, defaulting to appropriate fallback."""
         default_name = "Message" if self.flatten_naming else "Query"
-
-        if not self.selection_query:
-            return default_name
 
         for definition in self.selection_query.definitions:
             if not isinstance(definition, OperationDefinitionNode) or definition.operation != OperationType.QUERY:
@@ -226,7 +234,6 @@ class ProtobufTransformer:
         template_vars = proto_schema.model_dump()
         template_vars["imports"] = imports
         template_vars["has_source_option"] = has_source_option
-        template_vars["message_name"] = self._get_query_operation_name()
 
         return template_vars
 
@@ -259,15 +266,18 @@ class ProtobufTransformer:
             fields, nested_messages = self._build_message_fields(message_type)
 
             message_name = message_type.name
+            source = message_type.name
+
             if message_type.name == "Query":
                 message_name = self._get_query_operation_name()
+                source = f"query: {message_name}"
 
             messages.append(
                 ProtoMessage(
                     name=message_name,
                     fields=fields,
                     description=message_type.description,
-                    source=message_type.name,
+                    source=source,
                     nested_messages=nested_messages,
                 )
             )

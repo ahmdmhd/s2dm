@@ -28,9 +28,14 @@ class TestProtobufExporter:
             boolField: Boolean
             idField: ID
         }
+
+        type Query {
+            scalarType: ScalarType
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="ScalarType")
+        selection_query = parse("query Selection { scalarType { stringField intField floatField boolField idField } }")
+        result = translate_to_protobuf(schema, root_type="ScalarType", selection_query=selection_query)
 
         assert 'syntax = "proto3";' in result
         assert re.search(
@@ -68,9 +73,18 @@ class TestProtobufExporter:
             int64Field: Int64
             uint64Field: UInt64
         }
+
+        type Query {
+            customScalarType: CustomScalarType
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="CustomScalarType")
+        selection_query = parse(
+            "query Selection { "
+            "customScalarType { int8Field uint8Field int16Field uint16Field uint32Field int64Field uint64Field } "
+            "}"
+        )
+        result = translate_to_protobuf(schema, root_type="CustomScalarType", selection_query=selection_query)
 
         assert re.search(
             r"message CustomScalarType \{.*?"
@@ -99,9 +113,14 @@ class TestProtobufExporter:
         type Door {
             lockStatus: LockStatus
         }
+
+        type Query {
+            door: Door
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Door")
+        selection_query = parse("query Selection { door { lockStatus } }")
+        result = translate_to_protobuf(schema, root_type="Door", selection_query=selection_query)
 
         assert re.search(
             r"message LockStatus \{.*?"
@@ -135,9 +154,14 @@ class TestProtobufExporter:
             model: String
             vin: String!
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { features requiredFeatures model vin } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -163,9 +187,14 @@ class TestProtobufExporter:
             speed: Speed
             model: String
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { speed { average current } model } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Speed \{.*?"
@@ -210,34 +239,14 @@ class TestProtobufExporter:
 
         assert re.search(
             r"message Selection \{.*?"
-            r'option \(source\) = "Query".*?;.*?'
+            r'option \(source\) = "query: Selection";.*?'
             r"optional Vehicle vehicle = 1.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Query type renamed to Selection with source option and fields"
+        ), "Query type renamed to Selection with query source option and fields"
 
         assert "message Query {" not in result, "Original Query type name should not appear"
-
-    def test_query_type_keeps_name_without_selection_query(self) -> None:
-        """Test that Query type keeps its name when no selection query is provided."""
-        schema_str = """
-        type Vehicle {
-            model: String
-        }
-
-        type Query {
-            vehicle: Vehicle
-        }
-        """
-        schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema)
-
-        assert re.search(
-            r"message Query \{.*?" r'option \(source\) = "Query".*?;.*?' r"optional Vehicle vehicle = 1.*?;.*?" r"\}",
-            result,
-            re.DOTALL,
-        ), "Query type should keep its name when no selection query is provided"
 
     def test_flattened_naming_mode(self) -> None:
         """Test that flatten_naming mode creates flattened field names."""
@@ -256,12 +265,20 @@ class TestProtobufExporter:
             speed: Speed
             model: String
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", flatten_naming=True)
+        selection_query = parse("query Selection { vehicle { speed { average { value timestamp } current } model } }")
+        result = translate_to_protobuf(
+            schema, root_type="Vehicle", flatten_naming=True, selection_query=selection_query
+        )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"float Vehicle_speed_average_value = 1.*?;.*?"
             r"int32 Vehicle_speed_average_timestamp = 2.*?;.*?"
             r"float Vehicle_speed_current = 3.*?;.*?"
@@ -269,7 +286,7 @@ class TestProtobufExporter:
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with flattened fields in order"
+        ), "Selection with source option and flattened fields in order"
 
         assert "message Speed {" not in result
         assert "message Average {" not in result
@@ -298,9 +315,16 @@ class TestProtobufExporter:
             features: [Feature]
             vehicleType: VehicleType
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", flatten_naming=True)
+        selection_query = parse("query Selection { vehicle { id features { name enabled } } }")
+        result = translate_to_protobuf(
+            schema, root_type="Vehicle", flatten_naming=True, selection_query=selection_query
+        )
 
         assert re.search(
             r"message Feature \{.*?"
@@ -337,14 +361,14 @@ class TestProtobufExporter:
         ), "VehicleType union should be included"
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"string Vehicle_id = 1;.*?"
             r"repeated Feature Vehicle_features = 2;.*?"
-            r"VehicleType Vehicle_vehicleType = 3;.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with flattened scalar, array reference, and union reference"
+        ), "Selection with source option, flattened scalar and array reference"
 
         assert "message Vehicle {" not in result
 
@@ -354,9 +378,16 @@ class TestProtobufExporter:
         type Vehicle {
             model: String
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle", package_name="package.name")
+        selection_query = parse("query Selection { vehicle { model } }")
+        result = translate_to_protobuf(
+            schema, root_type="Vehicle", package_name="package.name", selection_query=selection_query
+        )
 
         assert "package package.name;" in result
 
@@ -368,9 +399,14 @@ class TestProtobufExporter:
             """Vehicle identification number"""
             vin: String
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         '''
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { vin } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"// Represents a motor vehicle\s*\n\s*"
@@ -398,9 +434,14 @@ class TestProtobufExporter:
         type TestType {
             vehicle: Vehicle
         }
+
+        type Query {
+            testType: TestType
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="TestType")
+        selection_query = parse("query Selection { testType { vehicle } }")
+        result = translate_to_protobuf(schema, root_type="TestType", selection_query=selection_query)
 
         assert re.search(
             r"message Car \{.*?" r'option \(source\) = "Car".*?;.*?' r"string brand = 1.*?;.*?" r"\}", result, re.DOTALL
@@ -441,9 +482,14 @@ class TestProtobufExporter:
             vin: String!
             batteryCapacity: Int
         }
+
+        type Query {
+            electricVehicle: ElectricVehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="ElectricVehicle")
+        selection_query = parse("query Selection { electricVehicle { vin batteryCapacity } }")
+        result = translate_to_protobuf(schema, root_type="ElectricVehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?" r'option \(source\) = "Vehicle".*?;.*?' r"string vin = 1.*?;.*?" r"\}",
@@ -464,7 +510,10 @@ class TestProtobufExporter:
     def test_include_instance_tag_types_without_expansion(self, test_schema_path: list[Path]) -> None:
         """Test that types with @instanceTag directive are included when expansion is disabled."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=False)
+        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Cabin", expanded_instances=False, selection_query=selection_query
+        )
 
         assert re.search(
             r"message DoorPosition \{.*?"
@@ -581,9 +630,14 @@ class TestProtobufExporter:
             enum: Int
             service: Boolean
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { message enum service } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -610,9 +664,14 @@ class TestProtobufExporter:
             features: [String] @cardinality(min: 1, max: 10)
             wheels: [Int] @noDuplicates @cardinality(min: 2, max: 6)
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { speed engineTemp sensors features wheels } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -641,9 +700,14 @@ class TestProtobufExporter:
             tags: [String!]! @noDuplicates @cardinality(min: 1, max: 10)
             vin: String!
         }
+
+        type Query {
+            vehicle: Vehicle
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Vehicle")
+        selection_query = parse("query Selection { vehicle { speed tags vin } }")
+        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -661,10 +725,18 @@ class TestProtobufExporter:
     def test_flatten_naming_without_expansion(self, test_schema_path: list[Path]) -> None:
         """Test that flatten mode WITHOUT -e flag keeps arrays as repeated."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=False)
+        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
+        result = translate_to_protobuf(
+            graphql_schema,
+            root_type="Cabin",
+            flatten_naming=True,
+            expanded_instances=False,
+            selection_query=selection_query,
+        )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"repeated Seat Cabin_seats = 1.*?"
             r"repeated Door Cabin_doors = 2.*?"
             r"float Cabin_temperature = 3.*?"
@@ -672,19 +744,25 @@ class TestProtobufExporter:
             result,
             re.DOTALL,
         ), (
-            "Message with fields: repeated Seat Cabin_seats = 1, "
+            "Selection with source option and fields: repeated Seat Cabin_seats = 1, "
             "repeated Door Cabin_doors = 2, float Cabin_temperature = 3"
         )
 
     def test_flatten_naming_includes_referenced_types_transitively(self, test_schema_path: list[Path]) -> None:
         """Test that flatten mode includes types referenced by non-flattened types and their dependencies."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
+        selection_query = parse("query Selection { vehicle { doors { isLocked } model year features } }")
         result = translate_to_protobuf(
-            graphql_schema, root_type="Vehicle", flatten_naming=True, expanded_instances=False
+            graphql_schema,
+            root_type="Vehicle",
+            flatten_naming=True,
+            expanded_instances=False,
+            selection_query=selection_query,
         )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"optional repeated Door Vehicle_doors = 1.*?"
             r"optional string Vehicle_model = 2.*?"
             r"optional int32 Vehicle_year = 3.*?"
@@ -692,7 +770,7 @@ class TestProtobufExporter:
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with flattened Vehicle fields including repeated Door reference"
+        ), "Selection with source option and flattened Vehicle fields including repeated Door reference"
 
         assert re.search(
             r"message Door \{.*?"
@@ -750,7 +828,10 @@ class TestProtobufExporter:
     def test_expanded_instances_default(self, test_schema_path: list[Path]) -> None:
         """Test that instance tags are NOT expanded by default (treated as regular types)."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=False)
+        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Cabin", expanded_instances=False, selection_query=selection_query
+        )
 
         assert re.search(
             r"message Cabin \{.*?"
@@ -777,7 +858,10 @@ class TestProtobufExporter:
     def test_expanded_instances(self, test_schema_path: list[Path]) -> None:
         """Test that instance tags are expanded into nested messages when enabled."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", expanded_instances=True)
+        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
+        result = translate_to_protobuf(
+            graphql_schema, root_type="Cabin", expanded_instances=True, selection_query=selection_query
+        )
 
         assert re.search(
             r"message Cabin \{.*?"
@@ -850,10 +934,20 @@ class TestProtobufExporter:
     def test_expanded_instances_with_flatten_naming(self, test_schema_path: list[Path]) -> None:
         """Test that expanded instances only expand in flatten mode when flag is set."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
-        result = translate_to_protobuf(graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True)
+        selection_query = parse(
+            "query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }"
+        )
+        result = translate_to_protobuf(
+            graphql_schema,
+            root_type="Cabin",
+            flatten_naming=True,
+            expanded_instances=True,
+            selection_query=selection_query,
+        )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
             r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
@@ -908,8 +1002,13 @@ class TestProtobufExporter:
         """Test that naming config is applied to expanded instance field names in non-flatten mode."""
         naming_config = {"field": {"object": "MACROCASE"}}
         graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
+        selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
         result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", expanded_instances=True, naming_config=naming_config
+            graphql_schema,
+            root_type="Cabin",
+            expanded_instances=True,
+            naming_config=naming_config,
+            selection_query=selection_query,
         )
 
         assert re.search(
@@ -984,12 +1083,21 @@ class TestProtobufExporter:
         """Test that naming config is applied to type name in flattened prefix with expanded instances."""
         naming_config = {"field": {"object": "snake_case"}}
         graphql_schema = load_schema_with_naming(test_schema_path, naming_config)
+        selection_query = parse(
+            "query Selection { cabin { seats { isOccupied height } doors { isLocked position } temperature } }"
+        )
         result = translate_to_protobuf(
-            graphql_schema, root_type="Cabin", flatten_naming=True, expanded_instances=True, naming_config=naming_config
+            graphql_schema,
+            root_type="Cabin",
+            flatten_naming=True,
+            expanded_instances=True,
+            naming_config=naming_config,
+            selection_query=selection_query,
         )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
             r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
             r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
@@ -1056,9 +1164,14 @@ class TestProtobufExporter:
             currentGear: GearPosition
             rpm: Int @range(min: 0, max: 8000)
         }
+
+        type Query {
+            transmission: Transmission
+        }
         """
         schema = build_schema(schema_str)
-        result = translate_to_protobuf(schema, root_type="Transmission")
+        selection_query = parse("query Selection { transmission { currentGear rpm } }")
+        result = translate_to_protobuf(schema, root_type="Transmission", selection_query=selection_query)
 
         assert re.search(
             r'syntax = "proto3";.*?'
@@ -1117,7 +1230,7 @@ class TestProtobufExporter:
 
         # Selection query that selects vehicle, cabin, and door at the top level
         query_str = """
-        query {
+        query Selection {
             vehicle {
                 doors { isLocked }
                 model
@@ -1141,7 +1254,8 @@ class TestProtobufExporter:
         )
 
         assert re.search(
-            r"message Message \{.*?"
+            r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"optional repeated Door Vehicle_doors = 1;.*?"
             r"optional string Vehicle_model = 2;.*?"
             r"optional repeated Seat Cabin_seats = 3;.*?"
@@ -1153,7 +1267,7 @@ class TestProtobufExporter:
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with flattened fields from all root-level types (Vehicle, Cabin, Door)"
+        ), "Message with source option and flattened fields from all root-level types (Vehicle, Cabin, Door)"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 
@@ -1207,6 +1321,7 @@ class TestProtobufExporter:
 
         assert re.search(
             r"message Selection \{.*?"
+            r'option \(source\) = "query: Selection";.*?'
             r"optional repeated Door Vehicle_doors = 1;.*?"
             r"optional string Vehicle_model = 2;.*?"
             r"optional repeated Seat Cabin_seats = 3;.*?"
@@ -1218,7 +1333,7 @@ class TestProtobufExporter:
             r"\}",
             result,
             re.DOTALL,
-        ), "Selection message with flattened fields from all root-level types"
+        ), "Selection message with source option and flattened fields from all root-level types"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 

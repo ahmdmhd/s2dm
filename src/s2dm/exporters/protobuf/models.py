@@ -74,4 +74,3 @@ class ProtoSchema(BaseModel):
     messages: list[ProtoMessage] = Field(default_factory=list)
     unions: list[ProtoUnion] = Field(default_factory=list)
     flatten_mode: bool = False
-    flattened_fields: list[ProtoField] = Field(default_factory=list)
