@@ -20,6 +20,7 @@ def transform(
         selection_query: Required selection query document to determine root-level types
         package_name: Optional package name for the .proto file
         flatten_root_types: Optional list of root type names for flatten mode
+        selection_query: Optional GraphQL query to extract operation name from
 
     Returns:
         str: Protocol Buffers representation as a string
@@ -51,6 +52,7 @@ def translate_to_protobuf(
         selection_query: Required selection query document to determine root-level types
         package_name: Optional package name for the .proto file
         flatten_root_types: Optional list of root type names for flatten mode
+        selection_query: Optional GraphQL query to extract operation name from
 
     Returns:
         str: Protocol Buffers (.proto) representation as a string
