@@ -279,14 +279,14 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"float Vehicle_speed_average_value = 1.*?;.*?"
-            r"int32 Vehicle_speed_average_timestamp = 2.*?;.*?"
-            r"float Vehicle_speed_current = 3.*?;.*?"
-            r"string Vehicle_model = 4.*?;.*?"
+            r'float Vehicle_speed_average_value = 1 \[\(source\) = "Average"\];.*?'
+            r'int32 Vehicle_speed_average_timestamp = 2 \[\(source\) = "Average"\];.*?'
+            r'float Vehicle_speed_current = 3 \[\(source\) = "Speed"\];.*?'
+            r'string Vehicle_model = 4 \[\(source\) = "Vehicle"\];.*?'
             r"\}",
             result,
             re.DOTALL,
-        ), "Selection with source option and flattened fields in order"
+        ), "Selection with source option and flattened fields with their source options"
 
         assert "message Speed {" not in result
         assert "message Average {" not in result
@@ -363,12 +363,12 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"string Vehicle_id = 1;.*?"
-            r"repeated Feature Vehicle_features = 2;.*?"
+            r'string Vehicle_id = 1 \[\(source\) = "Vehicle"\];.*?'
+            r'repeated Feature Vehicle_features = 2 \[\(source\) = "Vehicle"\];.*?'
             r"\}",
             result,
             re.DOTALL,
-        ), "Selection with source option, flattened scalar and array reference"
+        ), "Selection with source option, flattened fields with source"
 
         assert "message Vehicle {" not in result
 
@@ -948,50 +948,51 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1;.*?"
-            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_CENTER_isOccupied = 3;.*?"
-            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_RIGHT_isOccupied = 5;.*?"
-            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_LEFT_isOccupied = 7;.*?"
-            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_CENTER_isOccupied = 9;.*?"
-            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_RIGHT_isOccupied = 11;.*?"
-            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_LEFT_isOccupied = 13;.*?"
-            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_CENTER_isOccupied = 15;.*?"
-            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_RIGHT_isOccupied = 17;.*?"
-            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19;.*?"
-            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21;.*?"
-            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23;.*?"
-            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25;.*?"
-            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional float Cabin_temperature = 27 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_LEFT_isOccupied = 1 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_CENTER_isOccupied = 3 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_RIGHT_isOccupied = 5 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_LEFT_isOccupied = 7 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_CENTER_isOccupied = 9 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_RIGHT_isOccupied = 11 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_LEFT_isOccupied = 13 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_CENTER_isOccupied = 15 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_RIGHT_isOccupied = 17 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW1_DRIVERSIDE_isLocked = 19 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW1_PASSENGERSIDE_isLocked = 21 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW2_DRIVERSIDE_isLocked = 23 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW2_PASSENGERSIDE_isLocked = 25 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional float Cabin_temperature = 27 \[\(source\) = "Cabin", '
+            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with all flattened expanded instance fields"
+        ), "Message with all flattened expanded instance fields with source options"
 
         assert "SeatRowEnum" not in result
         assert "SeatPositionEnum" not in result
@@ -1098,47 +1099,47 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1;.*?"
-            r"optional int32 Cabin_seats_ROW1_LEFT_height = 2 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_CENTER_is_occupied = 3;.*?"
-            r"optional int32 Cabin_seats_ROW1_CENTER_height = 4 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW1_RIGHT_is_occupied = 5;.*?"
-            r"optional int32 Cabin_seats_ROW1_RIGHT_height = 6 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_LEFT_is_occupied = 7;.*?"
-            r"optional int32 Cabin_seats_ROW2_LEFT_height = 8 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_CENTER_is_occupied = 9;.*?"
-            r"optional int32 Cabin_seats_ROW2_CENTER_height = 10 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW2_RIGHT_is_occupied = 11;.*?"
-            r"optional int32 Cabin_seats_ROW2_RIGHT_height = 12 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_LEFT_is_occupied = 13;.*?"
-            r"optional int32 Cabin_seats_ROW3_LEFT_height = 14 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_CENTER_is_occupied = 15;.*?"
-            r"optional int32 Cabin_seats_ROW3_CENTER_height = 16 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_seats_ROW3_RIGHT_is_occupied = 17;.*?"
-            r"optional int32 Cabin_seats_ROW3_RIGHT_height = 18 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19;.*?"
-            r"optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21;.*?"
-            r"optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23;.*?"
-            r"optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25;.*?"
-            r"optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 "
-            r"\[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional float Cabin_temperature = 27 "
-            r"\[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_LEFT_is_occupied = 1 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_LEFT_height = 2 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_CENTER_is_occupied = 3 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_CENTER_height = 4 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW1_RIGHT_is_occupied = 5 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW1_RIGHT_height = 6 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_LEFT_is_occupied = 7 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_LEFT_height = 8 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_CENTER_is_occupied = 9 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_CENTER_height = 10 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW2_RIGHT_is_occupied = 11 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW2_RIGHT_height = 12 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_LEFT_is_occupied = 13 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_LEFT_height = 14 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_CENTER_is_occupied = 15 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_CENTER_height = 16 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_seats_ROW3_RIGHT_is_occupied = 17 \[\(source\) = "Seat"\];.*?'
+            r'optional int32 Cabin_seats_ROW3_RIGHT_height = 18 \[\(source\) = "Seat", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW1_DRIVERSIDE_is_locked = 19 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW1_DRIVERSIDE_position = 20 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW1_PASSENGERSIDE_is_locked = 21 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW1_PASSENGERSIDE_position = 22 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW2_DRIVERSIDE_is_locked = 23 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW2_DRIVERSIDE_position = 24 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional bool Cabin_doors_ROW2_PASSENGERSIDE_is_locked = 25 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Cabin_doors_ROW2_PASSENGERSIDE_position = 26 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'optional float Cabin_temperature = 27 \[\(source\) = "Cabin", '
+            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -1256,18 +1257,22 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"optional repeated Door Vehicle_doors = 1;.*?"
-            r"optional string Vehicle_model = 2;.*?"
-            r"optional repeated Seat Cabin_seats = 3;.*?"
-            r"optional float Cabin_temperature = 4 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"optional bool Door_isLocked = 5;.*?"
-            r"optional int32 Door_position = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"RowEnum\.Enum Door_instanceTag_row = 7 \[\(buf\.validate\.field\)\.required = true\];.*?"
-            r"SideEnum\.Enum Door_instanceTag_side = 8 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r'optional repeated Door Vehicle_doors = 1 \[\(source\) = "Vehicle"\];.*?'
+            r'optional string Vehicle_model = 2 \[\(source\) = "Vehicle"\];.*?'
+            r'optional repeated Seat Cabin_seats = 3 \[\(source\) = "Cabin"\];.*?'
+            r'optional float Cabin_temperature = 4 \[\(source\) = "Cabin", '
+            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r'optional bool Door_isLocked = 5 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Door_position = 6 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'RowEnum\.Enum Door_instanceTag_row = 7 \[\(source\) = "DoorPosition", '
+            r"\(buf\.validate\.field\)\.required = true\];.*?"
+            r'SideEnum\.Enum Door_instanceTag_side = 8 \[\(source\) = "DoorPosition", '
+            r"\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Message with source option and flattened fields from all root-level types (Vehicle, Cabin, Door)"
+        ), "Message with source option and flattened fields with sources from all root-level types"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 
@@ -1322,18 +1327,22 @@ class TestProtobufExporter:
         assert re.search(
             r"message Selection \{.*?"
             r'option \(source\) = "query: Selection";.*?'
-            r"optional repeated Door Vehicle_doors = 1;.*?"
-            r"optional string Vehicle_model = 2;.*?"
-            r"optional repeated Seat Cabin_seats = 3;.*?"
-            r"optional float Cabin_temperature = 4 \[\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
-            r"optional bool Door_isLocked = 5;.*?"
-            r"optional int32 Door_position = 6 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"RowEnum\.Enum Door_instanceTag_row = 7 \[\(buf\.validate\.field\)\.required = true\];.*?"
-            r"SideEnum\.Enum Door_instanceTag_side = 8 \[\(buf\.validate\.field\)\.required = true\];.*?"
+            r'optional repeated Door Vehicle_doors = 1 \[\(source\) = "Vehicle"\];.*?'
+            r'optional string Vehicle_model = 2 \[\(source\) = "Vehicle"\];.*?'
+            r'optional repeated Seat Cabin_seats = 3 \[\(source\) = "Cabin"\];.*?'
+            r'optional float Cabin_temperature = 4 \[\(source\) = "Cabin", '
+            r"\(buf\.validate\.field\)\.float = \{gte: -100, lte: 100\}\];.*?"
+            r'optional bool Door_isLocked = 5 \[\(source\) = "Door"\];.*?'
+            r'optional int32 Door_position = 6 \[\(source\) = "Door", '
+            r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
+            r'RowEnum\.Enum Door_instanceTag_row = 7 \[\(source\) = "DoorPosition", '
+            r"\(buf\.validate\.field\)\.required = true\];.*?"
+            r'SideEnum\.Enum Door_instanceTag_side = 8 \[\(source\) = "DoorPosition", '
+            r"\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,
             re.DOTALL,
-        ), "Selection message with source option and flattened fields from all root-level types"
+        ), "Selection message with source option and flattened fields with sources from all root-level types"
 
         assert "message Seat {" in result, "Seat message should be included as it's referenced by arrays"
 

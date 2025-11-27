@@ -10,6 +10,10 @@ syntax = "{{ syntax }}";
 extend google.protobuf.MessageOptions {
   string source = 50001;
 }
+
+extend google.protobuf.FieldOptions {
+  string source = 50002;
+}
 {% endif %}{# endif has_source_option #}
 {% if package %}{# if package #}
 
@@ -50,7 +54,7 @@ message {{ enum.name }} {
 {{ render_message(nested, indent + 1) }}
 {% endfor %}{# endfor nested #}
 {% for field in message.fields %}{# for field in message.fields #}
-{{ indent_str }}  {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.validation_rules %} {{ field.validation_rules }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
+{{ indent_str }}  {{ field.type }} {{ field.name }} = {{ field.number }}{% if field.field_options %} {{ field.field_options }}{% endif %};{% if field.description %}  // {{ field.description }}{% endif %}
 
 {% endfor %}{# endfor field #}
 {{ indent_str }}}

@@ -190,11 +190,11 @@ class ProtobufTransformer:
         log.info("Successfully transformed GraphQL schema to Protobuf")
         return result
 
-    def _has_validation_rules(self, proto_schema: ProtoSchema) -> bool:
-        """Check if any field in the schema has validation rules."""
+    def _has_field_options(self, proto_schema: ProtoSchema) -> bool:
+        """Check if any field in the schema has field options."""
 
         def check_message(message: ProtoMessage) -> bool:
-            if any(field.validation_rules for field in message.fields):
+            if any(field.field_options for field in message.fields):
                 return True
             return any(check_message(nested) for nested in message.nested_messages)
 
@@ -223,12 +223,12 @@ class ProtobufTransformer:
     def _build_template_vars(self, proto_schema: ProtoSchema) -> dict[str, Any]:
         """Build all template variables from proto schema."""
         has_source_option = self._has_source_option(proto_schema)
-        has_validation_rules = self._has_validation_rules(proto_schema)
+        has_field_options = self._has_field_options(proto_schema)
 
         imports = []
         if has_source_option:
             imports.append('import "google/protobuf/descriptor.proto";')
-        if has_validation_rules:
+        if has_field_options:
             imports.append('import "buf/validate/validate.proto";')
 
         template_vars = proto_schema.model_dump()
@@ -316,7 +316,7 @@ class ProtobufTransformer:
                 proto_field_type = self._get_field_proto_type(field.type)
                 proto_field_name = self._escape_field_name(field_name)
 
-            validation_rules = None if expanded_message_name else self.process_directives(field, proto_field_type)
+            field_options = None if expanded_message_name else self.process_field_options(field, proto_field_type)
 
             fields.append(
                 ProtoField(
@@ -324,7 +324,7 @@ class ProtobufTransformer:
                     type=proto_field_type,
                     number=field_number,
                     description=field.description,
-                    validation_rules=validation_rules,
+                    field_options=field_options,
                 )
             )
             field_number += 1
@@ -398,16 +398,16 @@ class ProtobufTransformer:
         return all_fields, all_referenced_types, flattened_root_types
 
     def _create_proto_field_with_validation(
-        self, field: GraphQLField, field_name: str, proto_type: str, field_number: int
+        self, field: GraphQLField, field_name: str, proto_type: str, field_number: int, source: str | None = None
     ) -> ProtoField:
-        """Create a ProtoField with validation rules from directives."""
-        validation_rules = self.process_directives(field, proto_type)
+        """Create a ProtoField with field options from directives and source."""
+        field_options = self.process_field_options(field, proto_type, source)
         return ProtoField(
             name=field_name,
             type=proto_type,
             number=field_number,
             description=field.description,
-            validation_rules=validation_rules,
+            field_options=field_options,
         )
 
     def _should_flatten_field(self, unwrapped_type: GraphQLType, is_list: bool) -> bool:
@@ -492,7 +492,13 @@ class ProtobufTransformer:
                         self._add_type_with_dependencies(member_type.name, referenced_types)
 
                 fields.append(
-                    self._create_proto_field_with_validation(field, flattened_name, proto_type, field_counter)
+                    self._create_proto_field_with_validation(
+                        field=field,
+                        field_name=flattened_name,
+                        proto_type=proto_type,
+                        field_number=field_counter,
+                        source=object_type.name,
+                    )
                 )
                 field_counter += 1
 
@@ -540,9 +546,12 @@ class ProtobufTransformer:
             return f"_{name}_"
         return name
 
-    def process_directives(self, field: GraphQLField, proto_type: str) -> str | None:
-        """Process GraphQL directives and convert them to protovalidate constraints."""
+    def process_field_options(self, field: GraphQLField, proto_type: str, source: str | None = None) -> str | None:
+        """Process GraphQL directives and source, converting them to protobuf field options."""
         rules = []
+
+        if source:
+            rules.append(f'(source) = "{source}"')
 
         if is_non_null_type(field.type):
             rules.append("(buf.validate.field).required = true")

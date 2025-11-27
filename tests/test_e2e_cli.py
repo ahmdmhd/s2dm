@@ -162,8 +162,8 @@ def test_export_protobuf_flattened_naming(runner: CliRunner, tmp_outputs: Path) 
     assert "message Vehicle_ADAS_ObstacleDetection_WarningType_Enum" in content
     assert "enum Enum" in content
 
-    assert "optional float Vehicle_averageSpeed = 1;" in content
-    assert "optional bool Vehicle_adas_abs_isEngaged = 3;" in content
+    assert 'optional float Vehicle_averageSpeed = 1 [(source) = "Vehicle"];' in content
+    assert 'optional bool Vehicle_adas_abs_isEngaged = 3 [(source) = "Vehicle_ADAS_ABS"];' in content
 
 
 def test_generate_skos_skeleton(runner: CliRunner, tmp_outputs: Path) -> None:
