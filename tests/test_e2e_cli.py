@@ -12,13 +12,9 @@ from tests.conftest import TestSchemaData as TSD
 
 
 @pytest.fixture(scope="session")
-def units_directory(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Sync QUDT units to a temporary directory once per test session."""
-    temp_units = tmp_path_factory.mktemp("units")
-    runner = CliRunner()
-    result = runner.invoke(cli, ["units", "sync", "--directory", str(temp_units)])
-    assert result.exit_code == 0, f"Failed to sync units: {result.output}"
-    return temp_units
+def units_directory() -> Path:
+    """Return the test data units directory."""
+    return TSD.UNITS_SCHEMA_PATH
 
 
 @pytest.fixture(scope="module")
