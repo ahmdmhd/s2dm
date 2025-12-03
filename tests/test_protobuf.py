@@ -398,9 +398,7 @@ class TestProtobufExporter:
         schema = build_schema(schema_str)
         annotated_schema = process_schema(schema, {}, None, None, None, False)
         selection_query = parse("query Selection { vehicle { model } }")
-        result = translate_to_protobuf(
-            annotated_schema, package_name="package.name", selection_query=selection_query
-        )
+        result = translate_to_protobuf(annotated_schema, package_name="package.name", selection_query=selection_query)
 
         assert "package package.name;" in result
 
@@ -533,9 +531,7 @@ class TestProtobufExporter:
         graphql_schema = load_schema_with_naming(test_schema_path, None)
         annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
         selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
-        result = translate_to_protobuf(
-            annotated_schema, selection_query=selection_query
-        )
+        result = translate_to_protobuf(annotated_schema, selection_query=selection_query)
 
         assert re.search(
             r"message DoorPosition \{.*?"
@@ -752,11 +748,7 @@ class TestProtobufExporter:
         graphql_schema = load_schema_with_naming(test_schema_path, None)
         annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
         selection_query = parse("query Selection { cabin { seats { isOccupied } doors { isLocked } temperature } }")
-        result = translate_to_protobuf(
-            annotated_schema,
-            selection_query=selection_query,
-            flatten_root_types=["Cabin"]
-        )
+        result = translate_to_protobuf(annotated_schema, selection_query=selection_query, flatten_root_types=["Cabin"])
 
         assert re.search(
             r"message Selection \{.*?"
@@ -778,9 +770,7 @@ class TestProtobufExporter:
         annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
         selection_query = parse("query Selection { vehicle { doors { isLocked } model year features } }")
         result = translate_to_protobuf(
-            annotated_schema,
-            selection_query=selection_query,
-            flatten_root_types=["Vehicle"]
+            annotated_schema, selection_query=selection_query, flatten_root_types=["Vehicle"]
         )
 
         assert re.search(
@@ -951,7 +941,9 @@ class TestProtobufExporter:
 
         flatten_root_types = get_root_level_types_from_query(graphql_schema, selection_query)
         annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
-        result = translate_to_protobuf(annotated_schema, flatten_root_types=flatten_root_types)
+        result = translate_to_protobuf(
+            annotated_schema, selection_query=selection_query, flatten_root_types=flatten_root_types
+        )
 
         assert re.search(
             r"message Selection \{.*?"
@@ -1053,9 +1045,7 @@ class TestProtobufExporter:
 
         root_types = get_root_level_types_from_query(graphql_schema, selection_query)
         annotated_schema = process_schema(graphql_schema, {}, None, None, None, False)
-        result = translate_to_protobuf(
-            annotated_schema, selection_query=selection_query, flatten_root_types=root_types
-        )
+        result = translate_to_protobuf(annotated_schema, selection_query=selection_query, flatten_root_types=root_types)
 
         assert re.search(
             r"message Selection \{.*?"

@@ -3,10 +3,10 @@ import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import rich_click as click
-from graphql import GraphQLSchema, parse
+from graphql import DocumentNode, GraphQLSchema, parse
 from rich.traceback import install
 
 from s2dm import __version__, log
@@ -574,7 +574,9 @@ def protobuf(
     if flatten_naming:
         flatten_root_types = get_root_level_types_from_query(annotated_schema.schema, query_document)
 
-    result = translate_to_protobuf(annotated_schema, query_document, package_name, flatten_root_types)
+    result = translate_to_protobuf(
+        annotated_schema, cast(DocumentNode, query_document), package_name, flatten_root_types
+    )
     _ = output.write_text(result)
 
 
