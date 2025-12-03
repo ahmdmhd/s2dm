@@ -111,10 +111,15 @@ class JsonSchemaTransformer:
         if self.root_type:
             referenced_types = get_referenced_types(self.graphql_schema, self.root_type)
             user_defined_types: list[GraphQLNamedType] = [
-                t for t in referenced_types if isinstance(t, GraphQLNamedType)
+                graphql_type
+                for graphql_type in referenced_types
+                if isinstance(graphql_type, GraphQLNamedType) and not is_scalar_type(graphql_type)
             ]
         else:
-            user_defined_types = get_all_named_types(self.graphql_schema)
+            all_types = get_all_named_types(self.graphql_schema)
+            user_defined_types = [
+                graphql_type for graphql_type in all_types if not is_scalar_type(graphql_type)
+            ]
 
         log.info(f"Found {len(user_defined_types)} user-defined types to transform")
 
