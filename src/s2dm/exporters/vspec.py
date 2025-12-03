@@ -14,7 +14,7 @@ from graphql import (
 )
 
 from s2dm import log
-from s2dm.exporters.utils.directive import has_given_directive
+from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
 from s2dm.exporters.utils.field import FieldCase
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type
@@ -289,32 +289,28 @@ def process_field(
             "description": field.description if field.description else "",
             "datatype": SCALAR_DATATYPE_MAP[output_type.name],
         }
+
         # TODO: Fix numbers that are appearing with quotes as strings.
-        if has_given_directive(field, "range") and field.ast_node and field.ast_node.directives:
-            range_directive = next(
-                (directive for directive in field.ast_node.directives if directive.name.value == "range"), None
-            )
-            if range_directive:
-                min_arg = next(
-                    (
-                        arg.value.value
-                        for arg in range_directive.arguments
-                        if arg.name.value == "min" and hasattr(arg.value, "value")
-                    ),
-                    None,
-                )
-                max_arg = next(
-                    (
-                        arg.value.value
-                        for arg in range_directive.arguments
-                        if arg.name.value == "max" and hasattr(arg.value, "value")
-                    ),
-                    None,
-                )
-                if min_arg is not None:
-                    field_dict["min"] = int(min_arg)
-                if max_arg is not None:
-                    field_dict["max"] = int(max_arg)
+        if has_given_directive(field, "range"):
+            args = get_directive_arguments(field, "range")
+            datatype = field_dict["datatype"]
+            is_integer_type = "int" in datatype
+            is_float_type = datatype in ("float", "double")
+
+            if "min" in args:
+                if is_integer_type:
+                    field_dict["min"] = int(args["min"])
+                elif is_float_type:
+                    field_dict["min"] = float(args["min"])
+                else:
+                    field_dict["min"] = args["min"]
+            if "max" in args:
+                if is_integer_type:
+                    field_dict["max"] = int(args["max"])
+                elif is_float_type:
+                    field_dict["max"] = float(args["max"])
+                else:
+                    field_dict["max"] = args["max"]
 
         # TODO: Map the unit name. i.e., SCREAMMING_SNAKE_CASE used in graphql to abbreviated vss unit name.
         if "unit" in field.args:
