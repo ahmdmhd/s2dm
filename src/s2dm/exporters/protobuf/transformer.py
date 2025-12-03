@@ -277,8 +277,8 @@ class ProtobufTransformer:
         field_number = 1
 
         for field_name, field in message_type.fields.items():
-            field_options = self.process_field_options(field, proto_field_type)
             proto_field_type = self._get_field_proto_type(field.type)
+            field_options = self.process_field_options(field, proto_field_type)
             proto_field_name = self._escape_field_name(field_name)
 
             fields.append(
