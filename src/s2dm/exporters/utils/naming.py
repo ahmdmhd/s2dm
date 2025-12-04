@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Any
 
-import click
 import yaml
 from caseconverter import camelcase, cobolcase, flatcase, kebabcase, macrocase, pascalcase, snakecase, titlecase
 from graphql import (
@@ -242,44 +241,40 @@ def validate_naming_config(config: dict[str, Any]) -> None:
 
     for element_type, value in config.items():
         if element_type not in VALID_ELEMENT_TYPES:
-            raise click.ClickException(
+            raise ValueError(
                 f"Invalid element type '{element_type}'. Valid types: {', '.join(sorted(VALID_ELEMENT_TYPES))}"
             )
 
         if element_type in ("enumValue", "instanceTag"):
             if isinstance(value, dict):
-                raise click.ClickException(f"Element type '{element_type}' cannot have contexts")
+                raise ValueError(f"Element type '{element_type}' cannot have contexts")
             if not isinstance(value, str) or value not in VALID_CASES:
-                raise click.ClickException(
-                    f"Invalid case type for '{element_type}': '{value}'. Valid cases: {valid_cases}"
-                )
+                raise ValueError(f"Invalid case type for '{element_type}': '{value}'. Valid cases: {valid_cases}")
         elif isinstance(value, str):
             if value not in VALID_CASES:
-                raise click.ClickException(
-                    f"Invalid case type for '{element_type}': '{value}'. Valid cases: {valid_cases}"
-                )
+                raise ValueError(f"Invalid case type for '{element_type}': '{value}'. Valid cases: {valid_cases}")
         elif isinstance(value, dict):
             if element_type not in VALID_CONTEXTS:
-                raise click.ClickException(f"Element type '{element_type}' cannot have contexts")
+                raise ValueError(f"Element type '{element_type}' cannot have contexts")
 
             for context, case_type in value.items():
                 if context not in VALID_CONTEXTS[element_type]:
                     valid_contexts = ", ".join(sorted(VALID_CONTEXTS[element_type]))
-                    raise click.ClickException(
+                    raise ValueError(
                         f"Invalid context '{context}' for '{element_type}'. Valid contexts: {valid_contexts}"
                     )
 
                 if not isinstance(case_type, str) or case_type not in VALID_CASES:
-                    raise click.ClickException(
+                    raise ValueError(
                         f"Invalid case type for '{element_type}.{context}': '{case_type}'. Valid cases: {valid_cases}"
                     )
         else:
-            raise click.ClickException(
+            raise ValueError(
                 f"Invalid value type for '{element_type}'. Expected string or dict, got {type(value).__name__}"
             )
 
     if "enumValue" in config and "instanceTag" not in config:
-        raise click.ClickException("If 'enumValue' is present, 'instanceTag' must also be present")
+        raise ValueError("If 'enumValue' is present, 'instanceTag' must also be present")
 
 
 def load_naming_config(config_path: Path | None) -> dict[str, Any] | None:
@@ -291,7 +286,7 @@ def load_naming_config(config_path: Path | None) -> dict[str, Any] | None:
     try:
         config_file_handle = config_path.open("r", encoding="utf-8")
     except OSError as e:
-        raise click.ClickException(f"Failed to open naming config file {config_path}: {e}") from e
+        raise OSError(f"Failed to open naming config file {config_path}: {e}") from e
 
     with config_file_handle:
         log.info(f"Loaded naming config: {config_path}")
@@ -299,7 +294,7 @@ def load_naming_config(config_path: Path | None) -> dict[str, Any] | None:
         try:
             result = yaml.safe_load(config_file_handle)
         except yaml.YAMLError as e:
-            raise click.ClickException(f"Failed to load naming config from {config_path}: {e}") from e
+            raise ValueError(f"Failed to load naming config from {config_path}: {e}") from e
 
         config = result if isinstance(result, dict) else {}
         if config:
