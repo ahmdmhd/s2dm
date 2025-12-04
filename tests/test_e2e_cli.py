@@ -114,7 +114,19 @@ def test_export_vspec(runner: CliRunner, tmp_outputs: Path, units_directory: Pat
 def test_export_jsonschema(runner: CliRunner, tmp_outputs: Path, units_directory: Path) -> None:
     out = tmp_outputs / "jsonschema.yaml"
     result = runner.invoke(
-        cli, ["export", "jsonschema", "-s", str(TSD.SAMPLE1_1), "-s", str(TSD.SAMPLE1_2), "-s", str(units_directory), "-o", str(out)]
+        cli,
+        [
+            "export",
+            "jsonschema",
+            "-s",
+            str(TSD.SAMPLE1_1),
+            "-s",
+            str(TSD.SAMPLE1_2),
+            "-s",
+            str(units_directory),
+            "-o",
+            str(out),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert out.exists()
