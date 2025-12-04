@@ -988,7 +988,8 @@ class TestProtobufExporter:
         """
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { temperatures speeds } }")
-        result = translate_to_protobuf(schema, root_type="Vehicle", selection_query=selection_query)
+        annotated_schema = process_schema(schema, {}, None, None, None, False)
+        result = translate_to_protobuf(annotated_schema, selection_query=selection_query)
 
         assert re.search(
             r"message Vehicle \{.*?"
@@ -1088,11 +1089,11 @@ class TestProtobufExporter:
         schema = build_schema(schema_str)
         selection_query = parse("query Selection { vehicle { model year } }")
 
-        result_non_flatten = translate_to_protobuf(
-            schema, root_type="Vehicle", flatten_naming=False, selection_query=selection_query
-        )
+        annotated_schema = process_schema(schema, {}, None, None, None, False)
+        result_non_flatten = translate_to_protobuf(annotated_schema, selection_query=selection_query)
+        flatten_root_types = get_root_level_types_from_query(schema, selection_query)
         result_flatten = translate_to_protobuf(
-            schema, root_type="Vehicle", flatten_naming=True, selection_query=selection_query
+            annotated_schema, flatten_root_types=flatten_root_types, selection_query=selection_query
         )
 
         assert "extend google.protobuf.MessageOptions" in result_non_flatten

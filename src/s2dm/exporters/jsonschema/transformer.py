@@ -318,7 +318,9 @@ class JsonSchemaTransformer:
         named_type = cast(GraphQLObjectType | GraphQLInterfaceType, field_type)
         return {"$ref": f"#/$defs/{named_type.name}"}
 
-    def process_directives(self, element: GraphQLField | GraphQLObjectType) -> dict[str, Any]:
+    def process_directives(
+        self, element: GraphQLField | GraphQLObjectType, field_type: GraphQLType | None = None
+    ) -> dict[str, Any]:
         """
         Process GraphQL directives and convert them to JSON Schema extensions.
 
