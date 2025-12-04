@@ -1,5 +1,4 @@
 import re
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any, cast
@@ -388,11 +387,14 @@ def check_enum_defaults(schema: GraphQLSchema) -> list[str]:
     return errors
 
 
-def assert_correct_schema(schema: GraphQLSchema) -> None:
+def check_correct_schema(schema: GraphQLSchema) -> list[str]:
     """Assert that the schema conforms to GraphQL specification and has valid enum defaults.
 
     Args:
         schema: The GraphQL schema to validate
+
+    Returns:
+        list[str]: List of error messages if any validation errors are found
 
     Exits:
         Calls sys.exit(1) if the schema has validation errors
@@ -410,13 +412,7 @@ def assert_correct_schema(schema: GraphQLSchema) -> None:
         for enum_error in enum_errors:
             all_errors.append(f"  - {enum_error}")
 
-    if all_errors:
-        log.error("Schema validation failed:")
-        for error in all_errors:
-            log.error(error)
-        total_errors = len(spec_errors) + len(enum_errors)
-        log.error(f"Found {total_errors} validation error(s). Please fix the schema before exporting.")
-        sys.exit(1)
+    return all_errors
 
 
 def ensure_query(schema: GraphQLSchema) -> GraphQLSchema:

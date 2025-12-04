@@ -4,7 +4,6 @@ from typing import Any
 from graphql import GraphQLSchema
 
 from s2dm import log
-from s2dm.exporters.utils.schema_loader import assert_correct_schema
 
 from .transformer import JsonSchemaTransformer
 
@@ -65,5 +64,4 @@ def translate_to_jsonschema(
     Returns:
         str: JSON Schema representation as a string
     """
-    assert_correct_schema(schema)
     return transform(schema, root_type, strict, expanded_instances, naming_config)

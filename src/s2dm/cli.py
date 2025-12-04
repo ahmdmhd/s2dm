@@ -7,7 +7,7 @@ from typing import Any
 
 import rich_click as click
 import yaml
-from graphql import build_schema, parse
+from graphql import GraphQLSchema, build_schema, parse
 from rich.traceback import install
 
 from s2dm import __version__, log
@@ -21,7 +21,7 @@ from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_
 from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_introspection_type
 from s2dm.exporters.utils.schema import load_schema_with_naming, search_schema
 from s2dm.exporters.utils.schema_loader import (
-    assert_correct_schema,
+    check_correct_schema,
     create_tempfile_to_composed_schema,
     load_schema,
     load_schema_as_str,
@@ -94,6 +94,7 @@ output_option = click.option(
     help="Output file",
 )
 
+
 optional_output_option = click.option(
     "--output",
     "-o",
@@ -101,6 +102,7 @@ optional_output_option = click.option(
     required=False,
     help="Output file",
 )
+
 
 units_directory_option = click.option(
     "--directory",
@@ -139,6 +141,16 @@ def pretty_print_dict_json(result: dict[str, Any]) -> dict[str, Any]:
         return obj
 
     return {k: multiline_str_representer(v) for k, v in result.items()}
+
+
+def assert_correct_schema(schema: GraphQLSchema) -> None:
+    schema_errors = check_correct_schema(schema)
+    if schema_errors:
+        log.error("Schema validation failed:")
+        for error in schema_errors:
+            log.error(error)
+        log.error(f"Found {len(schema_errors)} validation error(s). Please fix the schema before exporting.")
+        sys.exit(1)
 
 
 def validate_naming_config(config: dict[str, Any]) -> None:
@@ -498,6 +510,7 @@ def shacl(
     naming_config = ctx.obj.get("naming_config")
 
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -526,6 +539,7 @@ def vspec(ctx: click.Context, schemas: list[Path], selection_query: Path | None,
     """Generate VSPEC from a given GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -564,6 +578,7 @@ def jsonschema(
     """Generate JSON Schema from a given GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -608,6 +623,7 @@ def protobuf(
     """Generate Protocol Buffers (.proto) file from GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     query_document = parse(selection_query.read_text())
     graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)
