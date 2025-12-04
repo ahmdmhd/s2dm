@@ -508,7 +508,7 @@ class ProtobufTransformer:
         """Get the Protobuf type string for a GraphQL field type."""
         proto_type = self._get_base_proto_type(field_type)
 
-        if not is_non_null_type(field_type):
+        if not is_non_null_type(field_type) and not proto_type.startswith("repeated "):
             return f"optional {proto_type}"
         return proto_type
 
@@ -551,12 +551,13 @@ class ProtobufTransformer:
         rules = []
 
         if source:
-            rules.append(f'(source) = "{source}"')
+            rules.append(f'(field_source) = "{source}"')
 
         if is_non_null_type(field.type):
             rules.append("(buf.validate.field).required = true")
 
         repeated_rules = []
+        is_repeated = "repeated" in proto_type
 
         if has_given_directive(field, "noDuplicates"):
             unwrapped_type = get_named_type(field.type)
@@ -570,9 +571,6 @@ class ProtobufTransformer:
             if cardinality.max is not None:
                 repeated_rules.append(f"max_items: {cardinality.max}")
 
-        if repeated_rules:
-            rules.append(f"(buf.validate.field).repeated = {{{', '.join(repeated_rules)}}}")
-
         if has_given_directive(field, "range"):
             args = get_directive_arguments(field, "range")
             scalar_type = self._get_validation_type(proto_type)
@@ -583,7 +581,13 @@ class ProtobufTransformer:
                 if "max" in args:
                     range_rules.append(f"lte: {args['max']}")
                 if range_rules:
-                    rules.append(f"(buf.validate.field).{scalar_type} = {{{', '.join(range_rules)}}}")
+                    if is_repeated:
+                        repeated_rules.append(f"items: {{{scalar_type}: {{{', '.join(range_rules)}}}}}")
+                    else:
+                        rules.append(f"(buf.validate.field).{scalar_type} = {{{', '.join(range_rules)}}}")
+
+        if repeated_rules:
+            rules.append(f"(buf.validate.field).repeated = {{{', '.join(repeated_rules)}}}")
 
         if rules:
             return f"[{', '.join(rules)}]"
