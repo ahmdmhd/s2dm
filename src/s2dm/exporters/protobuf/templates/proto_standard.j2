@@ -8,12 +8,14 @@ syntax = "{{ syntax }}";
 {% if has_source_option %}{# if has_source_option #}
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
 }
+{% if flatten_mode %}{# if flatten_mode #}
 
 extend google.protobuf.FieldOptions {
-  string source = 50002;
+  string field_source = 50002;
 }
+{% endif %}{# endif flatten_mode #}
 {% endif %}{# endif has_source_option #}
 {% if package %}{# if package #}
 
@@ -27,7 +29,7 @@ package {{ package }};
 {% endif %}{# endif enum.description #}
 message {{ enum.name }} {
 {% if enum.source %}{# if enum.source #}
-  option (source) = "{{ enum.source }}";
+  option (message_source) = "{{ enum.source }}";
 
 {% endif %}{# endif enum.source #}
   enum Enum {
@@ -47,7 +49,7 @@ message {{ enum.name }} {
 {% endif %}{# endif message.description #}
 {{ indent_str }}message {{ message.name }} {
 {% if message.source %}{# if message.source #}
-{{ indent_str }}  option (source) = "{{ message.source }}";
+{{ indent_str }}  option (message_source) = "{{ message.source }}";
 
 {% endif %}{# endif message.source #}
 {% for nested in message.nested_messages %}{# for nested in message.nested_messages #}
@@ -72,7 +74,7 @@ message {{ enum.name }} {
 {% endif %}{# endif union.description #}
 message {{ union.name }} {
 {% if union.source %}{# if union.source #}
-  option (source) = "{{ union.source }}";
+  option (message_source) = "{{ union.source }}";
 
 {% endif %}{# endif union.source #}
   oneof {{ union.name }} {

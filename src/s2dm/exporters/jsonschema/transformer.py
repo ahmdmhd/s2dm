@@ -111,10 +111,13 @@ class JsonSchemaTransformer:
         if self.root_type:
             referenced_types = get_referenced_types(self.graphql_schema, self.root_type)
             user_defined_types: list[GraphQLNamedType] = [
-                t for t in referenced_types if isinstance(t, GraphQLNamedType)
+                graphql_type
+                for graphql_type in referenced_types
+                if isinstance(graphql_type, GraphQLNamedType) and not is_scalar_type(graphql_type)
             ]
         else:
-            user_defined_types = get_all_named_types(self.graphql_schema)
+            all_types = get_all_named_types(self.graphql_schema)
+            user_defined_types = [graphql_type for graphql_type in all_types if not is_scalar_type(graphql_type)]
 
         log.info(f"Found {len(user_defined_types)} user-defined types to transform")
 
@@ -186,8 +189,8 @@ class JsonSchemaTransformer:
 
         # Process directives
         if hasattr(object_type, "ast_node") and object_type.ast_node and object_type.ast_node.directives:
-            directive_extensions = self.process_directives(object_type)
-            definition.update(directive_extensions)
+            directive_result = self.process_directives(object_type)
+            definition.update(directive_result["field"])
 
         required_fields = []
         for field_name, field in object_type.fields.items():
@@ -242,14 +245,19 @@ class JsonSchemaTransformer:
 
         # Process field directives
         if hasattr(field, "ast_node") and field.ast_node and field.ast_node.directives:
-            directive_extensions = self.process_directives(field)
+            directive_result = self.process_directives(field, field_type)
+            field_directives = directive_result["field"]
+            contained_type_directives = directive_result["contained_type"]
+
             # For expanded instances (when we return a tuple), don't apply array-specific directives
             if singular_name is not None:
-                # Remove array-specific directives for expanded instances since they become objects
-                directive_extensions.pop("uniqueItems", None)
-                directive_extensions.pop("minItems", None)
-                directive_extensions.pop("maxItems", None)
-            definition.update(directive_extensions)
+                field_directives.pop("uniqueItems", None)
+                field_directives.pop("minItems", None)
+                field_directives.pop("maxItems", None)
+
+            definition.update(field_directives)
+            if contained_type_directives and definition.get("type") == "array" and "items" in definition:
+                definition["items"].update(contained_type_directives)
 
         if singular_name:
             return (definition, singular_name)
@@ -456,45 +464,60 @@ class JsonSchemaTransformer:
 
         return definition
 
-    def process_directives(self, element: GraphQLField | GraphQLObjectType) -> dict[str, Any]:
+    def process_directives(
+        self, element: GraphQLField | GraphQLObjectType, field_type: GraphQLType | None = None
+    ) -> dict[str, Any]:
         """
         Process GraphQL directives and convert them to JSON Schema extensions.
 
         Args:
-            directives: List of GraphQL directive nodes
+            element: The GraphQL field or object type with directives
+            field_type: The GraphQL type of the field (for context-aware processing)
 
         Returns:
-            Dict[str, Any]: JSON Schema extensions for the directives
+            Dict with 'field' and 'contained_type' keys for directives that apply to
+            the field itself vs the contained type (items in arrays, members in unions, etc.)
         """
-        extensions: dict[str, Any] = {}
+        field_extensions: dict[str, Any] = {}
+        contained_type_extensions: dict[str, Any] = {}
 
         if has_given_directive(element, "noDuplicates"):
-            extensions["uniqueItems"] = True
+            field_extensions["uniqueItems"] = True
 
         if isinstance(element, GraphQLField):
             cardinality = get_cardinality(element)
             if cardinality:
                 if cardinality.min is not None:
-                    extensions["minItems"] = cardinality.min
+                    field_extensions["minItems"] = cardinality.min
                 if cardinality.max is not None:
-                    extensions["maxItems"] = cardinality.max
+                    field_extensions["maxItems"] = cardinality.max
 
         if has_given_directive(element, "range"):
             args = get_directive_arguments(element, "range")
+            range_extensions = {}
             if "min" in args:
-                extensions["minimum"] = args["min"]
+                range_extensions["minimum"] = args["min"]
             if "max" in args:
-                extensions["maximum"] = args["max"]
+                range_extensions["maximum"] = args["max"]
+
+            unwrapped_type = field_type
+            if unwrapped_type and is_non_null_type(unwrapped_type):
+                unwrapped_type = cast(GraphQLNonNull[Any], unwrapped_type).of_type
+
+            if unwrapped_type and is_list_type(unwrapped_type):
+                contained_type_extensions.update(range_extensions)
+            else:
+                field_extensions.update(range_extensions)
 
         if has_given_directive(element, "metadata"):
             args = get_directive_arguments(element, "metadata")
             if "comment" in args:
-                extensions["$comment"] = args["comment"]
+                field_extensions["$comment"] = args["comment"]
             other_metadata = {k: v for k, v in args.items() if k != "comment"}
             if other_metadata:
-                extensions["x-metadata"] = other_metadata
+                field_extensions["x-metadata"] = other_metadata
 
-        return extensions
+        return {"field": field_extensions, "contained_type": contained_type_extensions}
 
     def transform_enum_type(self, enum_type: GraphQLEnumType) -> dict[str, Any]:
         """

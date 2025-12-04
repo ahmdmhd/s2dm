@@ -438,6 +438,43 @@ class TestDirectives:
         assert price_prop["minimum"] == 0.0
         assert price_prop["maximum"] == 999999.99
 
+    def test_range_directive_on_array_field(self) -> None:
+        """Test that @range directive on array fields applies constraints to items, not the array."""
+        schema_str = """
+            directive @range(min: Float, max: Float) on FIELD_DEFINITION
+
+            type Query { vehicle: Vehicle }
+            type Vehicle {
+                temperatures: [Float!]! @range(min: -40.0, max: 120.0)
+                seatHeights: [Int] @range(min: 0, max: 100)
+            }
+        """
+        graphql_schema = build_schema(schema_str)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
+
+        vehicle_def = schema["$defs"]["Vehicle"]
+        temperatures_prop = vehicle_def["properties"]["temperatures"]
+        seat_heights_prop = vehicle_def["properties"]["seatHeights"]
+
+        assert temperatures_prop["type"] == "array"
+        assert "items" in temperatures_prop
+        assert "minimum" not in temperatures_prop
+        assert "maximum" not in temperatures_prop
+        assert "minimum" in temperatures_prop["items"]
+        assert "maximum" in temperatures_prop["items"]
+        assert temperatures_prop["items"]["minimum"] == -40.0
+        assert temperatures_prop["items"]["maximum"] == 120.0
+
+        assert seat_heights_prop["type"] == "array"
+        assert "items" in seat_heights_prop
+        assert "minimum" not in seat_heights_prop
+        assert "maximum" not in seat_heights_prop
+        assert "minimum" in seat_heights_prop["items"]
+        assert "maximum" in seat_heights_prop["items"]
+        assert seat_heights_prop["items"]["minimum"] == 0
+        assert seat_heights_prop["items"]["maximum"] == 100
+
     def test_no_duplicates_directive(self) -> None:
         schema_str = """
             directive @noDuplicates on FIELD_DEFINITION
