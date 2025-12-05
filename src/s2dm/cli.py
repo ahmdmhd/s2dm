@@ -7,7 +7,7 @@ from typing import Any
 
 import rich_click as click
 import yaml
-from graphql import build_schema, parse
+from graphql import GraphQLSchema, build_schema, parse
 from rich.traceback import install
 
 from s2dm import __version__, log
@@ -21,6 +21,7 @@ from s2dm.exporters.utils.extraction import get_all_named_types, get_all_object_
 from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_introspection_type
 from s2dm.exporters.utils.schema import load_schema_with_naming, search_schema
 from s2dm.exporters.utils.schema_loader import (
+    check_correct_schema,
     create_tempfile_to_composed_schema,
     load_schema,
     load_schema_as_str,
@@ -52,15 +53,6 @@ class PathResolverOption(click.Option):
         if not value:
             return None
         paths = set(value)
-
-        # Include the default QUDT units directory if it exists, otherwise warn and don't include it
-        if DEFAULT_QUDT_UNITS_DIR.exists():
-            paths.add(DEFAULT_QUDT_UNITS_DIR)
-        else:
-            log.warning(
-                f"No QUDT units directory found at {DEFAULT_QUDT_UNITS_DIR}. Please run 's2dm units sync' first."
-            )
-
         return resolve_graphql_files(list(paths))
 
 
@@ -102,12 +94,23 @@ output_option = click.option(
     help="Output file",
 )
 
+
 optional_output_option = click.option(
     "--output",
     "-o",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     required=False,
     help="Output file",
+)
+
+
+units_directory_option = click.option(
+    "--directory",
+    "-d",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=DEFAULT_QUDT_UNITS_DIR,
+    help="Directory for QUDT unit enums",
+    show_default=True,
 )
 
 
@@ -138,6 +141,16 @@ def pretty_print_dict_json(result: dict[str, Any]) -> dict[str, Any]:
         return obj
 
     return {k: multiline_str_representer(v) for k, v in result.items()}
+
+
+def assert_correct_schema(schema: GraphQLSchema) -> None:
+    schema_errors = check_correct_schema(schema)
+    if schema_errors:
+        log.error("Schema validation failed:")
+        for error in schema_errors:
+            log.error(error)
+        log.error(f"Found {len(schema_errors)} validation error(s). Please fix the schema before exporting.")
+        sys.exit(1)
 
 
 def validate_naming_config(config: dict[str, Any]) -> None:
@@ -315,39 +328,48 @@ def units() -> None:
         "QUDT version tag (e.g., 3.1.6). Defaults to the latest tag, falls back to 'main' when tags are unavailable."
     ),
 )
+@units_directory_option
 @click.option(
     "--dry-run",
     is_flag=True,
     help="Show what would be generated without actually writing files",
 )
-def units_sync(version: str | None, dry_run: bool) -> None:
-    """Fetch QUDT quantity kinds and generate GraphQL enums under the output directory."""
+def units_sync(version: str | None, directory: Path, dry_run: bool) -> None:
+    """Fetch QUDT quantity kinds and generate GraphQL enums under the specified directory.
+
+    Args:
+        version: QUDT version tag. Defaults to the latest tag.
+        directory: Output directory for generated QUDT unit enums (default: ~/.s2dm/units/qudt)
+        dry_run: Show what would be generated without actually writing files
+    """
 
     version_to_use = version or get_latest_qudt_version()
 
     try:
-        written = sync_qudt_units(DEFAULT_QUDT_UNITS_DIR, version_to_use, dry_run=dry_run)
+        written = sync_qudt_units(directory, version_to_use, dry_run=dry_run)
     except UnitEnumError as e:
         log.error(f"Units sync failed: {e}")
         sys.exit(1)
 
     if dry_run:
-        log.info(f"Would generate {len(written)} enum files under {DEFAULT_QUDT_UNITS_DIR}")
+        log.info(f"Would generate {len(written)} enum files under {directory}")
         log.print(f"Version: {version_to_use}")
         log.hint("Use without --dry-run to actually write files")
     else:
-        log.success(f"Generated {len(written)} enum files under {DEFAULT_QUDT_UNITS_DIR}")
+        log.success(f"Generated {len(written)} enum files under {directory}")
         log.print(f"Version: {version_to_use}")
 
 
 @units.command(name="check-version")
-def units_check_version() -> None:
+@units_directory_option
+def units_check_version(directory: Path) -> None:
     """Compare local synced QUDT version with the latest remote version and print a message.
+
     Args:
-        qudt_units_dir: Directory containing generated QUDT unit enums (default: ~/.s2dm/units/qudt)
+        directory: Directory containing generated QUDT unit enums (default: ~/.s2dm/units/qudt)
     """
 
-    meta_path = DEFAULT_QUDT_UNITS_DIR / UNITS_META_FILENAME
+    meta_path = directory / UNITS_META_FILENAME
     if not meta_path.exists():
         log.warning("No metadata.json found. Run 's2dm units sync' first.")
         sys.exit(1)
@@ -398,6 +420,7 @@ def compose(schemas: list[Path], root_type: str | None, selection_query: Path | 
             composed_schema_str = load_schema_as_str(schemas, add_references=True)
 
         graphql_schema = build_schema(composed_schema_str)
+        assert_correct_schema(graphql_schema)
 
         if selection_query:
             query_document = parse(selection_query.read_text())
@@ -487,6 +510,7 @@ def shacl(
     naming_config = ctx.obj.get("naming_config")
 
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -515,6 +539,7 @@ def vspec(ctx: click.Context, schemas: list[Path], selection_query: Path | None,
     """Generate VSPEC from a given GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -553,6 +578,7 @@ def jsonschema(
     """Generate JSON Schema from a given GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     if selection_query:
         query_document = parse(selection_query.read_text())
@@ -597,6 +623,7 @@ def protobuf(
     """Generate Protocol Buffers (.proto) file from GraphQL schema."""
     naming_config = ctx.obj.get("naming_config")
     graphql_schema = load_schema_with_naming(schemas, naming_config)
+    assert_correct_schema(graphql_schema)
 
     query_document = parse(selection_query.read_text())
     graphql_schema = prune_schema_using_query_selection(graphql_schema, query_document)

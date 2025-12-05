@@ -49,19 +49,6 @@ class TestSchemaData:
     BREAKING_SCHEMA = TESTS_DATA_DIR / "breaking.graphql"
 
 
-@pytest.fixture(autouse=True)
-def patch_default_units_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch DEFAULT_QUDT_UNITS_DIR to use tests/data/units for all tests.
-
-    This prevents the "No QUDT units directory found" warning during tests
-    and provides the necessary unit enum definitions that test schemas reference.
-
-    Tests that use the units_sync_mocks fixture will have this overridden with
-    their own tmp_path directory for isolation.
-    """
-    monkeypatch.setattr("s2dm.cli.DEFAULT_QUDT_UNITS_DIR", TestSchemaData.UNITS_SCHEMA_PATH)
-
-
 def parsed_console_output() -> str:
     """Parse console output (placeholder function)."""
     return ""
