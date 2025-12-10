@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, cast
 
-from graphql import parse
+from graphql import build_schema, parse
 from graphql.type import GraphQLObjectType
 
 from s2dm.exporters.utils import directive as directive_utils
@@ -94,6 +94,57 @@ def test_prune_schema_using_query_selection(schema_path: list[Path]) -> None:
     abs_type = cast(GraphQLObjectType, pruned_schema.type_map["Vehicle_ADAS_ABS"])
     assert "isEngaged" in abs_type.fields
     assert "isError" not in abs_type.fields
+
+
+def test_prune_schema_with_nested_input_objects() -> None:
+    schema_str = """
+    scalar DateTime
+
+    enum VehicleType {
+      CAR
+      TRUCK
+    }
+
+    input SpecsFilter {
+      minHorsepower: Int
+      maxHorsepower: Int
+    }
+
+    input VehicleFilter {
+      name: String
+      type: VehicleType
+      specs: SpecsFilter
+      createdAfter: DateTime
+    }
+
+    type Vehicle {
+      id: ID!
+      name: String!
+    }
+
+    type Query {
+      vehicles(filter: VehicleFilter): [Vehicle]
+      ping: String
+    }
+    """
+
+    query_str = """
+    query Selection {
+      vehicles(filter: {}) {
+        id
+        name
+      }
+    }
+    """
+
+    schema = build_schema(schema_str)
+    selection_query = parse(query_str)
+    pruned_schema = schema_loader_utils.prune_schema_using_query_selection(schema, selection_query)
+
+    assert "VehicleFilter" in pruned_schema.type_map
+    assert "SpecsFilter" in pruned_schema.type_map
+    assert "VehicleType" in pruned_schema.type_map
+    assert "DateTime" in pruned_schema.type_map
 
 
 # #########################################################
