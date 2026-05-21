@@ -5,7 +5,6 @@ from typing import Any, cast
 from unittest.mock import Mock, patch
 
 import pytest
-import yaml
 from click.exceptions import MissingParameter
 from click.testing import CliRunner
 from graphql import GraphQLObjectType, build_schema
