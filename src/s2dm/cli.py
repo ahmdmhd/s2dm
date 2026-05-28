@@ -25,8 +25,6 @@ from rich.traceback import install
 from s2dm import __version__, log
 from s2dm.concept.services import iter_all_concepts
 from s2dm.deps import (
-    DEFAULT_DEPS_CONFIG_FILENAME,
-    DEFAULT_IDENTITY_FILENAME,
     DEPENDENCY_LOCK_FILENAME,
     clean_resolved_dependencies,
     resolve_dependencies,
@@ -35,10 +33,17 @@ from s2dm.deps.compose import (
     DependencySchemaBuilder,
     DependencySchemaInput,
 )
-from s2dm.deps.models import DependencyConfig, DependencyMetadata, RemoteIdentityConfig
+from s2dm.deps.helpers import (
+    build_resolver_context,
+    get_dependency_config_path,
+    get_dependency_identity_path,
+    load_dependency_config,
+    load_dependency_identity_config,
+)
+from s2dm.deps.models import DependencyMetadata
 from s2dm.deps.resolve.common import METADATA_FILENAME, SCHEMA_FILENAME, VENDOR_DIRECTORY
 from s2dm.deps.resolve.context import ResolverContext
-from s2dm.deps.resolve.providers import RemoteIdentityProvider
+from s2dm.deps.resolve.warnings import LoggingWarningCollector
 from s2dm.exporters.avro import translate_to_avro_protocol, translate_to_avro_schema
 from s2dm.exporters.id import IDExporter
 from s2dm.exporters.jsonschema import translate_to_jsonschema
@@ -530,11 +535,12 @@ def query(
 def deps_resolve(config_path: Path | None, identity_path: Path | None, clean: bool) -> None:
     """Resolve dependencies from the configured dependency manifest."""
     working_directory = Path.cwd()
-    resolved_config_path = _resolve_deps_config_path(config_path, working_directory)
+    resolved_config_path = config_path or get_dependency_config_path(working_directory)
 
     try:
-        identity_config = _load_dependency_identity_config(identity_path, working_directory)
-        resolver_context = _build_resolver_context(identity_config)
+        resolved_identity_path = identity_path or get_dependency_identity_path(working_directory)
+        identity_config = load_dependency_identity_config(resolved_identity_path)
+        resolver_context = build_resolver_context(identity_config, warning_collector=LoggingWarningCollector())
         clean_context = clean_resolved_dependencies(working_directory) if clean else nullcontext()
         with clean_context:
             lock_path = _resolve_dependencies_to_lock(resolved_config_path, working_directory, resolver_context)
@@ -556,11 +562,11 @@ def deps_resolve(config_path: Path | None, identity_path: Path | None, clean: bo
 def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> None:
     """Compose all vendored dependency schemas into a single output file."""
     working_directory = Path.cwd()
-    resolved_config_path = _resolve_deps_config_path(config_path, working_directory)
+    resolved_config_path = config_path or get_dependency_config_path(working_directory)
     vendor_root = working_directory / VENDOR_DIRECTORY
 
     try:
-        dependency_config = DependencyConfig.load(resolved_config_path)
+        dependency_config = load_dependency_config(resolved_config_path)
         schemas: list[Path] = []
         selection_by_schema_path: dict[Path, DocumentNode] = {}
         selected_schema_contents: list[str] = []
@@ -626,35 +632,12 @@ def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> Non
 deps.add_command(deps_build, name="compose")
 
 
-def _resolve_deps_config_path(config_path: Path | None, working_directory: Path) -> Path:
-    if config_path is not None:
-        return config_path
-    return working_directory / DEFAULT_DEPS_CONFIG_FILENAME
-
-
-def _load_dependency_identity_config(
-    identity_path: Path | None,
-    working_directory: Path,
-) -> RemoteIdentityConfig | None:
-    resolved_identity_path = identity_path or working_directory / DEFAULT_IDENTITY_FILENAME
-    if identity_path is None and not resolved_identity_path.exists():
-        return None
-    return RemoteIdentityConfig.load(resolved_identity_path)
-
-
-def _build_resolver_context(identity_config: RemoteIdentityConfig | None) -> ResolverContext:
-    remote_identity_provider = None
-    if identity_config is not None:
-        remote_identity_provider = RemoteIdentityProvider(identity_config)
-    return ResolverContext(remote_identity_provider=remote_identity_provider)
-
-
 def _resolve_dependencies_to_lock(
     resolved_config_path: Path,
     working_directory: Path,
     resolver_context: ResolverContext | None = None,
 ) -> Path:
-    dependency_config = DependencyConfig.load(resolved_config_path)
+    dependency_config = load_dependency_config(resolved_config_path)
     lock_file = resolve_dependencies(dependency_config, working_directory, resolver_context)
     lock_path = working_directory / DEPENDENCY_LOCK_FILENAME
     lock_file.save(lock_path)

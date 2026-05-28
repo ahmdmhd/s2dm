@@ -2,6 +2,7 @@ from typing import TypeVar
 
 from s2dm.deps.models import DependencyEntry
 from s2dm.deps.resolve.context import ResolverContext
+from s2dm.deps.resolve.errors import DependencyConfigError
 from s2dm.deps.resolve.resolvers.resolver import Resolver
 
 ResolverClass = TypeVar("ResolverClass", bound=type[Resolver])
@@ -35,4 +36,4 @@ class ResolverFactory:
             if resolver_class.matches(dependency):
                 return resolver_class(context)
 
-        raise ValueError(f"Unsupported dependency source: {dependency.source}")
+        raise DependencyConfigError(f"Unsupported dependency source: {dependency.source}")

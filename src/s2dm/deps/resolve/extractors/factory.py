@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import TypeVar
 
+from s2dm.deps.resolve.errors import DependencyConfigError
 from s2dm.deps.resolve.extractors.extractor import Extractor
 
 ExtractorClass = TypeVar("ExtractorClass", bound=type[Extractor])
@@ -30,4 +31,4 @@ class ExtractorFactory:
             if archive_path.name.endswith(extractor_class.file_formats):
                 return extractor_class()
 
-        raise ValueError(f"Unsupported dependency archive format: {archive_path.name}")
+        raise DependencyConfigError(f"Unsupported dependency archive format: {archive_path.name}")
