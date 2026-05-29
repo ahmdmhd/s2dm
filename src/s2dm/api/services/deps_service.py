@@ -1,21 +1,13 @@
 """Dependency resolution service for API endpoints."""
 
-from contextlib import nullcontext
 from pathlib import Path
 
-from graphql import DocumentNode, parse
 from pydantic import ValidationError
 
 from s2dm.api.config import get_api_workspace
 from s2dm.api.errors import ResourceNotFoundError, ResponseError, format_error_list
 from s2dm.api.models.base import ContentInput, PathInput
 from s2dm.api.models.deps import ApiDependencyEntry, DependenciesConfig, DependenciesIdentities
-from s2dm.deps import (
-    DEPENDENCY_LOCK_FILENAME,
-    clean_resolved_dependencies,
-    resolve_dependencies,
-)
-from s2dm.deps.compose import DependencySchemaBuilder, DependencySchemaInput
 from s2dm.deps.helpers import (
     build_resolver_context,
     delete_dependency_identity_config,
@@ -23,21 +15,17 @@ from s2dm.deps.helpers import (
     get_dependency_identity_path,
     load_dependency_config,
     load_dependency_identity_config,
+    load_vendored_dependency_schema_inputs,
+    prepare_dependency_schemas_for_composition,
+    resolve_dependency_config_to_lock_path,
     save_dependency_config,
     save_dependency_identity_config,
 )
-from s2dm.deps.models import DependencyConfig, DependencyEntry, DependencyMetadata, RemoteIdentityConfig
-from s2dm.deps.resolve.common import METADATA_FILENAME, SCHEMA_FILENAME, VENDOR_DIRECTORY
+from s2dm.deps.models import DependencyConfig, DependencyEntry, RemoteIdentityConfig
+from s2dm.deps.resolve.common import VENDOR_DIRECTORY
 from s2dm.deps.resolve.errors import DependencyConfigError
 from s2dm.deps.resolve.warnings import ListWarningCollector
-from s2dm.exporters.utils.schema_loader import (
-    build_schema_str_with_optional_source_map,
-    check_correct_schema,
-    load_schema_with_source_map,
-    print_schema_with_directives_preserved,
-    process_schema,
-)
-from s2dm.utils.file import temp_files_from_contents
+from s2dm.exporters.utils.schema_loader import compose_schemas_to_string
 
 
 def save_dependencies_config(config: DependenciesConfig) -> None:
@@ -97,14 +85,14 @@ def resolve_api_dependencies(clean: bool) -> list[str]:
     warnings: list[str] = []
     identity_config = load_dependency_identity_config(get_dependency_identity_path(api_workspace))
     resolver_context = build_resolver_context(identity_config, warning_collector=ListWarningCollector(warnings))
-    clean_context = clean_resolved_dependencies(api_workspace) if clean else nullcontext()
     dependency_config = _load_stored_dependency_config(api_workspace)
 
-    with clean_context:
-        lock_file = resolve_dependencies(dependency_config, api_workspace, resolver_context)
-
-    lock_path = api_workspace / DEPENDENCY_LOCK_FILENAME
-    lock_file.save(lock_path)
+    resolve_dependency_config_to_lock_path(
+        dependency_config,
+        api_workspace,
+        resolver_context,
+        clean,
+    )
     return warnings
 
 
@@ -114,16 +102,15 @@ def build_api_dependencies(auto_prefix: bool) -> str:
     dependency_config = _load_stored_dependency_config(api_workspace)
     vendor_root = api_workspace / VENDOR_DIRECTORY
 
-    selected_schema_contents, dependency_schema_contents = _load_dependency_schema_inputs(
-        dependency_config=dependency_config,
-        vendor_root=vendor_root,
+    selected_schema_contents, dependency_schema_inputs = load_vendored_dependency_schema_inputs(
+        dependency_config,
+        vendor_root,
     )
-
-    if not selected_schema_contents:
-        raise ResponseError(f"No vendored dependency schemas found under {vendor_root}")
-
-    dependency_schema_builder = DependencySchemaBuilder(dependency_schema_contents)
-    type_name_conflicts = dependency_schema_builder.find_conflicts()
+    schema_paths, type_name_conflicts = prepare_dependency_schemas_for_composition(
+        dependency_schema_inputs,
+        selected_schema_contents,
+        auto_prefix,
+    )
     if type_name_conflicts and not auto_prefix:
         conflict_messages = [
             "Multiple "
@@ -134,13 +121,13 @@ def build_api_dependencies(auto_prefix: bool) -> str:
         raise ResponseError(
             format_error_list("Dependency build failed due to conflicting type definitions", conflict_messages)
         )
-
-    schema_paths = (
-        dependency_schema_builder.write_auto_prefixed_schema_files()
-        if auto_prefix
-        else temp_files_from_contents(selected_schema_contents)
+    return compose_schemas_to_string(
+        schemas=schema_paths,
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
     )
-    return _compose_dependency_schemas(schema_paths)
 
 
 def _build_dependency_config(config: DependenciesConfig, api_workspace: Path) -> DependencyConfig:
@@ -243,60 +230,3 @@ def _build_api_selection_input(
 
 def _get_api_selection_directory(api_workspace: Path) -> Path:
     return api_workspace / "selections"
-
-
-def _load_dependency_schema_inputs(
-    dependency_config: DependencyConfig,
-    vendor_root: Path,
-) -> tuple[list[str], list[DependencySchemaInput]]:
-    selected_schema_contents: list[str] = []
-    dependency_schema_contents: list[DependencySchemaInput] = []
-    selection_by_schema_path: dict[Path, DocumentNode] = {}
-
-    def resolve_schema_selection(schema_path: Path) -> DocumentNode | None:
-        return selection_by_schema_path.get(schema_path.resolve())
-
-    for dependency in dependency_config.dependencies:
-        dependency_vendor_directory = vendor_root / dependency.name / dependency.version
-        schema_path = dependency_vendor_directory / SCHEMA_FILENAME
-        metadata_path = dependency_vendor_directory / METADATA_FILENAME
-
-        if not schema_path.is_file():
-            raise ResponseError(f"Vendored dependency schema does not exist: {schema_path}")
-        if not metadata_path.is_file():
-            raise ResponseError(f"Vendored dependency metadata does not exist: {metadata_path}")
-
-        resolved_schema_path = schema_path.resolve()
-        if dependency.selection is not None:
-            selection_by_schema_path[resolved_schema_path] = parse(dependency.selection.read_text(encoding="utf-8"))
-
-        schema_content, _ = build_schema_str_with_optional_source_map(
-            [resolved_schema_path],
-            schema_selection_resolver=resolve_schema_selection,
-        )
-        selected_schema_contents.append(schema_content)
-        dependency_schema_contents.append(
-            DependencySchemaInput(
-                schema_content=schema_content,
-                metadata=DependencyMetadata.load(metadata_path),
-            )
-        )
-
-    return selected_schema_contents, dependency_schema_contents
-
-
-def _compose_dependency_schemas(schema_paths: list[Path]) -> str:
-    graphql_schema, source_map = load_schema_with_source_map(schema_paths)
-    schema_errors = check_correct_schema(graphql_schema)
-    if schema_errors:
-        raise ResponseError(format_error_list("Schema validation failed", schema_errors))
-
-    annotated_schema = process_schema(
-        schema=graphql_schema,
-        source_map=source_map,
-        naming_config=None,
-        query_document=None,
-        root_type=None,
-        expanded_instances=False,
-    )
-    return print_schema_with_directives_preserved(annotated_schema.schema, source_map)

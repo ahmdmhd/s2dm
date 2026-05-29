@@ -1,12 +1,23 @@
+from contextlib import nullcontext
 from pathlib import Path
 
 import yaml
+from graphql import DocumentNode, parse
 
-from s2dm.deps.models import DependencyConfig, RemoteIdentityConfig
-from s2dm.deps.resolve.common import DEFAULT_DEPS_CONFIG_FILENAME, DEFAULT_IDENTITY_FILENAME
+from s2dm.deps import DEPENDENCY_LOCK_FILENAME, clean_resolved_dependencies, resolve_dependencies
+from s2dm.deps.compose import DependencySchemaBuilder, DependencySchemaInput, DependencyTypeNameConflict
+from s2dm.deps.models import DependencyConfig, DependencyMetadata, RemoteIdentityConfig
+from s2dm.deps.resolve.common import (
+    DEFAULT_DEPS_CONFIG_FILENAME,
+    DEFAULT_IDENTITY_FILENAME,
+    METADATA_FILENAME,
+    SCHEMA_FILENAME,
+)
 from s2dm.deps.resolve.context import ResolverContext
 from s2dm.deps.resolve.providers import RemoteIdentityProvider
 from s2dm.deps.resolve.warnings import WarningCollector
+from s2dm.exporters.utils.schema_loader import build_schema_str_with_optional_source_map
+from s2dm.utils.file import temp_files_from_contents
 
 
 def get_dependency_config_path(workspace: Path) -> Path:
@@ -50,6 +61,82 @@ def build_resolver_context(
         remote_identity_provider=remote_identity_provider,
         warning_collector=warning_collector,
     )
+
+
+def resolve_dependency_config_to_lock_path(
+    dependency_config: DependencyConfig,
+    workspace: Path,
+    resolver_context: ResolverContext | None = None,
+    clean: bool = False,
+) -> Path:
+    """Resolve a dependency config and persist the resulting lock file in *workspace*."""
+    clean_context = clean_resolved_dependencies(workspace) if clean else nullcontext()
+    with clean_context:
+        lock_file = resolve_dependencies(dependency_config, workspace, resolver_context)
+
+    lock_path = workspace / DEPENDENCY_LOCK_FILENAME
+    lock_file.save(lock_path)
+    return lock_path
+
+
+def load_vendored_dependency_schema_inputs(
+    dependency_config: DependencyConfig,
+    vendor_root: Path,
+) -> tuple[list[str], list[DependencySchemaInput]]:
+    """Load vendored dependency schemas and metadata, applying per-dependency selections when present."""
+    selected_schema_contents: list[str] = []
+    dependency_schema_inputs: list[DependencySchemaInput] = []
+    selection_by_schema_path: dict[Path, DocumentNode] = {}
+
+    def resolve_schema_selection(schema_path: Path) -> DocumentNode | None:
+        return selection_by_schema_path.get(schema_path.resolve())
+
+    for dependency in dependency_config.dependencies:
+        dependency_vendor_directory = vendor_root / dependency.name / dependency.version
+        schema_path = dependency_vendor_directory / SCHEMA_FILENAME
+        metadata_path = dependency_vendor_directory / METADATA_FILENAME
+
+        if not schema_path.is_file():
+            raise ValueError(f"Vendored dependency schema does not exist: {schema_path}")
+        if not metadata_path.is_file():
+            raise ValueError(f"Vendored dependency metadata does not exist: {metadata_path}")
+
+        resolved_schema_path = schema_path.resolve()
+        if dependency.selection is not None:
+            selection_by_schema_path[resolved_schema_path] = parse(dependency.selection.read_text(encoding="utf-8"))
+
+        schema_content, _ = build_schema_str_with_optional_source_map(
+            [resolved_schema_path],
+            schema_selection_resolver=resolve_schema_selection,
+        )
+        selected_schema_contents.append(schema_content)
+        dependency_schema_inputs.append(
+            DependencySchemaInput(
+                schema_content=schema_content,
+                metadata=DependencyMetadata.load(metadata_path),
+            )
+        )
+
+    if not selected_schema_contents:
+        raise ValueError(f"No vendored dependency schemas found under {vendor_root}")
+
+    return selected_schema_contents, dependency_schema_inputs
+
+
+def prepare_dependency_schemas_for_composition(
+    dependency_schema_inputs: list[DependencySchemaInput],
+    selected_schema_contents: list[str],
+    auto_prefix: bool,
+) -> tuple[list[Path], tuple[DependencyTypeNameConflict, ...]]:
+    """Build schema files for composition and return any detected cross-dependency type conflicts."""
+    dependency_schema_builder = DependencySchemaBuilder(dependency_schema_inputs)
+    type_name_conflicts = dependency_schema_builder.find_conflicts()
+
+    if type_name_conflicts and not auto_prefix:
+        return [], type_name_conflicts
+    if auto_prefix:
+        return dependency_schema_builder.write_auto_prefixed_schema_files(), type_name_conflicts
+    return temp_files_from_contents(selected_schema_contents), type_name_conflicts
 
 
 def _save_yaml_payload(path: Path, payload: dict[str, object]) -> None:
