@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from s2dm.deps.models.common import (
+    DependencyName,
+    DependencyVersion,
     RequiredString,
     create_absolute_path_validator,
     load_yaml_mapping,
@@ -38,13 +40,26 @@ def is_dependency_source_url(value: str) -> bool:
     return not repository_name.endswith(".git")
 
 
+def parse_dependency_source(value: object) -> object:
+    """Route dependency source strings to the correct typed union member."""
+    if not isinstance(value, str):
+        return value
+    validate_required_string(value)
+    source_path = Path(value)
+    if source_path.is_absolute():
+        return source_path
+    if is_dependency_source_url(value):
+        return value
+    raise ValueError("Dependency source must be an absolute path or a valid repository URL")
+
+
 class DependencyEntry(BaseModel):
     """Single dependency entry from the dependency configuration file."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: RequiredString
-    version: RequiredString
+    name: DependencyName
+    version: DependencyVersion
     source: DependencySource
     artifact: RequiredString
     selection: DependencySelection | None = None
@@ -53,15 +68,7 @@ class DependencyEntry(BaseModel):
     @classmethod
     def validate_source(cls, value: object) -> object:
         """Route dependency source strings to the correct typed union member."""
-        if not isinstance(value, str):
-            return value
-        validate_required_string(value)
-        source_path = Path(value)
-        if source_path.is_absolute():
-            return source_path
-        if is_dependency_source_url(value):
-            return value
-        raise ValueError("Dependency source must be an absolute path or a valid repository URL")
+        return parse_dependency_source(value)
 
     @field_validator("selection")
     @classmethod

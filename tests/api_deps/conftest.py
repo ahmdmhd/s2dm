@@ -58,17 +58,19 @@ def dependencies_config_payload_factory() -> DependenciesConfigPayloadFactory:
         *,
         names: list[str] | None = None,
         versions: list[str] | None = None,
+        selections: list[dict[str, object] | None] | None = None,
     ) -> dict[str, object]:
-        dependencies: list[dict[str, str]] = []
+        dependencies: list[dict[str, object]] = []
         for index, source in enumerate(sources):
-            dependencies.append(
-                {
-                    "name": names[index] if names is not None else "B",
-                    "version": versions[index] if versions is not None else "5.1.0",
-                    "source": str(source),
-                    "artifact": "schema.graphql",
-                }
-            )
+            dependency_payload: dict[str, object] = {
+                "name": names[index] if names is not None else "B",
+                "version": versions[index] if versions is not None else "5.1.0",
+                "source": str(source),
+                "artifact": "schema.graphql",
+            }
+            if selections is not None:
+                dependency_payload["selection"] = selections[index]
+            dependencies.append(dependency_payload)
         return {"dependencies": dependencies}
 
     return build_payload

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from s2dm.deps.models.common import RequiredString, load_yaml_mapping
+from s2dm.deps.models.common import DependencyName, DependencyVersion, RequiredString, load_yaml_mapping
 
 
 class DependencyMetadata(BaseModel):
@@ -10,9 +10,9 @@ class DependencyMetadata(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: RequiredString
+    name: DependencyName
     id: RequiredString
-    version: RequiredString
+    version: DependencyVersion
     preferred_prefix: str | None = None
 
     @field_validator("preferred_prefix")

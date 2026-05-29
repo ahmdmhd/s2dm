@@ -11,7 +11,13 @@ from pydantic import (
     field_validator,
 )
 
-from s2dm.deps.models.common import RequiredString, create_absolute_path_validator, validate_required_string
+from s2dm.deps.models.common import (
+    DependencyName,
+    DependencyVersion,
+    RequiredString,
+    create_absolute_path_validator,
+    validate_required_string,
+)
 from s2dm.utils.url import is_url
 
 ResolvedLocalPath = Annotated[Path, create_absolute_path_validator("`resolved_path`")]
@@ -27,8 +33,8 @@ class ResolvedDependencyLockEntry(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: RequiredString
-    version: RequiredString
+    name: DependencyName
+    version: DependencyVersion
     resolved_path: ResolvedPath
     integrity: RequiredString
 

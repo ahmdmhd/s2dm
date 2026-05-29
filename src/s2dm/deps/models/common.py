@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
@@ -17,6 +18,33 @@ def validate_required_string(value: str) -> str:
 
 
 RequiredString = Annotated[str, AfterValidator(validate_required_string)]
+
+_DEPENDENCY_NAME_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
+_DEPENDENCY_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
+
+
+def validate_dependency_name(value: str) -> str:
+    """Validate dependency names using a case-insensitive PEP 503-style character set."""
+    value = validate_required_string(value)
+    if _DEPENDENCY_NAME_PATTERN.fullmatch(value) is None:
+        raise ValueError("Dependency name must contain only letters, numbers, dots, underscores, and dashes")
+    return value
+
+
+DependencyName = Annotated[str, AfterValidator(validate_dependency_name)]
+
+
+def validate_dependency_version(value: str) -> str:
+    """Validate dependency versions using a constrained filesystem-safe character set."""
+    value = validate_required_string(value)
+    if _DEPENDENCY_VERSION_PATTERN.fullmatch(value) is None:
+        raise ValueError(
+            "Dependency version must contain only letters, numbers, dots, underscores, dashes, and plus signs"
+        )
+    return value
+
+
+DependencyVersion = Annotated[str, AfterValidator(validate_dependency_version)]
 
 
 def validate_absolute_path(path: Path, value_label: str) -> Path:

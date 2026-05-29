@@ -1,14 +1,33 @@
 """Models for dependency resolution endpoints."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from s2dm.deps.models import DependencyEntry, RemoteIdentityEntry
+from s2dm.api.models.base import ConfigInput
+from s2dm.deps.models import RemoteIdentityEntry
+from s2dm.deps.models.common import DependencyName, DependencyVersion, RequiredString
+from s2dm.deps.models.deps_file import DependencySource, parse_dependency_source
+
+
+class ApiDependencyEntry(BaseModel):
+    """API payload for a single dependency entry."""
+
+    name: DependencyName
+    version: DependencyVersion
+    source: DependencySource
+    artifact: RequiredString
+    selection: ConfigInput | None = None
+
+    @field_validator("source", mode="before")
+    @classmethod
+    def validate_source(cls, value: object) -> object:
+        """Route dependency source strings to the correct typed union member."""
+        return parse_dependency_source(value)
 
 
 class DependenciesConfig(BaseModel):
     """Stored dependency configuration payload."""
 
-    dependencies: list[DependencyEntry] = Field(..., description="Dependency entries to resolve")
+    dependencies: list[ApiDependencyEntry] = Field(..., description="Dependency entries to resolve")
 
 
 class DependenciesIdentities(BaseModel):
@@ -21,6 +40,15 @@ class ResolveDependenciesRequest(BaseModel):
     """Request model for dependency resolution using stored configuration."""
 
     clean: bool = Field(default=False, description="Whether to clean the API dependency workspace before resolving")
+
+
+class BuildDependenciesRequest(BaseModel):
+    """Request model for dependency build using stored configuration."""
+
+    auto_prefix: bool = Field(
+        default=False,
+        description="Whether to prefix conflicting dependency types automatically during composition",
+    )
 
 
 class DependenciesApiResponse(BaseModel):

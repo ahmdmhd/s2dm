@@ -5,14 +5,16 @@ from fastapi.responses import JSONResponse
 
 from s2dm.api.config import COMMON_RESPONSES
 from s2dm.api.errors import ResourceNotFoundError
-from s2dm.api.models.base import ErrorResponse
+from s2dm.api.models.base import ApiResponse, ErrorResponse
 from s2dm.api.models.deps import (
+    BuildDependenciesRequest,
     DependenciesApiResponse,
     DependenciesConfig,
     DependenciesIdentities,
     ResolveDependenciesRequest,
 )
 from s2dm.api.services.deps_service import (
+    build_api_dependencies,
     delete_dependencies_identities,
     load_dependencies_config,
     load_dependencies_identities,
@@ -20,6 +22,7 @@ from s2dm.api.services.deps_service import (
     save_dependencies_config,
     save_dependencies_identities,
 )
+from s2dm.api.services.response_service import execute_and_respond
 from s2dm.deps.resolve.errors import (
     DependencyConfigError,
     DependencyInternalError,
@@ -47,6 +50,13 @@ RESOLVE_RESPONSES = {
         "model": ErrorResponse,
         "description": "Dependency resolution failed because an upstream dependency provider failed",
     },
+}
+
+BUILD_RESPONSES = {
+    **COMMON_RESPONSES,
+    200: {"model": ApiResponse, "description": "Dependency build succeeded"},
+    404: {"model": ErrorResponse, "description": "Dependency config is not stored"},
+    422: {"model": ErrorResponse, "description": "Dependency build failed due to invalid config or schema issues"},
 }
 
 router = APIRouter()
@@ -101,3 +111,13 @@ def resolve_dependencies(request: ResolveDependenciesRequest) -> Response:
 
     response = DependenciesApiResponse(warnings=warnings)
     return JSONResponse(status_code=200, content=response.model_dump())
+
+
+@router.post("/build", response_model=ApiResponse, responses=BUILD_RESPONSES)
+def build_dependencies(request: BuildDependenciesRequest) -> ApiResponse:
+    """Compose vendored dependencies in the API-managed workspace."""
+
+    def process_request() -> list[str]:
+        return [build_api_dependencies(request.auto_prefix)]
+
+    return execute_and_respond(executor=process_request, result_format="graphql")
