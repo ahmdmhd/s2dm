@@ -7,12 +7,18 @@ from pydantic import ValidationError
 from s2dm.api.config import get_api_workspace
 from s2dm.api.errors import ResourceNotFoundError, ResponseError, format_error_list
 from s2dm.api.models.base import ContentInput, PathInput
-from s2dm.api.models.deps import ApiDependencyEntry, DependenciesConfig, DependenciesIdentities
+from s2dm.api.models.deps import (
+    ApiDependencyEntry,
+    DependenciesConfig,
+    DependenciesIdentities,
+    DependenciesStatusResponse,
+)
 from s2dm.deps.helpers import (
     build_resolver_context,
     delete_dependency_identity_config,
     get_dependency_config_path,
     get_dependency_identity_path,
+    get_dependency_status,
     load_dependency_config,
     load_dependency_identity_config,
     load_vendored_dependency_schema_inputs,
@@ -20,6 +26,7 @@ from s2dm.deps.helpers import (
     resolve_dependency_config_to_lock_path,
     save_dependency_config,
     save_dependency_identity_config,
+    validate_cached_dependency_workspace,
 )
 from s2dm.deps.models import DependencyConfig, DependencyEntry, RemoteIdentityConfig
 from s2dm.deps.resolve.common import VENDOR_DIRECTORY
@@ -79,6 +86,12 @@ def delete_dependencies_identities() -> None:
     delete_dependency_identity_config(get_dependency_identity_path(get_api_workspace()))
 
 
+def load_dependencies_status() -> DependenciesStatusResponse:
+    """Evaluate dependency resolution status in the API-managed workspace."""
+    status = get_dependency_status(get_api_workspace())
+    return DependenciesStatusResponse(status=status)
+
+
 def resolve_api_dependencies(clean: bool) -> list[str]:
     """Resolve dependencies in the API-managed workspace."""
     api_workspace = get_api_workspace()
@@ -100,6 +113,7 @@ def build_api_dependencies(auto_prefix: bool) -> str:
     """Compose vendored dependency schemas in the API-managed workspace."""
     api_workspace = get_api_workspace()
     dependency_config = _load_stored_dependency_config(api_workspace)
+    validate_cached_dependency_workspace(dependency_config, api_workspace)
     vendor_root = api_workspace / VENDOR_DIRECTORY
 
     selected_schema_contents, dependency_schema_inputs = load_vendored_dependency_schema_inputs(

@@ -15,9 +15,10 @@ ResolvePayloadFactory = Callable[..., dict[str, bool]]
 
 
 @pytest.fixture(autouse=True)
-def patch_api_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def api_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     workspace = tmp_path / "api-workspace"
     monkeypatch.setattr(deps_service, "get_api_workspace", lambda: workspace)
+    return workspace
 
 
 @pytest.fixture

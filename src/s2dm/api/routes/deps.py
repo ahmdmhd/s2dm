@@ -11,6 +11,7 @@ from s2dm.api.models.deps import (
     DependenciesApiResponse,
     DependenciesConfig,
     DependenciesIdentities,
+    DependenciesStatusResponse,
     ResolveDependenciesRequest,
 )
 from s2dm.api.services.deps_service import (
@@ -18,6 +19,7 @@ from s2dm.api.services.deps_service import (
     delete_dependencies_identities,
     load_dependencies_config,
     load_dependencies_identities,
+    load_dependencies_status,
     resolve_api_dependencies,
     save_dependencies_config,
     save_dependencies_identities,
@@ -66,6 +68,12 @@ router = APIRouter()
 def get_dependencies_config() -> DependenciesConfig:
     """Retrieve the stored dependency configuration."""
     return load_dependencies_config()
+
+
+@router.get("/status", response_model=DependenciesStatusResponse, responses=COMMON_RESPONSES)
+def get_dependencies_status() -> DependenciesStatusResponse:
+    """Retrieve dependency resolution status."""
+    return load_dependencies_status()
 
 
 @router.post("/config", status_code=204, responses=CONFIG_RESPONSES)

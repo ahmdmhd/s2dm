@@ -192,11 +192,9 @@ def _resolve_dependency(
 
     existing_lock_entry = existing_lock_entries.get(vendor_key)
     if target_directory.exists():
-        lock_entry = _resolve_cached_dependency(
+        lock_entry = validate_cached_dependency(
             dependency=dependency,
-            target_directory=target_directory,
-            schema_path=vendored_schema_path,
-            metadata_path=vendored_metadata_path,
+            vendor_root=vendor_root,
             existing_lock_entry=existing_lock_entry,
         )
         log.info(
@@ -235,13 +233,16 @@ def _resolve_dependency(
     )
 
 
-def _resolve_cached_dependency(
+def validate_cached_dependency(
     dependency: DependencyEntry,
-    target_directory: Path,
-    schema_path: Path,
-    metadata_path: Path,
+    vendor_root: Path,
     existing_lock_entry: ResolvedDependencyLockEntry | None,
 ) -> ResolvedDependencyLockEntry:
+    """Validate a vendored dependency target against the config and optional lock entry."""
+    target_directory = vendor_root / dependency.name / dependency.version
+    schema_path = target_directory / SCHEMA_FILENAME
+    metadata_path = target_directory / METADATA_FILENAME
+
     if not target_directory.is_dir():
         raise DependencySourceError(f"Cached dependency target must be a directory: {target_directory}")
     if not schema_path.is_file():

@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field, field_validator
 
 from s2dm.api.models.base import ConfigInput
+from s2dm.deps.helpers import DependencyStatus
 from s2dm.deps.models import RemoteIdentityEntry
 from s2dm.deps.models.common import DependencyName, DependencyVersion, RequiredString
 from s2dm.deps.models.deps_file import DependencySource, parse_dependency_source
@@ -55,3 +56,9 @@ class DependenciesApiResponse(BaseModel):
     """Success response model for dependency operations that need to return warnings."""
 
     warnings: list[str] = Field(description="Warnings collected during dependency resolution")
+
+
+class DependenciesStatusResponse(BaseModel):
+    """Minimal dependency status response."""
+
+    status: DependencyStatus = Field(description="Current dependency resolution status")

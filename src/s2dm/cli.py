@@ -32,6 +32,7 @@ from s2dm.deps.helpers import (
     load_vendored_dependency_schema_inputs,
     prepare_dependency_schemas_for_composition,
     resolve_dependency_config_to_lock_path,
+    validate_cached_dependency_workspace,
 )
 from s2dm.deps.resolve.common import VENDOR_DIRECTORY
 from s2dm.deps.resolve.warnings import LoggingWarningCollector
@@ -557,6 +558,7 @@ def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> Non
 
     try:
         dependency_config = load_dependency_config(resolved_config_path)
+        validate_cached_dependency_workspace(dependency_config, working_directory)
         selected_schema_contents, dependency_schema_inputs = load_vendored_dependency_schema_inputs(
             dependency_config,
             vendor_root,

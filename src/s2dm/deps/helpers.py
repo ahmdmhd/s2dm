@@ -1,23 +1,30 @@
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from graphql import DocumentNode, parse
+from pydantic import ValidationError
 
 from s2dm.deps import DEPENDENCY_LOCK_FILENAME, clean_resolved_dependencies, resolve_dependencies
 from s2dm.deps.compose import DependencySchemaBuilder, DependencySchemaInput, DependencyTypeNameConflict
-from s2dm.deps.models import DependencyConfig, DependencyMetadata, RemoteIdentityConfig
+from s2dm.deps.models import DependencyConfig, DependencyLockFile, DependencyMetadata, RemoteIdentityConfig
 from s2dm.deps.resolve.common import (
     DEFAULT_DEPS_CONFIG_FILENAME,
     DEFAULT_IDENTITY_FILENAME,
     METADATA_FILENAME,
     SCHEMA_FILENAME,
+    VENDOR_DIRECTORY,
 )
 from s2dm.deps.resolve.context import ResolverContext
+from s2dm.deps.resolve.errors import DependencyConfigError, DependencySourceError
 from s2dm.deps.resolve.providers import RemoteIdentityProvider
+from s2dm.deps.resolve.resolve import validate_cached_dependency
 from s2dm.deps.resolve.warnings import WarningCollector
 from s2dm.exporters.utils.schema_loader import build_schema_str_with_optional_source_map
 from s2dm.utils.file import temp_files_from_contents
+
+DependencyStatus = Literal["not_configured", "unresolved", "resolved", "invalid"]
 
 
 def get_dependency_config_path(workspace: Path) -> Path:
@@ -137,6 +144,60 @@ def prepare_dependency_schemas_for_composition(
     if auto_prefix:
         return dependency_schema_builder.write_auto_prefixed_schema_files(), type_name_conflicts
     return temp_files_from_contents(selected_schema_contents), type_name_conflicts
+
+
+def validate_cached_dependency_workspace(
+    dependency_config: DependencyConfig,
+    workspace: Path,
+) -> None:
+    lock_path = workspace / DEPENDENCY_LOCK_FILENAME
+    if not lock_path.exists():
+        raise DependencyConfigError("Dependencies are unresolved. Run deps resolve first.")
+
+    try:
+        lock_file = DependencyLockFile.load(lock_path)
+    except ValidationError as error:
+        raise DependencyConfigError(str(error)) from error
+
+    lock_entries_by_target = {
+        (dependency.name, dependency.version): dependency for dependency in lock_file.dependencies
+    }
+    expected_targets = {(dependency.name, dependency.version) for dependency in dependency_config.dependencies}
+
+    if len(lock_entries_by_target) != len(lock_file.dependencies):
+        raise DependencyConfigError("Dependency lock file contains duplicate dependency targets")
+    if set(lock_entries_by_target) != expected_targets:
+        raise DependencyConfigError("Dependency lock file does not match configured dependencies")
+
+    vendor_root = workspace / VENDOR_DIRECTORY
+    for dependency in dependency_config.dependencies:
+        validate_cached_dependency(
+            dependency=dependency,
+            vendor_root=vendor_root,
+            existing_lock_entry=lock_entries_by_target[(dependency.name, dependency.version)],
+        )
+
+
+def get_dependency_status(workspace: Path) -> DependencyStatus:
+    config_path = get_dependency_config_path(workspace)
+    if not config_path.exists():
+        return "not_configured"
+
+    try:
+        dependency_config = load_dependency_config(config_path)
+    except ValidationError:
+        return "invalid"
+
+    lock_path = workspace / DEPENDENCY_LOCK_FILENAME
+    if not lock_path.exists():
+        return "unresolved"
+
+    try:
+        validate_cached_dependency_workspace(dependency_config, workspace)
+    except (DependencyConfigError, DependencySourceError):
+        return "invalid"
+
+    return "resolved"
 
 
 def _save_yaml_payload(path: Path, payload: dict[str, object]) -> None:
