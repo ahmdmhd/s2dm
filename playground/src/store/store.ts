@@ -5,6 +5,14 @@ import { appSaga } from "@/store/app/appSaga";
 import appReducer from "@/store/app/appSlice";
 import { capabilitiesSaga } from "@/store/capabilities/capabilitiesSaga";
 import capabilitiesReducer from "@/store/capabilities/capabilitiesSlice";
+import { depsBuildSaga } from "@/store/deps/build/buildSaga";
+import depsBuildReducer from "@/store/deps/build/buildSlice";
+import { depsSaga } from "@/store/deps/depsSaga";
+import depsReducer from "@/store/deps/depsSlice";
+import { depsIdentitiesSaga } from "@/store/deps/identities/identitiesSaga";
+import depsIdentitiesReducer from "@/store/deps/identities/identitiesSlice";
+import { depsResolveSaga } from "@/store/deps/resolve/resolveSaga";
+import depsResolveReducer from "@/store/deps/resolve/resolveSlice";
 import { exportSaga } from "@/store/export/exportSaga";
 import exportReducer from "@/store/export/exportSlice";
 import schemaReducer from "@/store/schema/schemaSlice";
@@ -18,6 +26,10 @@ import validationReducer from "@/store/validation/validationSlice";
 function* rootSaga() {
 	yield all([
 		appSaga(),
+		depsSaga(),
+		depsIdentitiesSaga(),
+		depsResolveSaga(),
+		depsBuildSaga(),
 		pruneSchemaSaga(),
 		validationSaga(),
 		exportSaga(),
@@ -30,6 +42,10 @@ const sagaMiddleware = createSagaMiddleware();
 export const store = configureStore({
 	reducer: {
 		app: appReducer,
+		deps: depsReducer,
+		depsIdentities: depsIdentitiesReducer,
+		depsResolve: depsResolveReducer,
+		depsBuild: depsBuildReducer,
 		schema: schemaReducer,
 		selection: selectionReducer,
 		validation: validationReducer,

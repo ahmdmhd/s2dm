@@ -14,6 +14,7 @@ import {
 import { selectSourceFiles } from "@/store/schema/schemaSlice";
 import { selectSelectionQuery } from "@/store/selection/selectionSlice";
 import type { ImportedFile } from "@/types/importedFile";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 
 function getExportErrorMessage(err: unknown): string {
 	if (err instanceof AxiosError) {
@@ -30,11 +31,7 @@ function getExportErrorMessage(err: unknown): string {
 		}
 	}
 
-	if (err instanceof Error) {
-		return err.message;
-	}
-
-	return String(err);
+	return getErrorMessage(err);
 }
 
 function isEmpty(value: unknown, propertyType: string): boolean {
@@ -64,7 +61,9 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 		const exporters: ReturnType<typeof selectExporters> =
 			yield select(selectExporters);
 
-		const exporter = exporters.find((exporter) => exporter.endpoint === endpoint);
+		const exporter = exporters.find(
+			(exporter) => exporter.endpoint === endpoint,
+		);
 		if (!exporter) {
 			yield put(exportFailure({ endpoint, error: "Exporter not found" }));
 			return;
@@ -78,7 +77,10 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 		}
 
 		for (const [key, property] of Object.entries(exporter.properties)) {
-			if (property.required && isEmpty(exporter.propertyValues[key], property.type)) {
+			if (
+				property.required &&
+				isEmpty(exporter.propertyValues[key], property.type)
+			) {
 				missingRequired.push(property.title || key);
 			}
 		}
@@ -138,7 +140,9 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 		yield put(exportSuccess({ endpoint, output, format }));
 	} catch (err) {
 		const errorMsg = getExportErrorMessage(err);
-		yield put(exportFailure({ endpoint: action.payload.endpoint, error: errorMsg }));
+		yield put(
+			exportFailure({ endpoint: action.payload.endpoint, error: errorMsg }),
+		);
 	}
 }
 

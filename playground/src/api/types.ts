@@ -1,4 +1,4 @@
-type ContentInput = {
+export type ContentInput = {
 	type: "content";
 	content: string;
 };
@@ -16,6 +16,38 @@ type UrlInput = {
 
 export type SchemaInput = ContentInput | FileContentInput | UrlInput;
 export type QueryInput = ContentInput;
+
+export type DependencyConfigEntry = {
+	name: string;
+	version: string;
+	source: string;
+	artifact: string;
+	selection: ContentInput | null;
+};
+
+export type DependenciesConfig = {
+	dependencies: DependencyConfigEntry[];
+};
+
+export type DependencyIdentityEntry = {
+	host: string;
+	scope: string | null;
+	token: string;
+};
+
+export type DependenciesIdentities = {
+	identities: DependencyIdentityEntry[];
+};
+
+export type DependencyStatus =
+	| "not_configured"
+	| "unresolved"
+	| "resolved"
+	| "invalid";
+
+export type DependenciesStatusResponse = {
+	status: DependencyStatus;
+};
 
 type ResponseMetadata = {
 	result_format: string;

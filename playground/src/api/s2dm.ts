@@ -1,12 +1,19 @@
 import { AxiosError } from "axios";
 import { apiClient } from "@/api/client";
 import type {
+	DependenciesConfig,
+	DependenciesIdentities,
+	DependenciesStatusResponse,
 	ExportResponse,
 	FilterSchemaRequest,
 	QueryInput,
 	SchemaInput,
 	ValidateSchemaRequest,
 } from "@/api/types";
+
+type DependenciesWarningsResponse = {
+	warnings: string[];
+};
 
 export class ApiValidationError extends Error {
 	public errors: string[];
@@ -24,6 +31,10 @@ function handleApiError(error: unknown): never {
 	}
 
 	throw new Error("Something went wrong");
+}
+
+function isNotFoundError(error: unknown): boolean {
+	return error instanceof AxiosError && error.response?.status === 404;
 }
 
 export async function validateSchemas(
@@ -53,6 +64,97 @@ export async function filterSchema(
 			"/api/v1/schema/filter",
 			request,
 		);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getDependenciesConfig(): Promise<DependenciesConfig> {
+	try {
+		return await apiClient.get<DependenciesConfig>("/api/v1/deps/config");
+	} catch (error) {
+		if (isNotFoundError(error)) {
+			return { dependencies: [] };
+		}
+
+		return handleApiError(error);
+	}
+}
+
+export async function saveDependenciesConfig(
+	config: DependenciesConfig,
+): Promise<void> {
+	try {
+		await apiClient.post<void>("/api/v1/deps/config", config);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getDependenciesIdentities(): Promise<DependenciesIdentities> {
+	try {
+		return await apiClient.get<DependenciesIdentities>(
+			"/api/v1/deps/identities",
+		);
+	} catch (error) {
+		if (isNotFoundError(error)) {
+			return { identities: [] };
+		}
+
+		return handleApiError(error);
+	}
+}
+
+export async function saveDependenciesIdentities(
+	identities: DependenciesIdentities,
+): Promise<void> {
+	try {
+		await apiClient.post<void>("/api/v1/deps/identities", identities);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getDependenciesStatus(): Promise<DependenciesStatusResponse> {
+	try {
+		return await apiClient.get<DependenciesStatusResponse>(
+			"/api/v1/deps/status",
+		);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function resolveDependencies(clean: boolean): Promise<string[]> {
+	try {
+		const response = await apiClient.post<
+			DependenciesWarningsResponse | undefined
+		>("/api/v1/deps/resolve", { clean });
+
+		if (
+			response &&
+			typeof response === "object" &&
+			"warnings" in response &&
+			Array.isArray(response.warnings)
+		) {
+			return response.warnings;
+		}
+
+		return [];
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function buildDependencies(autoPrefix: boolean): Promise<string> {
+	try {
+		const response = await apiClient.post<ExportResponse>(
+			"/api/v1/deps/build",
+			{
+				auto_prefix: autoPrefix,
+			},
+		);
+		return response.result[0] ?? "";
 	} catch (error) {
 		return handleApiError(error);
 	}

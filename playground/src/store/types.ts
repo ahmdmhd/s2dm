@@ -1,4 +1,8 @@
 import type { CapabilitiesState } from "@/store/capabilities/capabilitiesSlice";
+import type { DepsBuildState } from "@/store/deps/build/buildSlice";
+import type { DepsState } from "@/store/deps/depsSlice";
+import type { DepsIdentitiesState } from "@/store/deps/identities/identitiesSlice";
+import type { DepsResolveState } from "@/store/deps/resolve/resolveSlice";
 import type { ExportState } from "@/store/export/exportSlice";
 import type { SchemaState } from "@/store/schema/schemaSlice";
 import type { SelectionState } from "@/store/selection/selectionSlice";
@@ -6,6 +10,10 @@ import type { UIState } from "@/store/ui/uiSlice";
 import type { ValidationState } from "@/store/validation/validationSlice";
 
 export interface RootState {
+	deps: DepsState;
+	depsIdentities: DepsIdentitiesState;
+	depsResolve: DepsResolveState;
+	depsBuild: DepsBuildState;
 	schema: SchemaState;
 	selection: SelectionState;
 	validation: ValidationState;
@@ -15,10 +23,14 @@ export interface RootState {
 }
 
 export type {
+	CapabilitiesState,
+	DepsBuildState,
+	DepsIdentitiesState,
+	DepsResolveState,
+	DepsState,
+	ExportState,
 	SchemaState,
 	SelectionState,
-	ValidationState,
 	UIState,
-	ExportState,
-	CapabilitiesState,
+	ValidationState,
 };

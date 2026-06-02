@@ -21,12 +21,14 @@ import {
 	GripVertical,
 	Layers,
 	Link,
+	Package,
 	Plus,
 	Trash2,
 	Upload,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { CliCommandDisplay } from "@/components/CliCommandDisplay";
+import { DependencyManagerDialog } from "@/components/DependencyManagerDialog";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -38,6 +40,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
 	Dialog,
@@ -47,13 +50,17 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dropdown, DropdownItem } from "@/components/ui/simple-dropdown";
+import { selectBuiltSchema } from "@/store/deps/build/buildSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectSourceFiles, setSourceFiles } from "@/store/schema/schemaSlice";
 import { selectIsValidating } from "@/store/validation/validationSlice";
 import type { ImportedFile } from "@/types/importedFile";
+import { cn } from "@/utils/cn";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 import { isGraphQLFile, isValidUrl } from "@/utils/validation";
 
 type FileWithPath = File & {
@@ -61,7 +68,7 @@ type FileWithPath = File & {
 };
 
 type FileListProps = {
-	onCompose?: () => void;
+	onCompose?: (includeBuiltDependencies: boolean) => void;
 };
 
 function SortableFileItem({
@@ -124,15 +131,20 @@ function SortableFileItem({
 
 export function FileList({ onCompose }: FileListProps) {
 	const dispatch = useAppDispatch();
+	const builtDependenciesSchema = useAppSelector(selectBuiltSchema);
 	const isValidating = useAppSelector(selectIsValidating);
 	const files = useAppSelector(selectSourceFiles);
 	const [showClearConfirm, setShowClearConfirm] = useState(false);
+	const [showDependenciesDialog, setShowDependenciesDialog] = useState(false);
 	const [showUrlDialog, setShowUrlDialog] = useState(false);
 	const [urlInput, setUrlInput] = useState("");
 	const [urlError, setUrlError] = useState("");
 	const [error, setError] = useState<string>("");
+	const [includeBuiltDependencies, setIncludeBuiltDependencies] =
+		useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const folderInputRef = useRef<HTMLInputElement>(null);
+	const hasBuiltDependenciesSchema = Boolean(builtDependenciesSchema?.trim());
 
 	const sensors = useSensors(
 		useSensor(PointerSensor),
@@ -179,9 +191,7 @@ export function FileList({ onCompose }: FileListProps) {
 				dispatch(setSourceFiles(updatedFiles));
 				setError("");
 			} catch (err) {
-				setError(
-					`Failed to read files: ${err instanceof Error ? err.message : String(err)}`,
-				);
+				setError(`Failed to read files: ${getErrorMessage(err)}`);
 			}
 
 			event.target.value = "";
@@ -301,6 +311,14 @@ export function FileList({ onCompose }: FileListProps) {
 	return (
 		<div className="flex flex-col">
 			<div className="flex justify-end gap-2 p-2">
+				<Button
+					variant="outline"
+					size="icon"
+					onClick={() => setShowDependenciesDialog(true)}
+					title="Manage dependencies"
+				>
+					<Package className="h-5 w-5" />
+				</Button>
 				<Dropdown
 					trigger={
 						<Button variant="outline" size="icon" title="Add schemas">
@@ -344,16 +362,37 @@ export function FileList({ onCompose }: FileListProps) {
 
 			{files.length > 0 && (
 				<div className="px-2 pt-2">
+					<div className="mb-2 flex items-center justify-between gap-3">
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id="include-built-dependencies"
+								checked={includeBuiltDependencies}
+								disabled={!hasBuiltDependenciesSchema || isValidating}
+								onCheckedChange={(checked) =>
+									setIncludeBuiltDependencies(checked === true)
+								}
+							/>
+							<FormLabel
+								htmlFor="include-built-dependencies"
+								className={cn(
+									"text-sm",
+									!hasBuiltDependenciesSchema && "text-muted-foreground",
+								)}
+							>
+								<span className="cursor-pointer">
+									Include built dependencies in composition
+								</span>
+							</FormLabel>
+						</div>
+					</div>
 					<Button
 						variant="outline"
 						size="sm"
 						className="w-full"
-						onClick={onCompose}
+						onClick={() => onCompose?.(includeBuiltDependencies)}
 						disabled={files.length === 0}
 						loading={isValidating}
-						title={
-							"Compose and validate schema files"
-						}
+						title={"Compose and validate schema files"}
 					>
 						{buttonContent}
 					</Button>
@@ -439,6 +478,11 @@ export function FileList({ onCompose }: FileListProps) {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<DependencyManagerDialog
+				open={showDependenciesDialog}
+				onOpenChange={setShowDependenciesDialog}
+			/>
 		</div>
 	);
 }

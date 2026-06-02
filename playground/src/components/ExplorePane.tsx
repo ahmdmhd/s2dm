@@ -1,13 +1,18 @@
 import { DocExplorer } from "@graphiql/plugin-doc-explorer";
 import { GraphiQLProvider, useGraphiQLActions } from "@graphiql/react";
-import { GraphQLError, buildSchema, execute, parse } from "graphql";
+import { buildSchema, execute, GraphQLError, parse } from "graphql";
 import { Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Pane } from "@/components/Pane";
 import { QueryEditorWrapper } from "@/components/QueryEditorWrapper";
 import { SchemaVisualizer } from "@/components/SchemaVisualizer";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { FormLabel } from "@/components/ui/form-label";
 import { SELECTION_QUERY_FILENAME } from "@/constants";
 import { useTheme } from "@/hooks/useTheme";
@@ -27,6 +32,7 @@ import {
 	selectSelectionQuery,
 } from "@/store/selection/selectionSlice";
 import { downloadTextFile } from "@/utils/download";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 import "@graphiql/react/style.css";
 import "@/components/graphiql-theme.css";
 
@@ -101,9 +107,7 @@ export function ExplorePane({
 			} catch (error) {
 				console.error("Fetcher error:", error);
 				return {
-					errors: [
-						new GraphQLError(error instanceof Error ? error.message : String(error)),
-					],
+					errors: [new GraphQLError(getErrorMessage(error))],
 				};
 			}
 		};
@@ -189,23 +193,33 @@ export function ExplorePane({
 						</DialogHeader>
 						<ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
 							<li>
-								<span className="font-medium text-foreground">GraphiQL Explorer:</span>{" "}
+								<span className="font-medium text-foreground">
+									GraphiQL Explorer:
+								</span>{" "}
 								browse schema docs and build a Selection Query.
 							</li>
 							<li>
-								<span className="font-medium text-foreground">Apply Selection:</span>{" "}
+								<span className="font-medium text-foreground">
+									Apply Selection:
+								</span>{" "}
 								filters the schema used by export commands.
 							</li>
 							<li>
-								<span className="font-medium text-foreground">Schema Visualizer:</span>{" "}
+								<span className="font-medium text-foreground">
+									Schema Visualizer:
+								</span>{" "}
 								view the current original or filtered schema as a graph.
 							</li>
 							<li>
-								<span className="font-medium text-foreground">Reset Selection:</span>{" "}
+								<span className="font-medium text-foreground">
+									Reset Selection:
+								</span>{" "}
 								restore the original unfiltered schema.
 							</li>
 							<li>
-								<span className="font-medium text-foreground">Download Selection Query:</span>{" "}
+								<span className="font-medium text-foreground">
+									Download Selection Query:
+								</span>{" "}
 								save the current selection query as a file.
 							</li>
 						</ul>
@@ -217,7 +231,9 @@ export function ExplorePane({
 						<div className="absolute top-4 right-4 z-10 flex gap-2">
 							<Button
 								onClick={() => dispatch(pruningStart(selectionQueryState))}
-								disabled={selectionQueryState === selectionQuery || queryHasErrors}
+								disabled={
+									selectionQueryState === selectionQuery || queryHasErrors
+								}
 								loading={isPruning}
 							>
 								Apply Selection

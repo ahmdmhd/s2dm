@@ -16,12 +16,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
 	fetchCapabilities,
-	setSelectedExporterEndpoint,
 	selectCapabilitiesError,
-	selectSelectedExporterEndpoint,
 	selectExporterByEndpoint,
 	selectExporters,
 	selectIsLoadingCapabilities,
+	selectSelectedExporterEndpoint,
+	setSelectedExporterEndpoint,
 } from "@/store/capabilities/capabilitiesSlice";
 import {
 	clearExportResult,

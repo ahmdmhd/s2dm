@@ -1,7 +1,7 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { call, put, select, takeLatest } from "redux-saga/effects";
-import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
 import { ApiValidationError, filterSchema } from "@/api/s2dm";
+import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
 import type { ExportResponse, QueryInput } from "@/api/types";
 import {
 	selectSourceFiles,
@@ -15,6 +15,7 @@ import {
 } from "@/store/selection/selectionSlice";
 import type { RootState } from "@/store/store";
 import type { ImportedFile } from "@/types/importedFile";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 
 function* pruneSchemaWorker(action: PayloadAction<string>) {
 	const query = action.payload;
@@ -47,7 +48,7 @@ function* pruneSchemaWorker(action: PayloadAction<string>) {
 		if (err instanceof ApiValidationError) {
 			errorMsg = err.errors.join("\n");
 		} else {
-			errorMsg = err instanceof Error ? err.message : String(err);
+			errorMsg = getErrorMessage(err);
 		}
 		console.error("Failed to prune schema:", err);
 		yield put(setFilteredSchema(originalSchema));

@@ -3,6 +3,11 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { RootState } from "@/store/types";
 import type { ImportedFile } from "@/types/importedFile";
 
+export type ValidateAndComposePayload = {
+	sourceFiles: ImportedFile[];
+	sourceContents: string[];
+};
+
 export interface ValidationState {
 	isValidating: boolean;
 	errors: string[];
@@ -17,7 +22,10 @@ const validationSlice = createSlice({
 	name: "validation",
 	initialState,
 	reducers: {
-		validateAndCompose: (state, _action: PayloadAction<ImportedFile[]>) => {
+		validateAndCompose: (
+			state,
+			_action: PayloadAction<ValidateAndComposePayload>,
+		) => {
 			state.isValidating = true;
 			state.errors = [];
 		},

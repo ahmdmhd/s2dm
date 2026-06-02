@@ -2,7 +2,10 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { selectExporterByEndpoint } from "@/store/capabilities/capabilitiesSlice";
-import { selectExportFormat, selectExportResult } from "@/store/export/exportSlice";
+import {
+	selectExportFormat,
+	selectExportResult,
+} from "@/store/export/exportSlice";
 import { useAppSelector } from "@/store/hooks";
 import { selectSourceFiles } from "@/store/schema/schemaSlice";
 import { selectSelectionQuery } from "@/store/selection/selectionSlice";

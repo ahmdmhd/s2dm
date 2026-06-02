@@ -6,10 +6,7 @@ import {
 	fetchCapabilities,
 } from "@/store/capabilities/capabilitiesSlice";
 import { clearExportResult } from "@/store/export/exportSlice";
-import {
-	resetSchema,
-	setSourceFiles,
-} from "@/store/schema/schemaSlice";
+import { resetSchema, setSourceFiles } from "@/store/schema/schemaSlice";
 import { resetSelectionQuery } from "@/store/selection/selectionSlice";
 import { clearValidationErrors } from "@/store/validation/validationSlice";
 import type { ImportedFile } from "@/types/importedFile";
