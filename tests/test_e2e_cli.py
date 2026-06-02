@@ -1855,6 +1855,75 @@ def test_compose_with_valid_selection_query_prunes_schema(
     assert "directive @metadata" not in composed_content
 
 
+def test_compose_with_selection_query_keeps_nested_enum_directive_dependencies(runner: CliRunner) -> None:
+    with runner.isolated_filesystem():
+        working_directory = Path.cwd()
+        selection_path = working_directory / "selection.graphql"
+        output_path = working_directory / "composed.graphql"
+
+        selection_path.write_text(
+            "query Selection {\n" "  vehicle {\n" "    id\n" "  }\n" "}\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "compose",
+                "-s",
+                str(TSD.NESTED_INPUT_TYPE_SCHEMA),
+                "-q",
+                str(selection_path),
+                "-o",
+                str(output_path),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+
+        composed_content = output_path.read_text(encoding="utf-8")
+
+        assert "directive @config(input: ConfigInput) on OBJECT" in composed_content
+        assert "input ConfigInput" in composed_content
+        assert "type Vehicle" in composed_content
+        assert 'enum ModeEnum @metadata(label: "workflow")' in composed_content
+        assert "directive @metadata(label: String) on ENUM" in composed_content
+
+
+def test_compose_with_selection_query_keeps_nested_enum_schema_enum(runner: CliRunner) -> None:
+    with runner.isolated_filesystem():
+        working_directory = Path.cwd()
+        selection_path = working_directory / "selection.graphql"
+        output_path = working_directory / "composed.graphql"
+
+        selection_path.write_text(
+            "query Selection {\n" "  vehicle {\n" "    id\n" "  }\n" "}\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "compose",
+                "-s",
+                str(TSD.NESTED_ENUM_SCHEMA),
+                "-q",
+                str(selection_path),
+                "-o",
+                str(output_path),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+
+        composed_content = output_path.read_text(encoding="utf-8")
+
+        assert "directive @config(mode: ModeEnum) on OBJECT" in composed_content
+        assert "type Vehicle" in composed_content
+        assert 'enum ModeEnum @metadata(label: "workflow")' in composed_content
+        assert "directive @metadata(label: String) on ENUM" in composed_content
+
+
 # ToDo(DA): needs refactoring after final decision how stats will work
 def test_stats_graphql(runner: CliRunner, spec_directory: Path, units_directory: Path) -> None:
     result = runner.invoke(
