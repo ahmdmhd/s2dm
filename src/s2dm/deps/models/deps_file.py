@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from s2dm.deps.models.common import (
     RequiredString,
@@ -14,7 +14,7 @@ from s2dm.deps.models.common import (
 LocalDependencySource = Annotated[Path, create_absolute_path_validator("`source`")]
 RemoteDependencySource = str
 DependencySource = LocalDependencySource | RemoteDependencySource
-DependencySelection = Annotated[Path, create_absolute_path_validator("`selection`")]
+DependencySelection = Path
 GRAPHQL_FILE_EXTENSIONS = frozenset({".graphql", ".gql"})
 
 
@@ -65,15 +65,17 @@ class DependencyEntry(BaseModel):
 
     @field_validator("selection")
     @classmethod
-    def validate_selection(cls, value: Path | None) -> Path | None:
+    def validate_selection(cls, value: Path | None, info: ValidationInfo) -> Path | None:
         """Require dependency selection files to be existing GraphQL files."""
         if value is None:
             return None
+        config_directory = info.context.get("config_directory") if info.context else None
+        selection_path = value if value.is_absolute() or config_directory is None else config_directory / value
         if value.suffix.lower() not in GRAPHQL_FILE_EXTENSIONS:
             raise ValueError("Dependency selection must be a .graphql or .gql file")
-        if not value.is_file():
-            raise ValueError(f"Dependency selection file does not exist: {value}")
-        return value
+        if not selection_path.is_file():
+            raise ValueError(f"Dependency selection file does not exist: {selection_path}")
+        return selection_path.resolve()
 
 
 class DependencyConfig(BaseModel):
@@ -98,4 +100,4 @@ class DependencyConfig(BaseModel):
     def load(cls, path: Path) -> "DependencyConfig":
         """Load dependency configuration from a YAML file."""
         mapping = load_yaml_mapping(path, "Dependency config root")
-        return cls.model_validate(mapping)
+        return cls.model_validate(mapping, context={"config_directory": path.parent.resolve()})

@@ -8,6 +8,7 @@ import pytest
 import yaml
 from click.exceptions import MissingParameter
 from click.testing import CliRunner
+from graphql import GraphQLObjectType, build_schema
 from linkml_runtime.loaders import yaml_loader
 
 from s2dm.cli import cli
@@ -2197,8 +2198,8 @@ def test_deps_build_applies_dependency_selection_and_preserves_vendor_schema(run
         output_path = working_directory / "composed.graphql"
         build_result = runner.invoke(cli, ["deps", "build", "-o", str(output_path)])
 
-        assert resolve_result.exit_code == 0, resolve_result.output
-        assert build_result.exit_code == 0, build_result.output
+        assert resolve_result.exit_code == 0
+        assert build_result.exit_code == 0
         composed_schema = output_path.read_text(encoding="utf-8")
         assert "type Vehicle" in composed_schema
         assert "vin: String" in composed_schema
@@ -2210,6 +2211,49 @@ def test_deps_build_applies_dependency_selection_and_preserves_vendor_schema(run
 
         vendored_schema_path = working_directory / ".s2dm" / "vendor" / "DemoDependency" / "1.0.0" / "schema.graphql"
         assert vendored_schema_path.read_text(encoding="utf-8") == source_schema
+
+
+def test_deps_build_resolves_relative_dependency_selection_path(runner: CliRunner) -> None:
+    with runner.isolated_filesystem():
+        working_directory = Path.cwd()
+        source_directory = working_directory / "source"
+        source_directory.mkdir()
+        source_schema = (
+            "type Query { vehicle: Vehicle }\n"
+            "type Vehicle { vin: String model: String speed: Speed cabin: Cabin }\n"
+            "type Speed { value: Float unit: String }\n"
+            "type Cabin { seats: Int }\n"
+        )
+        (source_directory / "schema.graphql").write_text(source_schema, encoding="utf-8")
+        (source_directory / "metadata.yaml").write_text(
+            "name: DemoDependency\nid: urn:test:demo\nversion: 1.0.0\n",
+            encoding="utf-8",
+        )
+        selection_path = working_directory / "selection.graphql"
+        selection_path.write_text("query Selection { vehicle { vin speed { value } } }\n", encoding="utf-8")
+        (working_directory / "s2dm.deps.yaml").write_text(
+            "dependencies:\n"
+            "  - name: DemoDependency\n"
+            '    version: "1.0.0"\n'
+            f'    source: "{source_directory.resolve()}"\n'
+            '    artifact: "schema.graphql"\n'
+            '    selection: "selection.graphql"\n',
+            encoding="utf-8",
+        )
+
+        resolve_result = runner.invoke(cli, ["deps", "resolve"])
+        output_path = working_directory / "composed.graphql"
+        build_result = runner.invoke(cli, ["deps", "build", "-o", str(output_path)])
+
+        assert resolve_result.exit_code == 0
+        assert build_result.exit_code == 0
+        built_schema = build_schema(output_path.read_text(encoding="utf-8"))
+        vehicle_type = cast(GraphQLObjectType, built_schema.type_map["Vehicle"])
+        speed_type = cast(GraphQLObjectType, built_schema.type_map["Speed"])
+
+        assert set(vehicle_type.fields) == {"vin", "speed"}
+        assert set(speed_type.fields) == {"value"}
+        assert "Cabin" not in built_schema.type_map
 
 
 def test_deps_compose_alias_writes_composed_schema(runner: CliRunner) -> None:

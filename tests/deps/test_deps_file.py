@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from s2dm.deps.models import DependencyConfig, RemoteIdentityConfig
@@ -100,6 +101,68 @@ def test_dependency_config_rejects_non_root_remote_repository_urls(source: str) 
                 ]
             }
         )
+
+
+def test_dependency_config_load_resolves_relative_selection_path(tmp_path: Path) -> None:
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    selection_directory = tmp_path / "queries"
+    selection_directory.mkdir()
+    selection_path = selection_directory / "selection.graphql"
+    selection_path.write_text("query Selection { ping }\n", encoding="utf-8")
+
+    config_path = tmp_path / "configs" / "s2dm.deps.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "dependencies": [
+                    {
+                        "name": "B",
+                        "version": "5.1.0",
+                        "source": str(source_directory.resolve()),
+                        "artifact": SCHEMA_FILENAME,
+                        "selection": "../queries/selection.graphql",
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    dependency_config = DependencyConfig.load(config_path)
+
+    assert dependency_config.dependencies[0].selection == selection_path.resolve()
+
+
+def test_dependency_config_load_rejects_missing_relative_selection_path(tmp_path: Path) -> None:
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    config_path = tmp_path / "configs" / "s2dm.deps.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "dependencies": [
+                    {
+                        "name": "B",
+                        "version": "5.1.0",
+                        "source": str(source_directory.resolve()),
+                        "artifact": SCHEMA_FILENAME,
+                        "selection": "../queries/missing.graphql",
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        DependencyConfig.load(config_path)
+
+    assert any(error["loc"] == ("dependencies", 0, "selection") for error in exc_info.value.errors())
 
 
 def test_dependency_identity_config_allows_empty_identities() -> None:
