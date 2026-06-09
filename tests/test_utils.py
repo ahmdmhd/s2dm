@@ -21,6 +21,7 @@ from s2dm.exporters.utils import instance_tag as instance_tag_utils
 from s2dm.exporters.utils import schema as schema_utils
 from s2dm.exporters.utils import schema_loader as schema_loader_utils
 from s2dm.utils import url as url_utils
+from tests.conftest import TestSchemaData as TSD
 
 # #########################################################
 # Schema loader utils
@@ -211,6 +212,29 @@ def test_prune_schema_keeps_directive_argument_list_input_object_definition() ->
         r"input KeyValue \{\n\s+key: String\n\s+value: String\n\}",
         pruned_schema_str,
     )
+
+
+def test_select_schema_content_keeps_direct_enum_directive_argument_type() -> None:
+    schema_str = TSD.NESTED_ENUM_SCHEMA.read_text(encoding="utf-8")
+
+    selection_query = parse(
+        """
+        query Selection {
+          vehicle {
+            id
+          }
+        }
+        """
+    )
+
+    selected_schema_str = schema_loader_utils.select_schema_content(schema_str, selection_query)
+
+    assert "directive @config(mode: ModeEnum) on OBJECT" in selected_schema_str
+    assert "type Vehicle" in selected_schema_str
+    assert 'enum ModeEnum @metadata(label: "workflow")' in selected_schema_str
+    assert "directive @metadata(label: String) on ENUM" in selected_schema_str
+    assert "ACTIVE" in selected_schema_str
+    assert "INACTIVE" in selected_schema_str
 
 
 # #########################################################

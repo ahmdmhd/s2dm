@@ -13,13 +13,13 @@ def write_metadata_file(
     path: Path,
     *,
     name: str = "B",
-    metadata_id: str = "urn:test:B",
+    id: str = "urn:test:B",
     version: str = "5.1.0",
     preferred_prefix: str | None = None,
 ) -> None:
     metadata_payload: dict[str, str] = {
         "name": name,
-        "id": metadata_id,
+        "id": id,
         "version": version,
     }
     if preferred_prefix is not None:
@@ -128,3 +128,12 @@ def load_yaml_file(path: Path) -> dict[str, object]:
     loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert isinstance(loaded, dict)
     return loaded
+
+
+def first_lock_dependency(path: Path) -> dict[str, object]:
+    lock_data = load_yaml_file(path)
+    dependencies = lock_data["dependencies"]
+    assert isinstance(dependencies, list)
+    dependency = dependencies[0]
+    assert isinstance(dependency, dict)
+    return dependency

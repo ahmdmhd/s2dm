@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from graphql import GraphQLError, build_schema
+
 from s2dm import log
 from s2dm.deps.models import (
     DependencyConfig,
@@ -13,9 +15,10 @@ from s2dm.deps.models import (
     DependencyLockFile,
     DependencyMetadata,
     ResolvedDependencyLockEntry,
-    ResolvedDependencySource,
 )
+from s2dm.deps.naming import sanitize_prefix
 from s2dm.deps.resolve.common import DEPENDENCY_LOCK_FILENAME, METADATA_FILENAME, SCHEMA_FILENAME, VENDOR_DIRECTORY
+from s2dm.deps.resolve.context import ResolverContext
 from s2dm.deps.resolve.factory import ResolverFactory
 
 
@@ -45,6 +48,16 @@ class CleanDependencyBackup:
         if self.vendor_backup_path is not None and self.vendor_backup_path.exists():
             self.vendor_root.parent.mkdir(parents=True, exist_ok=True)
             self.vendor_backup_path.rename(self.vendor_root)
+
+
+@dataclass(frozen=True)
+class PrefixCollision:
+    """A dependency whose sanitized prefix/id collides with one or more others."""
+
+    dependency: ResolvedDependencyLockEntry
+    sanitized_prefix: str
+    raw_source: str
+    conflicting_dependencies: tuple[ResolvedDependencyLockEntry, ...]
 
 
 @contextmanager
@@ -88,36 +101,82 @@ def _begin_clean_resolved_dependencies(working_directory: Path) -> CleanDependen
     )
 
 
-def resolve_dependencies(dependency_config: DependencyConfig, working_directory: Path) -> DependencyLockFile:
+def resolve_dependencies(
+    dependency_config: DependencyConfig,
+    working_directory: Path,
+    context: ResolverContext | None = None,
+) -> DependencyLockFile:
     """Resolve configured dependencies into the workspace vendor directory."""
     vendor_root = working_directory / VENDOR_DIRECTORY
     existing_lock_entries = _load_existing_lock_entries(working_directory / DEPENDENCY_LOCK_FILENAME)
     expected_vendor_keys = {(dependency.name, dependency.version) for dependency in dependency_config.dependencies}
     _remove_unreferenced_vendor_targets(vendor_root, expected_vendor_keys)
 
-    seen_vendor_targets: set[tuple[str, str]] = set()
     lock_entries: list[ResolvedDependencyLockEntry] = []
 
     for dependency in dependency_config.dependencies:
-        lock_entry = _resolve_dependency(dependency, vendor_root, seen_vendor_targets, existing_lock_entries)
+        lock_entry = _resolve_dependency(dependency, vendor_root, existing_lock_entries, context)
         lock_entries.append(lock_entry)
 
+    warn_on_prefix_collisions(lock_entries, vendor_root)
+
     return DependencyLockFile(dependencies=lock_entries)
+
+
+def get_prefix_collisions(
+    lock_entries: list[ResolvedDependencyLockEntry],
+    vendor_root: Path,
+) -> list[PrefixCollision]:
+    """Detect dependencies whose sanitized prefix/id matches another's."""
+    sanitized_per_entry: list[tuple[str, str]] = []
+    indices_by_sanitized: dict[str, list[int]] = {}
+
+    for index, entry in enumerate(lock_entries):
+        metadata_path = vendor_root / entry.name / entry.version / METADATA_FILENAME
+        metadata = DependencyMetadata.load(metadata_path)
+        raw_prefix = metadata.preferred_prefix or metadata.id
+        sanitized = sanitize_prefix(raw_prefix)
+        sanitized_per_entry.append((sanitized, raw_prefix))
+        indices_by_sanitized.setdefault(sanitized, []).append(index)
+
+    collisions: list[PrefixCollision] = []
+    for index, entry in enumerate(lock_entries):
+        sanitized, raw_prefix = sanitized_per_entry[index]
+        conflicting_dependencies = tuple(
+            lock_entries[other_index] for other_index in indices_by_sanitized[sanitized] if other_index != index
+        )
+        if conflicting_dependencies:
+            collisions.append(
+                PrefixCollision(
+                    dependency=entry,
+                    sanitized_prefix=sanitized,
+                    raw_source=raw_prefix,
+                    conflicting_dependencies=conflicting_dependencies,
+                )
+            )
+    return collisions
+
+
+def warn_on_prefix_collisions(lock_entries: list[ResolvedDependencyLockEntry], vendor_root: Path) -> None:
+    """Warn when multiple dependencies share the same sanitized prefix/id."""
+    prefix_collisions = get_prefix_collisions(lock_entries, vendor_root)
+    for collision in prefix_collisions:
+        quoted_conflicts = ", ".join(f"'{dep.name}@{dep.version}'" for dep in collision.conflicting_dependencies)
+        log.warning(
+            f"Dependency '{collision.dependency.name}@{collision.dependency.version}' "
+            f"resolves prefix '{collision.sanitized_prefix}' (from '{collision.raw_source}') "
+            f"which conflicts with: {quoted_conflicts}. "
+            f"This might cause issues when type names conflict resolution is applied."
+        )
 
 
 def _resolve_dependency(
     dependency: DependencyEntry,
     vendor_root: Path,
-    seen_vendor_targets: set[tuple[str, str]],
     existing_lock_entries: dict[tuple[str, str], ResolvedDependencyLockEntry],
+    context: ResolverContext | None,
 ) -> ResolvedDependencyLockEntry:
     vendor_key = (dependency.name, dependency.version)
-    if vendor_key in seen_vendor_targets:
-        raise ValueError(
-            f"Duplicate resolved dependency target '{dependency.name}/{dependency.version}' is not allowed"
-        )
-    seen_vendor_targets.add(vendor_key)
-
     target_directory = vendor_root / dependency.name / dependency.version
     vendored_schema_path = target_directory / SCHEMA_FILENAME
     vendored_metadata_path = target_directory / METADATA_FILENAME
@@ -138,7 +197,8 @@ def _resolve_dependency(
         return lock_entry
 
     log.info(f"Resolving dependency '{dependency.name}' version '{dependency.version}'")
-    resolved_source = _resolve_dependency_source(dependency)
+    resolver = ResolverFactory.create_resolver(dependency, context)
+    resolved_source = resolver.resolve(dependency)
 
     metadata = DependencyMetadata.load(resolved_source.source.metadata_path)
     if dependency.name != metadata.name:
@@ -147,6 +207,7 @@ def _resolve_dependency(
         raise ValueError(
             f"Dependency version mismatch for '{dependency.name}': metadata.yaml declares '{metadata.version}'"
         )
+    _build_dependency_schema(resolved_source.source.schema_path, dependency.name, dependency.version)
 
     target_directory.mkdir(parents=True, exist_ok=False)
 
@@ -161,11 +222,6 @@ def _resolve_dependency(
             "integrity": _sha256_for_file(vendored_schema_path),
         }
     )
-
-
-def _resolve_dependency_source(dependency: DependencyEntry) -> ResolvedDependencySource:
-    resolver = ResolverFactory.create_resolver(dependency)
-    return resolver.resolve(dependency)
 
 
 def _resolve_cached_dependency(
@@ -269,6 +325,14 @@ def _build_expected_resolved_path(dependency: DependencyEntry) -> str:
     if isinstance(dependency.source, Path):
         return str((dependency.source / dependency.artifact).absolute())
     return f"{dependency.source.rstrip('/')}/releases/download/{dependency.version}/{dependency.artifact}"
+
+
+def _build_dependency_schema(schema_path: Path, dependency_name: str, dependency_version: str) -> None:
+    dependency_label = f"{dependency_name}/{dependency_version}"
+    try:
+        build_schema(schema_path.read_text(encoding="utf-8"))
+    except GraphQLError:
+        raise ValueError(f"Dependency '{dependency_label}' schema is invalid: {schema_path}") from None
 
 
 def _sha256_for_file(path: Path) -> str:

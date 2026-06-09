@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from s2dm.deps.models.common import (
     RequiredString,
@@ -14,6 +14,8 @@ from s2dm.deps.models.common import (
 LocalDependencySource = Annotated[Path, create_absolute_path_validator("`source`")]
 RemoteDependencySource = str
 DependencySource = LocalDependencySource | RemoteDependencySource
+DependencySelection = Path
+GRAPHQL_FILE_EXTENSIONS = frozenset({".graphql", ".gql"})
 
 
 def is_dependency_source_url(value: str) -> bool:
@@ -29,7 +31,11 @@ def is_dependency_source_url(value: str) -> bool:
         return False
 
     path_segments = [path_segment for path_segment in parsed.path.split("/") if path_segment]
-    return len(path_segments) >= 2
+    if len(path_segments) != 2:
+        return False
+
+    repository_name = path_segments[1]
+    return not repository_name.endswith(".git")
 
 
 class DependencyEntry(BaseModel):
@@ -41,6 +47,7 @@ class DependencyEntry(BaseModel):
     version: RequiredString
     source: DependencySource
     artifact: RequiredString
+    selection: DependencySelection | None = None
 
     @field_validator("source", mode="before")
     @classmethod
@@ -56,6 +63,20 @@ class DependencyEntry(BaseModel):
             return value
         raise ValueError("Dependency source must be an absolute path or a valid repository URL")
 
+    @field_validator("selection")
+    @classmethod
+    def validate_selection(cls, value: Path | None, info: ValidationInfo) -> Path | None:
+        """Require dependency selection files to be existing GraphQL files."""
+        if value is None:
+            return None
+        config_directory = info.context.get("config_directory") if info.context else None
+        selection_path = value if value.is_absolute() or config_directory is None else config_directory / value
+        if value.suffix.lower() not in GRAPHQL_FILE_EXTENSIONS:
+            raise ValueError("Dependency selection must be a .graphql or .gql file")
+        if not selection_path.is_file():
+            raise ValueError(f"Dependency selection file does not exist: {selection_path}")
+        return selection_path.resolve()
+
 
 class DependencyConfig(BaseModel):
     """Root structure of the dependencies file."""
@@ -64,8 +85,19 @@ class DependencyConfig(BaseModel):
 
     dependencies: list[DependencyEntry] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def validate_unique_dependency_targets(self) -> "DependencyConfig":
+        """Reject duplicate dependency name/version targets."""
+        seen_dependency_targets: set[tuple[str, str]] = set()
+        for dependency in self.dependencies:
+            dependency_target = (dependency.name, dependency.version)
+            if dependency_target in seen_dependency_targets:
+                raise ValueError(f"Duplicate dependency target '{dependency.name}/{dependency.version}' is not allowed")
+            seen_dependency_targets.add(dependency_target)
+        return self
+
     @classmethod
     def load(cls, path: Path) -> "DependencyConfig":
         """Load dependency configuration from a YAML file."""
         mapping = load_yaml_mapping(path, "Dependency config root")
-        return cls.model_validate(mapping)
+        return cls.model_validate(mapping, context={"config_directory": path.parent.resolve()})
