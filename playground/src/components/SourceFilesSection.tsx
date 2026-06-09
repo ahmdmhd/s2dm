@@ -62,7 +62,8 @@ export function SourceFilesSection() {
 			<div className="overflow-y-auto max-h-80">
 				<DndContext
 					sensors={sensors}
-					collisionDetection={closestCenter}					onDragEnd={handleDragEnd}
+					collisionDetection={closestCenter}
+					onDragEnd={handleDragEnd}
 				>
 					<SortableContext
 						items={filePaths}

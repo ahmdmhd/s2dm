@@ -37,8 +37,7 @@ export function useDependencyExploration(dependencies: DependencyDraft[]) {
 			}
 
 			const savedSelectionQuery = activeDependency.selectionContent ?? "";
-			const hasUnsavedSelectionChanges =
-				selectionQuery !== savedSelectionQuery;
+			const hasUnsavedSelectionChanges = selectionQuery !== savedSelectionQuery;
 			const isStoppingExploration = exploringDependencyId === dependency.id;
 
 			if (hasUnsavedSelectionChanges) {

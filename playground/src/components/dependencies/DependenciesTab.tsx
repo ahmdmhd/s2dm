@@ -35,6 +35,7 @@ import { selectIsSavingIdentities } from "@/store/deps/identities/identitiesSlic
 import {
 	resolveDependencies,
 	selectIsResolvingDependencies,
+	selectResolveError,
 	selectResolveWarnings,
 } from "@/store/deps/resolve/resolveSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -69,6 +70,7 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 
 	const dependencies = useAppSelector(selectDependencyDrafts);
 	const dependenciesError = useAppSelector(selectDependenciesError);
+	const resolveError = useAppSelector(selectResolveError);
 	const dependencyWarnings = useAppSelector(selectResolveWarnings);
 	const dependenciesBuildMessage = useAppSelector(selectBuildMessage);
 	const dependenciesBuildError = useAppSelector(selectBuildError);
@@ -191,27 +193,33 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 					</Button>
 				</div>
 
-				<div className="space-y-2 px-1 pt-2">
+				<div className="px-1">
 					{dependenciesError && (
-						<StatusBanner variant="destructive">
+						<StatusBanner variant="destructive" className="mt-2">
 							{dependenciesError}
 						</StatusBanner>
 					)}
 
+					{resolveError && (
+						<StatusBanner variant="destructive" className="mt-2">
+							{resolveError}
+						</StatusBanner>
+					)}
+
 					{dependenciesBuildError && (
-						<StatusBanner variant="destructive">
+						<StatusBanner variant="destructive" className="mt-2">
 							{dependenciesBuildError}
 						</StatusBanner>
 					)}
 
 					{dependencyWarnings.length > 0 && (
-						<StatusBanner variant="warning">
+						<StatusBanner variant="warning" className="mt-2">
 							{dependencyWarnings.join("\n")}
 						</StatusBanner>
 					)}
 
 					{dependenciesBuildMessage && (
-						<StatusBanner variant="success">
+						<StatusBanner variant="success" className="mt-2">
 							{dependenciesBuildMessage}
 						</StatusBanner>
 					)}
