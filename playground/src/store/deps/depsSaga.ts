@@ -1,3 +1,4 @@
+import type { PayloadAction } from "@reduxjs/toolkit";
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import {
 	getDependenciesConfig,
@@ -5,9 +6,11 @@ import {
 	saveDependenciesConfig as saveDependenciesConfigRequest,
 } from "@/api/s2dm";
 import type {
-	DependenciesConfig,
 	DependenciesStatusResponse,
+	GetDependenciesConfigResponse,
+	SaveDependenciesConfigRequest,
 } from "@/api/types";
+import { selectExploringDependencyId } from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import {
 	parseDependencyConfig,
 	serializeDependencyDraft,
@@ -19,12 +22,16 @@ import {
 	fetchDependenciesStatus,
 	fetchDependenciesStatusFailure,
 	fetchDependenciesStatusSuccess,
+	importDependenciesConfig,
+	importDependenciesConfigFailure,
+	importDependenciesConfigSuccess,
 	saveDependenciesConfig,
 	saveDependenciesConfigFailure,
 	saveDependenciesConfigSuccess,
 	selectDependencyDrafts,
 } from "@/store/deps/depsSlice";
 import type { RootState } from "@/store/types";
+import type { DependencyDraft } from "@/types/dependency";
 import { getErrorMessage } from "@/utils/getErrorMessage";
 
 function* fetchDependenciesStatusWorker() {
@@ -40,17 +47,42 @@ function* fetchDependenciesStatusWorker() {
 
 function* fetchDependenciesConfigWorker() {
 	try {
-		const config: DependenciesConfig = yield call(getDependenciesConfig);
-		yield put(
-			fetchDependenciesConfigSuccess(
-				config.dependencies
-					.filter(
-						(dependency) =>
-							!dependency.selection || dependency.selection?.type === "content",
-					)
-					.map(parseDependencyConfig),
-			),
+		const config: GetDependenciesConfigResponse = yield call(
+			getDependenciesConfig,
 		);
+		// Path-typed selections are not supported in the playground UI.
+		const incoming = config.dependencies
+			.filter(
+				(dependency) =>
+					!dependency.selection || dependency.selection.type === "content",
+			)
+			.map(parseDependencyConfig);
+
+		const exploringId: string | null = yield select(
+			selectExploringDependencyId,
+		);
+		const localDrafts: DependencyDraft[] = yield select(selectDependencyDrafts);
+
+		let localExplored: DependencyDraft | undefined;
+		if (exploringId) {
+			localExplored = localDrafts.find((draft) => draft.id === exploringId);
+		}
+
+		let merged = incoming;
+		if (localExplored) {
+			merged = incoming.map((draft) => {
+				if (draft.id !== exploringId) {
+					return draft;
+				}
+				return {
+					...draft,
+					selectionType: localExplored.selectionType,
+					selectionContent: localExplored.selectionContent,
+				};
+			});
+		}
+
+		yield put(fetchDependenciesConfigSuccess(merged));
 	} catch (error) {
 		yield put(fetchDependenciesConfigFailure(getErrorMessage(error)));
 	}
@@ -60,7 +92,7 @@ function* saveDependenciesConfigWorker() {
 	try {
 		const dependencies: ReturnType<typeof selectDependencyDrafts> =
 			yield select((state: RootState) => selectDependencyDrafts(state));
-		const config: DependenciesConfig = {
+		const config: SaveDependenciesConfigRequest = {
 			dependencies: dependencies.map(serializeDependencyDraft),
 		};
 
@@ -72,8 +104,25 @@ function* saveDependenciesConfigWorker() {
 	}
 }
 
+function* importDependenciesConfigWorker(
+	action: PayloadAction<SaveDependenciesConfigRequest>,
+) {
+	try {
+		yield call(saveDependenciesConfigRequest, action.payload);
+		yield put(importDependenciesConfigSuccess());
+		yield put(fetchDependenciesConfig());
+		yield put(fetchDependenciesStatus());
+	} catch (error) {
+		yield put(importDependenciesConfigFailure(getErrorMessage(error)));
+	}
+}
+
 export function* depsSaga() {
 	yield takeLatest(fetchDependenciesStatus.type, fetchDependenciesStatusWorker);
 	yield takeLatest(fetchDependenciesConfig.type, fetchDependenciesConfigWorker);
+	yield takeLatest(
+		importDependenciesConfig.type,
+		importDependenciesConfigWorker,
+	);
 	yield takeLatest(saveDependenciesConfig.type, saveDependenciesConfigWorker);
 }

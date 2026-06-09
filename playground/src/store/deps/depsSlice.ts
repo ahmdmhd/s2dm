@@ -1,5 +1,8 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { DependencyStatus } from "@/api/types";
+import type {
+	DependencyStatus,
+	SaveDependenciesConfigRequest,
+} from "@/api/types";
 import type { RootState } from "@/store/types";
 import {
 	areDependencyDraftsEqual,
@@ -14,6 +17,7 @@ export interface DepsState {
 	dependencies: DependencyDraft[];
 	storedDependencies: DependencyDraft[];
 	isLoadingConfig: boolean;
+	isImportingConfig: boolean;
 	isSavingConfig: boolean;
 	error: string | null;
 }
@@ -25,6 +29,7 @@ const initialState: DepsState = {
 	dependencies: [],
 	storedDependencies: [],
 	isLoadingConfig: false,
+	isImportingConfig: false,
 	isSavingConfig: false,
 	error: null,
 };
@@ -65,6 +70,24 @@ const depsSlice = createSlice({
 		fetchDependenciesConfigFailure: (state, action: PayloadAction<string>) => {
 			state.isLoadingConfig = false;
 			state.error = action.payload;
+		},
+		importDependenciesConfig: (
+			state,
+			_action: PayloadAction<SaveDependenciesConfigRequest>,
+		) => {
+			state.isImportingConfig = true;
+			state.error = null;
+		},
+		importDependenciesConfigSuccess: (state) => {
+			state.isImportingConfig = false;
+			state.error = null;
+		},
+		importDependenciesConfigFailure: (state, action: PayloadAction<string>) => {
+			state.isImportingConfig = false;
+			state.error = action.payload;
+		},
+		clearDependenciesError: (state) => {
+			state.error = null;
 		},
 		addDependency: (state, action: PayloadAction<DependencyDraft>) => {
 			state.dependencies.unshift(action.payload);
@@ -138,6 +161,10 @@ export const {
 	fetchDependenciesConfig,
 	fetchDependenciesConfigSuccess,
 	fetchDependenciesConfigFailure,
+	importDependenciesConfig,
+	importDependenciesConfigSuccess,
+	importDependenciesConfigFailure,
+	clearDependenciesError,
 	addDependency,
 	updateDependency,
 	removeDependency,
@@ -156,6 +183,8 @@ export const selectDependencyDrafts = (state: RootState) =>
 	state.deps.dependencies;
 export const selectIsLoadingDependenciesConfig = (state: RootState) =>
 	state.deps.isLoadingConfig;
+export const selectIsImportingDependenciesConfig = (state: RootState) =>
+	state.deps.isImportingConfig;
 export const selectIsSavingDependenciesConfig = (state: RootState) =>
 	state.deps.isSavingConfig;
 export const selectDependenciesError = (state: RootState) => state.deps.error;

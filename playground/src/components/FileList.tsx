@@ -11,14 +11,11 @@ import {
 	arrayMove,
 	SortableContext,
 	sortableKeyboardCoordinates,
-	useSortable,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
-	FileText,
 	Folder,
-	GripVertical,
+	Hammer,
 	Layers,
 	Link,
 	Package,
@@ -26,42 +23,47 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AddUrlDialog } from "@/components/AddUrlDialog";
 import { CliCommandDisplay } from "@/components/CliCommandDisplay";
+import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
+import { DependencyEntry } from "@/components/DependencyEntry";
 import { DependencyManagerDialog } from "@/components/DependencyManagerDialog";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { BuiltSchemaViewerButton } from "@/components/dependencies/BuiltSchemaViewerButton";
+import { SourceFileEntry } from "@/components/SourceFileEntry";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import { FormLabel } from "@/components/ui/form-label";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Dropdown, DropdownItem } from "@/components/ui/simple-dropdown";
-import { selectBuiltSchema } from "@/store/deps/build/buildSlice";
+import { SplitActionButton } from "@/components/ui/split-action-button";
+import { StatusBanner } from "@/components/ui/status-banner";
+import { useDependencyExploration } from "@/hooks/useDependencyExploration";
+import { useFileImport } from "@/hooks/useFileImport";
+import {
+	buildDependencies,
+	selectBuildError,
+	selectBuildMessage,
+	selectBuiltSchema,
+	selectIsBuilding,
+} from "@/store/deps/build/buildSlice";
+import {
+	fetchDependenciesConfig,
+	fetchDependenciesStatus,
+	selectDependencyDrafts,
+	selectDependencyStatus,
+	selectIsLoadingDependencyStatus,
+	selectIsSavingDependenciesConfig,
+} from "@/store/deps/depsSlice";
+import { selectIsSavingIdentities } from "@/store/deps/identities/identitiesSlice";
+import { selectIsResolvingDependencies } from "@/store/deps/resolve/resolveSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectSourceFiles, setSourceFiles } from "@/store/schema/schemaSlice";
 import { selectIsValidating } from "@/store/validation/validationSlice";
 import type { ImportedFile } from "@/types/importedFile";
 import { cn } from "@/utils/cn";
 import { getErrorMessage } from "@/utils/getErrorMessage";
-import { isGraphQLFile, isValidUrl } from "@/utils/validation";
+import { isGraphQLFile } from "@/utils/validation";
 
 type FileWithPath = File & {
 	webkitRelativePath?: string;
@@ -71,80 +73,57 @@ type FileListProps = {
 	onCompose?: (includeBuiltDependencies: boolean) => void;
 };
 
-function SortableFileItem({
-	file,
-	onRemove,
-}: {
-	file: ImportedFile;
-	onRemove: (filePath: string) => void;
-}) {
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging,
-	} = useSortable({ id: file.path });
-
-	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition,
-		opacity: isDragging ? 0.5 : 1,
-	};
-
-	let fileIcon: React.ReactNode;
-	if (file.type === "url") {
-		fileIcon = <Link className="h-4 w-4 flex-shrink-0" />;
-	} else {
-		fileIcon = <FileText className="h-4 w-4 flex-shrink-0" />;
-	}
-
-	return (
-		<li
-			ref={setNodeRef}
-			style={style}
-			className="group flex items-center gap-2 px-3 py-2 text-sm text-foreground bg-background/50 border border-border rounded-md hover:bg-background/80 transition-colors"
-			title={file.path}
-		>
-			<button
-				className="cursor-grab active:cursor-grabbing touch-none"
-				{...attributes}
-				{...listeners}
-			>
-				<GripVertical className="h-4 w-4 text-muted-foreground" />
-			</button>
-			{fileIcon}
-			<span className="truncate flex-1">{file.name}</span>
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				onClick={() => onRemove(file.path)}
-				className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-				title="Remove file"
-			>
-				<Trash2 />
-			</Button>
-		</li>
-	);
-}
-
 export function FileList({ onCompose }: FileListProps) {
 	const dispatch = useAppDispatch();
 	const builtDependenciesSchema = useAppSelector(selectBuiltSchema);
+	const dependencies = useAppSelector(selectDependencyDrafts);
+	const dependenciesBuildError = useAppSelector(selectBuildError);
+	const dependenciesBuildMessage = useAppSelector(selectBuildMessage);
+	const dependencyStatus = useAppSelector(selectDependencyStatus);
+	const isDependenciesBuilding = useAppSelector(selectIsBuilding);
+	const isDependencyStatusLoading = useAppSelector(
+		selectIsLoadingDependencyStatus,
+	);
+	const isDependenciesSaving = useAppSelector(selectIsSavingDependenciesConfig);
+	const isDependenciesResolving = useAppSelector(selectIsResolvingDependencies);
+	const isIdentitiesSaving = useAppSelector(selectIsSavingIdentities);
 	const isValidating = useAppSelector(selectIsValidating);
 	const files = useAppSelector(selectSourceFiles);
+
+	const resolvedDependencies = useMemo(
+		() =>
+			dependencies.filter((dependency) =>
+				Boolean(dependency.schemaContent?.trim()),
+			),
+		[dependencies],
+	);
+
+	const {
+		exploringDependencyId,
+		isExploring,
+		toggleExploration,
+		pendingAction,
+		dismissPendingAction,
+		confirmPendingAction,
+	} = useDependencyExploration(resolvedDependencies);
+
 	const [showClearConfirm, setShowClearConfirm] = useState(false);
 	const [showDependenciesDialog, setShowDependenciesDialog] = useState(false);
 	const [showUrlDialog, setShowUrlDialog] = useState(false);
-	const [urlInput, setUrlInput] = useState("");
-	const [urlError, setUrlError] = useState("");
 	const [error, setError] = useState<string>("");
 	const [includeBuiltDependencies, setIncludeBuiltDependencies] =
 		useState(false);
-	const fileInputRef = useRef<HTMLInputElement>(null);
-	const folderInputRef = useRef<HTMLInputElement>(null);
 	const hasBuiltDependenciesSchema = Boolean(builtDependenciesSchema?.trim());
+	const includeBuiltDependenciesTooltip = hasBuiltDependenciesSchema
+		? undefined
+		: "Build dependencies in the Dependencies tab before including them in composition.";
+	const isBuildDisabled =
+		dependencyStatus !== "resolved" ||
+		isDependencyStatusLoading ||
+		isDependenciesSaving ||
+		isIdentitiesSaving ||
+		isDependenciesResolving ||
+		isDependenciesBuilding;
 
 	const sensors = useSensors(
 		useSensor(PointerSensor),
@@ -153,11 +132,13 @@ export function FileList({ onCompose }: FileListProps) {
 		}),
 	);
 
-	const handleFileChange = useCallback(
-		async (event: React.ChangeEvent<HTMLInputElement>) => {
-			const selectedFiles = event.target.files;
-			if (!selectedFiles || selectedFiles.length === 0) return;
+	useEffect(() => {
+		dispatch(fetchDependenciesStatus());
+		dispatch(fetchDependenciesConfig());
+	}, [dispatch]);
 
+	const handleImportedFiles = useCallback(
+		async (selectedFiles: FileList) => {
 			const graphqlFiles: File[] = [];
 
 			for (let i = 0; i < selectedFiles.length; i++) {
@@ -193,49 +174,35 @@ export function FileList({ onCompose }: FileListProps) {
 			} catch (err) {
 				setError(`Failed to read files: ${getErrorMessage(err)}`);
 			}
-
-			event.target.value = "";
 		},
 		[files, dispatch],
 	);
 
-	const handleImportFiles = useCallback(() => {
-		fileInputRef.current?.click();
-	}, []);
+	const fileImport = useFileImport({
+		accept: ".graphql,.gql",
+		multiple: true,
+		onFilesSelected: handleImportedFiles,
+	});
 
-	const handleImportFolder = useCallback(() => {
-		folderInputRef.current?.click();
-	}, []);
+	const folderImport = useFileImport({
+		directory: true,
+		multiple: true,
+		onFilesSelected: handleImportedFiles,
+	});
 
-	const handleAddUrl = useCallback(() => {
-		setShowUrlDialog(true);
-		setUrlInput("");
-		setUrlError("");
-	}, []);
+	const handleAddUrl = useCallback(
+		(url: string) => {
+			const urlEntry: ImportedFile = {
+				name: url,
+				path: url,
+				type: "url",
+			};
 
-	const handleConfirmAddUrl = useCallback(() => {
-		if (!urlInput.trim()) {
-			setUrlError("URL is required");
-			return;
-		}
-
-		if (!isValidUrl(urlInput)) {
-			setUrlError("Please enter a valid URL");
-			return;
-		}
-
-		const urlEntry: ImportedFile = {
-			name: urlInput,
-			path: urlInput,
-			type: "url",
-		};
-
-		const updatedFiles = [...files, urlEntry];
-		dispatch(setSourceFiles(updatedFiles));
-		setShowUrlDialog(false);
-		setUrlInput("");
-		setUrlError("");
-	}, [urlInput, files, dispatch]);
+			const updatedFiles = [...files, urlEntry];
+			dispatch(setSourceFiles(updatedFiles));
+		},
+		[files, dispatch],
+	);
 
 	const handleRemove = useCallback(
 		(filePath: string) => {
@@ -248,6 +215,14 @@ export function FileList({ onCompose }: FileListProps) {
 	const handleClearAll = useCallback(() => {
 		setShowClearConfirm(true);
 	}, []);
+
+	const handleBuild = useCallback(() => {
+		dispatch(buildDependencies({ autoPrefix: false }));
+	}, [dispatch]);
+
+	const handleBuildWithAutoPrefix = useCallback(() => {
+		dispatch(buildDependencies({ autoPrefix: true }));
+	}, [dispatch]);
 
 	const confirmClearAll = useCallback(() => {
 		setShowClearConfirm(false);
@@ -285,11 +260,11 @@ export function FileList({ onCompose }: FileListProps) {
 		const fileCountText = `${files.length} file${files.length !== 1 ? "s" : ""}`;
 		const filePaths = files.map((f) => f.path);
 		const fileItems = files.map((file) => (
-			<SortableFileItem key={file.path} file={file} onRemove={handleRemove} />
+			<SourceFileEntry key={file.path} file={file} onRemove={handleRemove} />
 		));
 
 		return (
-			<CollapsibleSection title={fileCountText}>
+			<CollapsibleSection title={fileCountText} className="mt-2">
 				<div className="overflow-y-auto max-h-80">
 					<DndContext
 						sensors={sensors}
@@ -308,6 +283,67 @@ export function FileList({ onCompose }: FileListProps) {
 		);
 	};
 
+	const renderDependenciesList = () => {
+		if (dependencyStatus !== "resolved") {
+			return null;
+		}
+
+		if (resolvedDependencies.length === 0) {
+			return null;
+		}
+
+		const dependencyCountText = `${resolvedDependencies.length} dependenc${resolvedDependencies.length === 1 ? "y" : "ies"}`;
+
+		return (
+			<div className="space-y-2">
+				<CollapsibleSection title={dependencyCountText}>
+					<ul className="space-y-1 py-2">
+						{resolvedDependencies.map((dependency) => (
+							<DependencyEntry
+								key={dependency.id}
+								dependency={dependency}
+								isExploring={dependency.id === exploringDependencyId}
+								onToggleExplore={toggleExploration}
+							/>
+						))}
+					</ul>
+				</CollapsibleSection>
+				<div className="px-2 space-y-2">
+					<div className="flex gap-2">
+						<SplitActionButton
+							label="Build"
+							icon={<Hammer />}
+							onClick={handleBuild}
+							loading={isDependenciesBuilding}
+							disabled={isBuildDisabled}
+							title="Build dependencies"
+							optionsTitle="Build options"
+							options={[
+								{
+									label: "Build and Auto-prefix",
+									onClick: handleBuildWithAutoPrefix,
+								},
+							]}
+							className="flex-1"
+							stretchMainButton={true}
+						/>
+						<BuiltSchemaViewerButton />
+					</div>
+					{dependenciesBuildError && (
+						<StatusBanner variant="destructive">
+							{dependenciesBuildError}
+						</StatusBanner>
+					)}
+					{dependenciesBuildMessage && (
+						<StatusBanner variant="success">
+							{dependenciesBuildMessage}
+						</StatusBanner>
+					)}
+				</div>
+			</div>
+		);
+	};
+
 	return (
 		<div className="flex flex-col">
 			<div className="flex justify-end gap-2 p-2">
@@ -315,6 +351,7 @@ export function FileList({ onCompose }: FileListProps) {
 					variant="outline"
 					size="icon"
 					onClick={() => setShowDependenciesDialog(true)}
+					disabled={isExploring}
 					title="Manage dependencies"
 				>
 					<Package className="h-5 w-5" />
@@ -327,15 +364,15 @@ export function FileList({ onCompose }: FileListProps) {
 					}
 					align="end"
 				>
-					<DropdownItem onClick={handleImportFiles}>
+					<DropdownItem onClick={fileImport.openImportInput}>
 						<Upload className="h-4 w-4" />
 						Upload Files
 					</DropdownItem>
-					<DropdownItem onClick={handleImportFolder}>
+					<DropdownItem onClick={folderImport.openImportInput}>
 						<Folder className="h-4 w-4" />
 						Upload Directory
 					</DropdownItem>
-					<DropdownItem onClick={handleAddUrl}>
+					<DropdownItem onClick={() => setShowUrlDialog(true)}>
 						<Link className="h-4 w-4" />
 						Add URL
 					</DropdownItem>
@@ -358,12 +395,17 @@ export function FileList({ onCompose }: FileListProps) {
 				</div>
 			)}
 
+			{renderDependenciesList()}
+
 			{renderFileList()}
 
 			{files.length > 0 && (
 				<div className="px-2 pt-2">
 					<div className="mb-2 flex items-center justify-between gap-3">
-						<div className="flex items-center space-x-2">
+						<div
+							className="flex items-center space-x-2"
+							title={includeBuiltDependenciesTooltip}
+						>
 							<Checkbox
 								id="include-built-dependencies"
 								checked={includeBuiltDependencies}
@@ -405,79 +447,50 @@ export function FileList({ onCompose }: FileListProps) {
 				</div>
 			)}
 
-			<input
-				ref={fileInputRef}
-				type="file"
-				onChange={handleFileChange}
-				style={{ display: "none" }}
-				multiple
+			<input {...fileImport.hiddenInputProps} />
+			<input {...folderImport.hiddenInputProps} />
+
+			<ConfirmActionDialog
+				open={showClearConfirm}
+				onOpenChange={setShowClearConfirm}
+				title="Remove all files?"
+				description={
+					<>
+						This will remove all {files.length} file
+						{files.length !== 1 ? "s" : ""} from the list. This action cannot be
+						undone.
+					</>
+				}
+				confirmLabel="Remove All"
+				onConfirm={confirmClearAll}
 			/>
 
-			<input
-				ref={folderInputRef}
-				type="file"
-				onChange={handleFileChange}
-				style={{ display: "none" }}
-				webkitdirectory={""}
+			<ConfirmActionDialog
+				open={Boolean(pendingAction)}
+				onOpenChange={(open) => {
+					if (!open) {
+						dismissPendingAction();
+					}
+				}}
+				title="Discard selection changes?"
+				description={
+					pendingAction?.kind === "switch"
+						? "You have unsaved selection query changes. Switch to a different dependency and discard them?"
+						: "You have unsaved selection query changes. Exit exploration mode and discard them?"
+				}
+				confirmLabel={
+					pendingAction?.kind === "switch"
+						? "Switch Dependency"
+						: "Exit Exploration"
+				}
+				onConfirm={confirmPendingAction}
 			/>
 
-			<AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Remove all files?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This will remove all {files.length} file
-							{files.length !== 1 ? "s" : ""} from the list. This action cannot
-							be undone.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmClearAll} variant="destructive">
-							Remove All
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Add Schema URL</DialogTitle>
-						<DialogDescription>
-							Enter the URL of a GraphQL schema to add to your file list.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="grid gap-4 py-4">
-						<div className="grid gap-2">
-							<Label htmlFor="schema-url">Schema URL</Label>
-							<Input
-								id="schema-url"
-								placeholder="https://example.com/schema.graphql"
-								value={urlInput}
-								onChange={(e) => {
-									setUrlInput(e.target.value);
-									setUrlError("");
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") {
-										handleConfirmAddUrl();
-									}
-								}}
-							/>
-							{urlError && (
-								<p className="text-sm text-destructive">{urlError}</p>
-							)}
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setShowUrlDialog(false)}>
-							Cancel
-						</Button>
-						<Button onClick={handleConfirmAddUrl}>Add URL</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<AddUrlDialog
+				open={showUrlDialog}
+				onOpenChange={setShowUrlDialog}
+				onAdd={handleAddUrl}
+			/>
 
 			<DependencyManagerDialog
 				open={showDependenciesDialog}

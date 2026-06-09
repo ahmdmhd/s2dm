@@ -1,6 +1,8 @@
 import { ChevronDown } from "lucide-react";
+import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/ui/simple-dropdown";
+import { cn } from "@/utils/cn";
 
 type SplitActionOption = {
 	label: string;
@@ -9,22 +11,28 @@ type SplitActionOption = {
 
 type SplitActionButtonProps = {
 	label: string;
+	icon?: React.ReactNode;
 	onClick: () => void;
 	title: string;
 	optionsTitle: string;
 	options: SplitActionOption[];
 	disabled?: boolean;
 	loading?: boolean;
+	className?: string;
+	stretchMainButton?: boolean;
 };
 
 export function SplitActionButton({
 	label,
+	icon,
 	onClick,
 	title,
 	optionsTitle,
 	options,
 	disabled = false,
 	loading = false,
+	className,
+	stretchMainButton = false,
 }: SplitActionButtonProps) {
 	const menuTrigger = (
 		<Button
@@ -54,7 +62,7 @@ export function SplitActionButton({
 	}
 
 	return (
-		<div className="flex items-center">
+		<div className={cn("flex items-center", className)}>
 			<Button
 				variant="outline"
 				size="sm"
@@ -62,8 +70,9 @@ export function SplitActionButton({
 				loading={loading}
 				disabled={disabled}
 				title={title}
-				className="rounded-r-none"
+				className={cn(stretchMainButton && "flex-1", "rounded-r-none")}
 			>
+				{icon}
 				{label}
 			</Button>
 			{trailingControl}

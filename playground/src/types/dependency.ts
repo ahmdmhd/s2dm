@@ -8,6 +8,7 @@ export type DependencyDraft = {
 	artifact: string;
 	selectionType: "content" | null;
 	selectionContent: string | null;
+	schemaContent: string | null;
 };
 
 export type DependencyEditableField = keyof Pick<
@@ -27,6 +28,7 @@ export function createEmptyDependencyDraft(): DependencyDraft {
 		artifact: "",
 		selectionType: null,
 		selectionContent: "",
+		schemaContent: null,
 	};
 }
 
@@ -47,7 +49,8 @@ export function areDependencyDraftsEqual(
 			leftDraft.source === rightDraft.source &&
 			leftDraft.artifact === rightDraft.artifact &&
 			leftDraft.selectionType === rightDraft.selectionType &&
-			leftDraft.selectionContent === rightDraft.selectionContent
+			leftDraft.selectionContent === rightDraft.selectionContent &&
+			leftDraft.schemaContent === rightDraft.schemaContent
 		);
 	});
 }

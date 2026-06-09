@@ -2,7 +2,8 @@ import { DocExplorer } from "@graphiql/plugin-doc-explorer";
 import { GraphiQLProvider, useGraphiQLActions } from "@graphiql/react";
 import { buildSchema, execute, GraphQLError, parse } from "graphql";
 import { Download } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
 import { Pane } from "@/components/Pane";
 import { QueryEditorWrapper } from "@/components/QueryEditorWrapper";
 import { SchemaVisualizer } from "@/components/SchemaVisualizer";
@@ -20,16 +21,20 @@ import {
 	selectExporterByEndpoint,
 	selectSelectedExporterEndpoint,
 } from "@/store/capabilities/capabilitiesSlice";
+import { selectExploringDependencyId } from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectFilteredSchema,
 	selectOriginalSchema,
 } from "@/store/schema/schemaSlice";
 import {
+	clearAppliedSelection,
 	pruningStart,
-	resetSelectionQuery,
+	resetSelection,
+	selectAppliedSelectionQuery,
 	selectIsPruning,
 	selectSelectionQuery,
+	setSelectionQuery,
 } from "@/store/selection/selectionSlice";
 import { downloadTextFile } from "@/utils/download";
 import { getErrorMessage } from "@/utils/getErrorMessage";
@@ -59,7 +64,9 @@ export function ExplorePane({
 	const dispatch = useAppDispatch();
 	const originalSchema = useAppSelector(selectOriginalSchema);
 	const filteredSchema = useAppSelector(selectFilteredSchema);
+	const appliedSelectionQuery = useAppSelector(selectAppliedSelectionQuery);
 	const selectionQuery = useAppSelector(selectSelectionQuery);
+	const exploringDependencyId = useAppSelector(selectExploringDependencyId);
 	const selectedExporterEndpoint = useAppSelector(
 		selectSelectedExporterEndpoint,
 	);
@@ -67,12 +74,15 @@ export function ExplorePane({
 		selectExporterByEndpoint(state, selectedExporterEndpoint),
 	);
 	const isPruning = useAppSelector(selectIsPruning);
-	const [selectionQueryState, setSelectionQueryState] =
-		useState(selectionQuery);
+	const [docExplorerNode, setDocExplorerNode] = useState<HTMLDivElement | null>(
+		null,
+	);
 	const [queryHasErrors, setQueryHasErrors] = useState(false);
 	const [showExploreHelp, setShowExploreHelp] = useState(false);
 	const isSelectionQueryRequired =
 		selectedExporter?.requiresSelectionQuery ?? false;
+	const hasAppliedSelection = appliedSelectionQuery.trim().length > 0;
+	const hasSelectionText = selectionQuery.trim().length > 0;
 
 	const graphqlSchema = useMemo(() => {
 		if (!originalSchema?.trim()) return undefined;
@@ -114,8 +124,12 @@ export function ExplorePane({
 	}, [graphqlSchema]);
 
 	useEffect(() => {
+		if (!docExplorerNode) {
+			return;
+		}
+
 		const applySearchPlaceholder = () => {
-			const searchInputs = document.querySelectorAll<HTMLInputElement>(
+			const searchInputs = docExplorerNode.querySelectorAll<HTMLInputElement>(
 				'.graphiql-doc-explorer-search input[role="combobox"]',
 			);
 
@@ -127,20 +141,16 @@ export function ExplorePane({
 		};
 
 		applySearchPlaceholder();
-		const timer = window.setTimeout(applySearchPlaceholder, 100);
-		const observerTarget =
-			document.querySelector(".graphiql-container") || document.body;
 		const observer = new MutationObserver(applySearchPlaceholder);
-		observer.observe(observerTarget, {
+		observer.observe(docExplorerNode, {
 			childList: true,
 			subtree: true,
 		});
 
 		return () => {
-			window.clearTimeout(timer);
 			observer.disconnect();
 		};
-	}, []);
+	}, [docExplorerNode]);
 
 	const handleDownloadQuery = () => {
 		if (!selectionQuery) {
@@ -149,6 +159,39 @@ export function ExplorePane({
 
 		downloadTextFile(selectionQuery, SELECTION_QUERY_FILENAME);
 	};
+
+	const handleSelectionQueryChange = useCallback(
+		(value: string) => {
+			dispatch(setSelectionQuery(value));
+		},
+		[dispatch],
+	);
+
+	const handleSelectionAction = () => {
+		if (hasAppliedSelection) {
+			dispatch(clearAppliedSelection());
+			return;
+		}
+
+		dispatch(pruningStart(selectionQuery));
+	};
+
+	let selectionActionLabel = "Apply Selection";
+	if (hasAppliedSelection) {
+		selectionActionLabel = "Unapply Selection";
+	}
+
+	let resetDescription =
+		"This will clear the selection text and remove the applied filtering.";
+	if (exploringDependencyId) {
+		resetDescription =
+			"This will clear the selection text, remove the applied filtering, and delete the saved selection for the explored dependency.";
+	}
+
+	let isSelectionActionDisabled = false;
+	if (!hasAppliedSelection) {
+		isSelectionActionDisabled = !hasSelectionText || queryHasErrors;
+	}
 
 	if (!originalSchema?.trim()) {
 		return (
@@ -200,9 +243,10 @@ export function ExplorePane({
 							</li>
 							<li>
 								<span className="font-medium text-foreground">
-									Apply Selection:
+									Apply or Unapply Selection:
 								</span>{" "}
-								filters the schema used by export commands.
+								apply or remove schema filtering using the current selection
+								text.
 							</li>
 							<li>
 								<span className="font-medium text-foreground">
@@ -214,7 +258,9 @@ export function ExplorePane({
 								<span className="font-medium text-foreground">
 									Reset Selection:
 								</span>{" "}
-								restore the original unfiltered schema.
+								clear the current selection text and remove any applied
+								filtering. When exploring a dependency, this also deletes its
+								saved selection.
 							</li>
 							<li>
 								<span className="font-medium text-foreground">
@@ -230,26 +276,31 @@ export function ExplorePane({
 					<div className="h-full w-full flex flex-col relative">
 						<div className="absolute top-4 right-4 z-10 flex gap-2">
 							<Button
-								onClick={() => dispatch(pruningStart(selectionQueryState))}
-								disabled={
-									selectionQueryState === selectionQuery || queryHasErrors
+								onClick={handleSelectionAction}
+								disabled={isSelectionActionDisabled}
+								loading={isPruning && !hasAppliedSelection}
+							>
+								{selectionActionLabel}
+							</Button>
+							<ConfirmActionDialog
+								trigger={
+									<Button
+										variant="destructive"
+										disabled={!hasSelectionText && !hasAppliedSelection}
+									>
+										Reset Selection
+									</Button>
 								}
-								loading={isPruning}
-							>
-								Apply Selection
-							</Button>
-							<Button
-								onClick={() => dispatch(resetSelectionQuery())}
-								variant="destructive"
-								disabled={!selectionQuery}
-							>
-								Reset Selection
-							</Button>
+								title="Reset selection?"
+								description={resetDescription}
+								confirmLabel="Reset Selection"
+								onConfirm={() => dispatch(resetSelection())}
+							/>
 							<Button
 								onClick={handleDownloadQuery}
 								variant="outline"
 								size="icon"
-								disabled={!selectionQuery}
+								disabled={!hasSelectionText}
 								aria-label="Download Selection Query"
 								title="Download Selection Query"
 							>
@@ -264,7 +315,10 @@ export function ExplorePane({
 						>
 							<GraphiQLThemeSync />
 							<div className="graphiql-container flex-1 flex flex-row overflow-hidden">
-								<div className="w-[300px] h-full min-w-[200px] max-w-[500px] border-r border-[color:var(--color-border)] overflow-hidden">
+								<div
+									ref={setDocExplorerNode}
+									className="w-[300px] h-full min-w-[200px] max-w-[500px] border-r border-[color:var(--color-border)] overflow-hidden"
+								>
 									<DocExplorer />
 								</div>
 								<div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden">
@@ -277,8 +331,8 @@ export function ExplorePane({
 										</FormLabel>
 									</div>
 									<QueryEditorWrapper
-										selectionQuery={selectionQueryState}
-										onSelectionQueryChange={setSelectionQueryState}
+										selectionQuery={selectionQuery}
+										onSelectionQueryChange={handleSelectionQueryChange}
 										onValidationChange={setQueryHasErrors}
 									/>
 								</div>

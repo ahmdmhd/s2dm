@@ -1,19 +1,20 @@
-import { Eye, Plus } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Plus, Upload } from "lucide-react";
+import { useCallback } from "react";
 import { DependencyModal } from "@/components/DependencyModal";
+import { BuiltSchemaViewerButton } from "@/components/dependencies/BuiltSchemaViewerButton";
+import { DependencyImportDialog } from "@/components/dependencies/DependencyImportDialog";
 import { EntryList } from "@/components/dependencies/EntryList";
 import { useEditModal } from "@/components/dependencies/useEditModal";
-import { TextEditor } from "@/components/TextEditor";
-import { TextEditorDialog } from "@/components/TextEditorDialog";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { SplitActionButton } from "@/components/ui/split-action-button";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { TabsContent } from "@/components/ui/tabs";
+import { useDependencyConfigImportController } from "@/hooks/useDependencyConfigImportController";
 import {
 	buildDependencies,
 	selectBuildError,
 	selectBuildMessage,
-	selectBuiltSchema,
 	selectIsBuilding,
 } from "@/store/deps/build/buildSlice";
 import {
@@ -24,6 +25,7 @@ import {
 	selectDependencyDrafts,
 	selectDependencyStatus,
 	selectHasUnsavedDependencyChanges,
+	selectIsImportingDependenciesConfig,
 	selectIsLoadingDependenciesConfig,
 	selectIsLoadingDependencyStatus,
 	selectIsSavingDependenciesConfig,
@@ -55,7 +57,15 @@ function getDependencySummary(dependency: DependencyDraft) {
 export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 	const dispatch = useAppDispatch();
 	const depModal = useEditModal<DependencyDraft>();
-	const [isBuiltSchemaDialogOpen, setIsBuiltSchemaDialogOpen] = useState(false);
+	const {
+		fileImport,
+		pendingImport,
+		configDirectory,
+		configDirectoryError,
+		handleConfigDirectoryChange,
+		handleConfirmImport,
+		closeImportDialog,
+	} = useDependencyConfigImportController();
 
 	const dependencies = useAppSelector(selectDependencyDrafts);
 	const dependenciesError = useAppSelector(selectDependenciesError);
@@ -64,6 +74,9 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 	const dependenciesBuildError = useAppSelector(selectBuildError);
 	const isDependenciesLoading = useAppSelector(
 		selectIsLoadingDependenciesConfig,
+	);
+	const isDependenciesImporting = useAppSelector(
+		selectIsImportingDependenciesConfig,
 	);
 	const isDependenciesSaving = useAppSelector(selectIsSavingDependenciesConfig);
 	const isDependenciesResolving = useAppSelector(selectIsResolvingDependencies);
@@ -76,7 +89,6 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 	const hasUnsavedDependencyChanges = useAppSelector(
 		selectHasUnsavedDependencyChanges,
 	);
-	const builtDependenciesSchema = useAppSelector(selectBuiltSchema);
 
 	const handleOpenAdd = useCallback(() => {
 		depModal.openAdd(createEmptyDependencyDraft());
@@ -124,7 +136,8 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 		dispatch(buildDependencies({ autoPrefix: true }));
 	}, [dispatch]);
 
-	const isAnySaveInProgress = isDependenciesSaving || isIdentitiesSaving;
+	const isAnySaveInProgress =
+		isDependenciesImporting || isDependenciesSaving || isIdentitiesSaving;
 	const isAddDisabled =
 		isDependenciesLoading ||
 		isAnySaveInProgress ||
@@ -148,7 +161,6 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 		isDependenciesResolving ||
 		isDependenciesBuilding ||
 		!hasUnsavedDependencyChanges;
-	const hasBuiltDependenciesSchema = Boolean(builtDependenciesSchema?.trim());
 
 	return (
 		<>
@@ -157,14 +169,16 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 				className="mt-0 flex min-h-0 flex-1 flex-col"
 			>
 				<div className="flex justify-end gap-2 pr-1 pt-2">
+					<BuiltSchemaViewerButton size="icon-sm" />
 					<Button
 						variant="outline"
 						size="icon-sm"
-						onClick={() => setIsBuiltSchemaDialogOpen(true)}
-						disabled={!hasBuiltDependenciesSchema}
-						title="View built dependency schema"
+						onClick={fileImport.openImportInput}
+						loading={isDependenciesImporting}
+						disabled={isAddDisabled}
+						title="Import dependencies config"
 					>
-						<Eye />
+						<Upload />
 					</Button>
 					<Button
 						variant="outline"
@@ -179,27 +193,27 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 
 				<div className="space-y-2 px-1 pt-2">
 					{dependenciesError && (
-						<div className="rounded border border-destructive bg-destructive/10 p-2 text-sm text-destructive">
+						<StatusBanner variant="destructive">
 							{dependenciesError}
-						</div>
+						</StatusBanner>
 					)}
 
 					{dependenciesBuildError && (
-						<div className="rounded border border-destructive bg-destructive/10 p-2 text-sm text-destructive">
+						<StatusBanner variant="destructive">
 							{dependenciesBuildError}
-						</div>
+						</StatusBanner>
 					)}
 
 					{dependencyWarnings.length > 0 && (
-						<div className="rounded border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-700 dark:text-amber-300">
+						<StatusBanner variant="warning">
 							{dependencyWarnings.join("\n")}
-						</div>
+						</StatusBanner>
 					)}
 
 					{dependenciesBuildMessage && (
-						<div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-sm text-emerald-700 dark:text-emerald-300">
+						<StatusBanner variant="success">
 							{dependenciesBuildMessage}
-						</div>
+						</StatusBanner>
 					)}
 				</div>
 				<EntryList
@@ -269,20 +283,21 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 				/>
 			)}
 
-			<TextEditorDialog
-				open={isBuiltSchemaDialogOpen}
-				onOpenChange={setIsBuiltSchemaDialogOpen}
-				title="Built Dependency Schema"
-			>
-				<TextEditor
-					language="graphql"
-					value={builtDependenciesSchema ?? ""}
-					readOnly
-					fullscreenTitle="Built Dependency Schema"
-					fileName="built-dependencies.graphql"
-					isExpandable={false}
-				/>
-			</TextEditorDialog>
+			<input {...fileImport.hiddenInputProps} />
+
+			<DependencyImportDialog
+				open={pendingImport !== null}
+				filename={pendingImport?.filename ?? ""}
+				configDirectory={configDirectory}
+				error={configDirectoryError}
+				onConfigDirectoryChange={handleConfigDirectoryChange}
+				onConfirm={handleConfirmImport}
+				onOpenChange={(isOpen) => {
+					if (!isOpen) {
+						closeImportDialog();
+					}
+				}}
+			/>
 		</>
 	);
 }

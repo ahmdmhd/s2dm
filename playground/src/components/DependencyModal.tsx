@@ -137,15 +137,6 @@ export function DependencyModal({
 		setError("");
 	};
 
-	const handleSelectionChange = (value: string) => {
-		setDraft((currentDraft) => ({
-			...currentDraft,
-			selectionType: value.trim() ? "content" : null,
-			selectionContent: value,
-		}));
-		setError("");
-	};
-
 	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
@@ -209,9 +200,9 @@ export function DependencyModal({
 									<TextEditor
 										language="graphql"
 										value={draft.selectionContent ?? ""}
-										onChange={handleSelectionChange}
 										fullscreenTitle={`${dependencyLabel} Selection`}
 										fileName={`${draft.name || "dependency"}-selection.graphql`}
+										readOnly
 									/>
 								</div>
 							</div>

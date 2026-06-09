@@ -3,6 +3,11 @@ export type ContentInput = {
 	content: string;
 };
 
+export type PathInput = {
+	type: "path";
+	path: string;
+};
+
 type FileContentInput = {
 	type: "file_content";
 	filename: string;
@@ -22,11 +27,18 @@ export type DependencyConfigEntry = {
 	version: string;
 	source: string;
 	artifact: string;
-	selection: ContentInput | null;
+	selection: ContentInput | PathInput | null;
+	schema_content?: string | null;
 };
 
 export type DependenciesConfig = {
 	dependencies: DependencyConfigEntry[];
+};
+
+export type GetDependenciesConfigResponse = DependenciesConfig;
+
+export type SaveDependenciesConfigRequest = DependenciesConfig & {
+	config_directory?: string | null;
 };
 
 export type DependencyIdentityEntry = {

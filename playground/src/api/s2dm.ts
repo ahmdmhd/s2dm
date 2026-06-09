@@ -1,12 +1,13 @@
 import { AxiosError } from "axios";
 import { apiClient } from "@/api/client";
 import type {
-	DependenciesConfig,
 	DependenciesIdentities,
 	DependenciesStatusResponse,
 	ExportResponse,
 	FilterSchemaRequest,
+	GetDependenciesConfigResponse,
 	QueryInput,
+	SaveDependenciesConfigRequest,
 	SchemaInput,
 	ValidateSchemaRequest,
 } from "@/api/types";
@@ -69,9 +70,11 @@ export async function filterSchema(
 	}
 }
 
-export async function getDependenciesConfig(): Promise<DependenciesConfig> {
+export async function getDependenciesConfig(): Promise<GetDependenciesConfigResponse> {
 	try {
-		return await apiClient.get<DependenciesConfig>("/api/v1/deps/config");
+		return await apiClient.get<GetDependenciesConfigResponse>(
+			"/api/v1/deps/config",
+		);
 	} catch (error) {
 		if (isNotFoundError(error)) {
 			return { dependencies: [] };
@@ -82,7 +85,7 @@ export async function getDependenciesConfig(): Promise<DependenciesConfig> {
 }
 
 export async function saveDependenciesConfig(
-	config: DependenciesConfig,
+	config: SaveDependenciesConfigRequest,
 ): Promise<void> {
 	try {
 		await apiClient.post<void>("/api/v1/deps/config", config);

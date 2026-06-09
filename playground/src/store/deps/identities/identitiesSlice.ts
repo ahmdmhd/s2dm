@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { DependenciesIdentities } from "@/api/types";
 import type { RootState } from "@/store/types";
 import {
 	areDependencyIdentityDraftsEqual,
@@ -9,6 +10,7 @@ export interface DepsIdentitiesState {
 	identities: DependencyIdentityDraft[];
 	storedIdentities: DependencyIdentityDraft[];
 	isLoading: boolean;
+	isImporting: boolean;
 	isSaving: boolean;
 	error: string | null;
 }
@@ -17,6 +19,7 @@ const initialState: DepsIdentitiesState = {
 	identities: [],
 	storedIdentities: [],
 	isLoading: false,
+	isImporting: false,
 	isSaving: false,
 	error: null,
 };
@@ -40,6 +43,21 @@ const identitiesSlice = createSlice({
 		},
 		fetchIdentitiesFailure: (state, action: PayloadAction<string>) => {
 			state.isLoading = false;
+			state.error = action.payload;
+		},
+		importIdentitiesFile: (
+			state,
+			_action: PayloadAction<DependenciesIdentities>,
+		) => {
+			state.isImporting = true;
+			state.error = null;
+		},
+		importIdentitiesFileSuccess: (state) => {
+			state.isImporting = false;
+			state.error = null;
+		},
+		importIdentitiesFileFailure: (state, action: PayloadAction<string>) => {
+			state.isImporting = false;
 			state.error = action.payload;
 		},
 		addIdentity: (state, action: PayloadAction<DependencyIdentityDraft>) => {
@@ -83,6 +101,9 @@ export const {
 	fetchIdentities,
 	fetchIdentitiesSuccess,
 	fetchIdentitiesFailure,
+	importIdentitiesFile,
+	importIdentitiesFileSuccess,
+	importIdentitiesFileFailure,
 	addIdentity,
 	updateIdentity,
 	removeIdentity,
@@ -95,6 +116,8 @@ export const selectIdentityDrafts = (state: RootState) =>
 	state.depsIdentities.identities;
 export const selectIsLoadingIdentities = (state: RootState) =>
 	state.depsIdentities.isLoading;
+export const selectIsImportingIdentities = (state: RootState) =>
+	state.depsIdentities.isImporting;
 export const selectIsSavingIdentities = (state: RootState) =>
 	state.depsIdentities.isSaving;
 export const selectIdentitiesError = (state: RootState) =>

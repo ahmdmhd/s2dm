@@ -1,3 +1,4 @@
+import type { PayloadAction } from "@reduxjs/toolkit";
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import {
 	getDependenciesIdentities,
@@ -12,6 +13,9 @@ import {
 	fetchIdentities,
 	fetchIdentitiesFailure,
 	fetchIdentitiesSuccess,
+	importIdentitiesFile,
+	importIdentitiesFileFailure,
+	importIdentitiesFileSuccess,
 	saveIdentities,
 	saveIdentitiesFailure,
 	saveIdentitiesSuccess,
@@ -51,7 +55,20 @@ function* saveIdentitiesWorker() {
 	}
 }
 
+function* importIdentitiesFileWorker(
+	action: PayloadAction<DependenciesIdentities>,
+) {
+	try {
+		yield call(saveDependenciesIdentitiesRequest, action.payload);
+		yield put(importIdentitiesFileSuccess());
+		yield put(fetchIdentities());
+	} catch (error) {
+		yield put(importIdentitiesFileFailure(getErrorMessage(error)));
+	}
+}
+
 export function* depsIdentitiesSaga() {
 	yield takeLatest(fetchIdentities.type, fetchIdentitiesWorker);
+	yield takeLatest(importIdentitiesFile.type, importIdentitiesFileWorker);
 	yield takeLatest(saveIdentities.type, saveIdentitiesWorker);
 }

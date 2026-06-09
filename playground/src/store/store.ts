@@ -7,6 +7,8 @@ import { capabilitiesSaga } from "@/store/capabilities/capabilitiesSaga";
 import capabilitiesReducer from "@/store/capabilities/capabilitiesSlice";
 import { depsBuildSaga } from "@/store/deps/build/buildSaga";
 import depsBuildReducer from "@/store/deps/build/buildSlice";
+import { depsExplorationSaga } from "@/store/deps/dependencyExploration/dependencyExplorationSaga";
+import dependencyExplorationReducer from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import { depsSaga } from "@/store/deps/depsSaga";
 import depsReducer from "@/store/deps/depsSlice";
 import { depsIdentitiesSaga } from "@/store/deps/identities/identitiesSaga";
@@ -27,6 +29,7 @@ function* rootSaga() {
 	yield all([
 		appSaga(),
 		depsSaga(),
+		depsExplorationSaga(),
 		depsIdentitiesSaga(),
 		depsResolveSaga(),
 		depsBuildSaga(),
@@ -43,6 +46,7 @@ export const store = configureStore({
 	reducer: {
 		app: appReducer,
 		deps: depsReducer,
+		dependencyExploration: dependencyExplorationReducer,
 		depsIdentities: depsIdentitiesReducer,
 		depsResolve: depsResolveReducer,
 		depsBuild: depsBuildReducer,

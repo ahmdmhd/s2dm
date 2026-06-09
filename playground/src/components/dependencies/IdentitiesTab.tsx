@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useCallback } from "react";
 import { DependencyIdentityModal } from "@/components/DependencyIdentityModal";
 import { EntryList } from "@/components/dependencies/EntryList";
@@ -6,14 +6,19 @@ import { useEditModal } from "@/components/dependencies/useEditModal";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { TabsContent } from "@/components/ui/tabs";
+import { useFileImport } from "@/hooks/useFileImport";
 import { selectIsSavingDependenciesConfig } from "@/store/deps/depsSlice";
+import { parseDependenciesIdentitiesYaml } from "@/store/deps/identities/identitiesMappers";
 import {
 	addIdentity,
+	importIdentitiesFile,
+	importIdentitiesFileFailure,
 	removeIdentity,
 	saveIdentities,
 	selectHasUnsavedIdentityChanges,
 	selectIdentitiesError,
 	selectIdentityDrafts,
+	selectIsImportingIdentities,
 	selectIsLoadingIdentities,
 	selectIsSavingIdentities,
 	updateIdentity,
@@ -23,6 +28,7 @@ import {
 	createEmptyDependencyIdentityDraft,
 	type DependencyIdentityDraft,
 } from "@/types/dependencyIdentity";
+import { getErrorMessage } from "@/utils/getErrorMessage";
 
 type IdentitiesTabProps = {
 	onDialogClose: () => void;
@@ -41,6 +47,7 @@ export function IdentitiesTab({ onDialogClose }: IdentitiesTabProps) {
 
 	const identities = useAppSelector(selectIdentityDrafts);
 	const identitiesError = useAppSelector(selectIdentitiesError);
+	const isIdentitiesImporting = useAppSelector(selectIsImportingIdentities);
 	const isIdentitiesLoading = useAppSelector(selectIsLoadingIdentities);
 	const isIdentitiesSaving = useAppSelector(selectIsSavingIdentities);
 	const isDependenciesSaving = useAppSelector(selectIsSavingDependenciesConfig);
@@ -78,7 +85,26 @@ export function IdentitiesTab({ onDialogClose }: IdentitiesTabProps) {
 		dispatch(saveIdentities());
 	}, [dispatch]);
 
-	const isAnySaveInProgress = isDependenciesSaving || isIdentitiesSaving;
+	const { openImportInput, hiddenInputProps } = useFileImport({
+		accept: ".yaml,.yml",
+		onFilesSelected: async (selectedFiles) => {
+			const selectedFile = selectedFiles[0];
+			if (!selectedFile) {
+				return;
+			}
+
+			try {
+				const fileContent = await selectedFile.text();
+				const identities = parseDependenciesIdentitiesYaml(fileContent);
+				dispatch(importIdentitiesFile(identities));
+			} catch (importError) {
+				dispatch(importIdentitiesFileFailure(getErrorMessage(importError)));
+			}
+		},
+	});
+
+	const isAnySaveInProgress =
+		isDependenciesSaving || isIdentitiesImporting || isIdentitiesSaving;
 	const isAddDisabled = isIdentitiesLoading || isAnySaveInProgress;
 	const isSaveDisabled =
 		isIdentitiesLoading || isAnySaveInProgress || !hasUnsavedIdentityChanges;
@@ -90,6 +116,16 @@ export function IdentitiesTab({ onDialogClose }: IdentitiesTabProps) {
 				className="mt-0 flex min-h-0 flex-1 flex-col"
 			>
 				<div className="flex justify-end gap-2 pr-1 pt-2">
+					<Button
+						variant="outline"
+						size="icon-sm"
+						onClick={openImportInput}
+						loading={isIdentitiesImporting}
+						disabled={isAddDisabled}
+						title="Import identities config"
+					>
+						<Upload />
+					</Button>
 					<Button
 						variant="outline"
 						size="icon-sm"
@@ -148,6 +184,8 @@ export function IdentitiesTab({ onDialogClose }: IdentitiesTabProps) {
 					onSave={handleSaveDraft}
 				/>
 			)}
+
+			<input {...hiddenInputProps} />
 		</>
 	);
 }

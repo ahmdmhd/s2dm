@@ -9,10 +9,11 @@ from s2dm.api.models.base import ApiResponse, ErrorResponse
 from s2dm.api.models.deps import (
     BuildDependenciesRequest,
     DependenciesApiResponse,
-    DependenciesConfig,
     DependenciesIdentities,
     DependenciesStatusResponse,
+    GetDependenciesConfigResponse,
     ResolveDependenciesRequest,
+    SaveDependenciesConfigRequest,
 )
 from s2dm.api.services.deps_service import (
     build_api_dependencies,
@@ -64,8 +65,13 @@ BUILD_RESPONSES = {
 router = APIRouter()
 
 
-@router.get("/config", response_model=DependenciesConfig, responses=CONFIG_RESPONSES)
-def get_dependencies_config() -> DependenciesConfig:
+@router.get(
+    "/config",
+    response_model=GetDependenciesConfigResponse,
+    response_model_exclude_unset=True,
+    responses=CONFIG_RESPONSES,
+)
+def get_dependencies_config() -> GetDependenciesConfigResponse:
     """Retrieve the stored dependency configuration."""
     return load_dependencies_config()
 
@@ -77,7 +83,7 @@ def get_dependencies_status() -> DependenciesStatusResponse:
 
 
 @router.post("/config", status_code=204, responses=CONFIG_RESPONSES)
-def store_dependencies_config(request: DependenciesConfig) -> Response:
+def store_dependencies_config(request: SaveDependenciesConfigRequest) -> Response:
     """Store dependency configuration in the API-managed workspace."""
     save_dependencies_config(request)
     return Response(status_code=204)

@@ -7,7 +7,10 @@ import {
 } from "@/store/capabilities/capabilitiesSlice";
 import { clearExportResult } from "@/store/export/exportSlice";
 import { resetSchema, setSourceFiles } from "@/store/schema/schemaSlice";
-import { resetSelectionQuery } from "@/store/selection/selectionSlice";
+import {
+	setAppliedSelectionQuery,
+	setSelectionQuery,
+} from "@/store/selection/selectionSlice";
 import { clearValidationErrors } from "@/store/validation/validationSlice";
 import type { ImportedFile } from "@/types/importedFile";
 
@@ -17,7 +20,8 @@ function* handleAppStartup() {
 
 function* handleResetApp() {
 	yield put(resetSchema());
-	yield put(resetSelectionQuery());
+	yield put(setSelectionQuery(""));
+	yield put(setAppliedSelectionQuery(""));
 	yield put(clearValidationErrors());
 	yield put(clearExportResult());
 	yield put(computeCapabilities());

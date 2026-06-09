@@ -1,7 +1,10 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { call, put, takeLatest } from "redux-saga/effects";
 import { resolveDependencies as resolveDependenciesRequest } from "@/api/s2dm";
-import { fetchDependenciesStatus } from "@/store/deps/depsSlice";
+import {
+	fetchDependenciesConfig,
+	fetchDependenciesStatus,
+} from "@/store/deps/depsSlice";
 import {
 	resolveDependencies,
 	resolveDependenciesFailure,
@@ -16,6 +19,7 @@ function* resolveDependenciesWorker(action: PayloadAction<{ clean: boolean }>) {
 			action.payload.clean,
 		);
 		yield put(resolveDependenciesSuccess(warnings));
+		yield put(fetchDependenciesConfig());
 		yield put(fetchDependenciesStatus());
 	} catch (error) {
 		yield put(resolveDependenciesFailure(getErrorMessage(error)));
