@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { FileList } from "@/components/FileList";
 import { Pane } from "@/components/Pane";
@@ -11,7 +11,6 @@ import {
 	FILTERED_SCHEMA_FILENAME,
 	ORIGINAL_SCHEMA_FILENAME,
 } from "@/constants";
-import { selectBuiltSchema } from "@/store/deps/build/buildSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectFilteredSchema,
@@ -22,7 +21,6 @@ import { selectInputPaneCollapsed, toggleInputPane } from "@/store/ui/uiSlice";
 import {
 	selectIsValidating,
 	selectValidationErrors,
-	validateAndCompose,
 } from "@/store/validation/validationSlice";
 
 type SchemaTab = "original" | "filtered";
@@ -41,28 +39,11 @@ export function InputPane({
 	const dispatch = useAppDispatch();
 	const originalSchema = useAppSelector(selectOriginalSchema);
 	const filteredSchema = useAppSelector(selectFilteredSchema);
-	const builtDependenciesSchema = useAppSelector(selectBuiltSchema);
 	const isValidating = useAppSelector(selectIsValidating);
 	const validationErrors = useAppSelector(selectValidationErrors);
 	const isCollapsed = useAppSelector(selectInputPaneCollapsed);
 	const files = useAppSelector(selectSourceFiles);
 	const [activeTab, setActiveTab] = useState<SchemaTab>("original");
-
-	const handleCompose = useCallback(
-		(includeBuiltDependencies: boolean) => {
-			const sourceContents =
-				includeBuiltDependencies && builtDependenciesSchema
-					? [builtDependenciesSchema]
-					: [];
-			dispatch(
-				validateAndCompose({
-					sourceFiles: files,
-					sourceContents,
-				}),
-			);
-		},
-		[builtDependenciesSchema, dispatch, files],
-	);
 
 	useEffect(() => {
 		const hasFilteredSchema =
@@ -142,7 +123,7 @@ export function InputPane({
 				<ThemeToggle />
 			</div>
 
-			<FileList onCompose={handleCompose} />
+			<FileList />
 
 			{originalSchema?.trim() && <Separator />}
 
