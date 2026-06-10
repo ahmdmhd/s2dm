@@ -1,7 +1,9 @@
+import { Eye, Plus, RefreshCw, Upload } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DependenciesTab } from "@/components/dependencies/DependenciesTab";
 import { DependencyStatusBadge } from "@/components/dependencies/DependencyStatusBadge";
 import { IdentitiesTab } from "@/components/dependencies/IdentitiesTab";
+import { HelpButton, HelpItem } from "@/components/HelpButton";
 import {
 	Dialog,
 	DialogContent,
@@ -77,7 +79,7 @@ export function DependencyManagerDialog({
 				>
 					<DialogHeader>
 						<div className="space-y-3">
-							<div className="flex items-start gap-4 pr-8">
+							<div className="flex items-center gap-4 pr-8">
 								<div className="flex flex-wrap items-center gap-2">
 									<DialogTitle>Manage Dependencies</DialogTitle>
 									<DependencyStatusBadge
@@ -89,11 +91,70 @@ export function DependencyManagerDialog({
 									/>
 								</div>
 							</div>
-							<div className="flex justify-center">
+							<div className="flex items-center justify-center gap-2">
 								<TabsList>
 									<TabsTrigger value="dependencies">Dependencies</TabsTrigger>
 									<TabsTrigger value="identities">Identities</TabsTrigger>
 								</TabsList>
+								<HelpButton
+									title="Manage Dependencies"
+									ariaLabel="Dependency manager help"
+								>
+									<HelpItem term="Status badge:">
+										shows whether dependencies are configured, resolved, or out
+										of date. Its{" "}
+										<RefreshCw className="inline h-4 w-4 align-text-bottom" />{" "}
+										refresh button re-checks the current status.
+									</HelpItem>
+									<HelpItem term="Dependencies / Identities tabs:">
+										switch between managing dependency sources and the
+										identities (host and scope) used to fetch private ones.
+									</HelpItem>
+									<HelpItem
+										term={
+											<>
+												<Upload className="inline h-4 w-4 align-text-bottom" />{" "}
+												Import
+											</>
+										}
+									>
+										load a dependencies or identities config from a file.
+									</HelpItem>
+									<HelpItem
+										term={
+											<>
+												<Plus className="inline h-4 w-4 align-text-bottom" />{" "}
+												Add
+											</>
+										}
+									>
+										create a new dependency or identity entry.
+									</HelpItem>
+									<HelpItem
+										term={
+											<>
+												<Eye className="inline h-4 w-4 align-text-bottom" />{" "}
+												View built schema
+											</>
+										}
+									>
+										preview the composed dependency schema.
+									</HelpItem>
+									<HelpItem term="Resolve">
+										fetch and resolve the configured dependencies. The dropdown
+										offers Clean and Resolve to discard cached results first.
+									</HelpItem>
+									<HelpItem term="Build">
+										compose the resolved dependencies into a single schema. The
+										dropdown offers Build and Auto-prefix.
+									</HelpItem>
+									<HelpItem term="Save">
+										persist your dependency or identity changes.
+									</HelpItem>
+									<HelpItem term="Cancel">
+										close the dialog without resolving or building.
+									</HelpItem>
+								</HelpButton>
 							</div>
 						</div>
 					</DialogHeader>

@@ -4,16 +4,11 @@ import { buildSchema, execute, GraphQLError, parse } from "graphql";
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
+import { HelpButton, HelpItem } from "@/components/HelpButton";
 import { Pane } from "@/components/Pane";
 import { QueryEditorWrapper } from "@/components/QueryEditorWrapper";
 import { SchemaVisualizer } from "@/components/SchemaVisualizer";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import { FormLabel } from "@/components/ui/form-label";
 import { SELECTION_QUERY_FILENAME } from "@/constants";
 import { useTheme } from "@/hooks/useTheme";
@@ -78,7 +73,6 @@ export function ExplorePane({
 		null,
 	);
 	const [queryHasErrors, setQueryHasErrors] = useState(false);
-	const [showExploreHelp, setShowExploreHelp] = useState(false);
 	const isSelectionQueryRequired =
 		selectedExporter?.requiresSelectionQuery ?? false;
 	const hasAppliedSelection = appliedSelectionQuery.trim().length > 0;
@@ -218,59 +212,26 @@ export function ExplorePane({
 			<div className="h-full w-full flex flex-col">
 				<div className="my-2 px-4 flex items-center justify-center gap-2">
 					<SchemaVisualizer schema={filteredSchema} />
-					<Button
-						variant="outline"
-						size="icon-xs"
-						onClick={() => setShowExploreHelp(true)}
-						aria-label="Explore pane help"
-						title="How this works"
-					>
-						?
-					</Button>
+					<HelpButton title="Explore Pane" ariaLabel="Explore pane help">
+						<HelpItem term="GraphiQL Explorer">
+							browse schema docs and build a Selection Query.
+						</HelpItem>
+						<HelpItem term="Apply or Unapply Selection">
+							apply or remove schema filtering using the current selection text.
+						</HelpItem>
+						<HelpItem term="Schema Visualizer">
+							view the current original or filtered schema as a graph.
+						</HelpItem>
+						<HelpItem term="Reset Selection">
+							clear the current selection text and remove any applied filtering.
+							When exploring a dependency, this also deletes its saved
+							selection.
+						</HelpItem>
+						<HelpItem term="Download Selection Query">
+							save the current selection query as a file.
+						</HelpItem>
+					</HelpButton>
 				</div>
-
-				<Dialog open={showExploreHelp} onOpenChange={setShowExploreHelp}>
-					<DialogContent className="sm:max-w-2xl">
-						<DialogHeader>
-							<DialogTitle>Explore Pane</DialogTitle>
-						</DialogHeader>
-						<ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-							<li>
-								<span className="font-medium text-foreground">
-									GraphiQL Explorer:
-								</span>{" "}
-								browse schema docs and build a Selection Query.
-							</li>
-							<li>
-								<span className="font-medium text-foreground">
-									Apply or Unapply Selection:
-								</span>{" "}
-								apply or remove schema filtering using the current selection
-								text.
-							</li>
-							<li>
-								<span className="font-medium text-foreground">
-									Schema Visualizer:
-								</span>{" "}
-								view the current original or filtered schema as a graph.
-							</li>
-							<li>
-								<span className="font-medium text-foreground">
-									Reset Selection:
-								</span>{" "}
-								clear the current selection text and remove any applied
-								filtering. When exploring a dependency, this also deletes its
-								saved selection.
-							</li>
-							<li>
-								<span className="font-medium text-foreground">
-									Download Selection Query:
-								</span>{" "}
-								save the current selection query as a file.
-							</li>
-						</ul>
-					</DialogContent>
-				</Dialog>
 
 				<div className="flex-1 min-h-0">
 					<div className="h-full w-full flex flex-col relative">
