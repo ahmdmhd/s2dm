@@ -625,15 +625,16 @@ def get_referenced_types(
     return referenced
 
 
-def _validate_schema(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSchema | None:
+def _validate_schema(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSchema:
     log.debug("Validating schema against the provided document")
 
     errors = graphql_validate(schema, document)
     if errors:
+        error_messages = [f"  - {error.message}" for error in errors]
         log.error("Schema validation failed:")
-        for error in errors:
-            log.error(f" - {error}")
-        return None
+        for message in error_messages:
+            log.error(message)
+        raise ValueError("Schema validation failed:\n" + "\n".join(error_messages))
 
     log.debug("Schema validation succeeded")
 
@@ -657,8 +658,7 @@ def prune_schema_using_query_selection(
     if not schema.query_type:
         raise ValueError("Schema has no query type defined")
 
-    if _validate_schema(schema, document) is None:
-        raise ValueError("Schema validation failed")
+    _validate_schema(schema, document)
 
     fields_to_keep: dict[str, set[str]] = {}
     types_to_keep: set[str] = set()
