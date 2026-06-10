@@ -12,11 +12,11 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { TabsContent } from "@/components/ui/tabs";
 import { useDependencyConfigImportController } from "@/hooks/useDependencyConfigImportController";
 import {
-	buildDependencies,
-	selectBuildError,
-	selectBuildMessage,
-	selectIsBuilding,
-} from "@/store/deps/build/buildSlice";
+	composeDependencies,
+	selectComposeError,
+	selectComposeMessage,
+	selectIsComposing,
+} from "@/store/deps/compose/composeSlice";
 import {
 	addDependency,
 	removeDependency,
@@ -72,8 +72,8 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 	const dependenciesError = useAppSelector(selectDependenciesError);
 	const resolveError = useAppSelector(selectResolveError);
 	const dependencyWarnings = useAppSelector(selectResolveWarnings);
-	const dependenciesBuildMessage = useAppSelector(selectBuildMessage);
-	const dependenciesBuildError = useAppSelector(selectBuildError);
+	const dependenciesComposeMessage = useAppSelector(selectComposeMessage);
+	const dependenciesComposeError = useAppSelector(selectComposeError);
 	const isDependenciesLoading = useAppSelector(
 		selectIsLoadingDependenciesConfig,
 	);
@@ -82,7 +82,7 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 	);
 	const isDependenciesSaving = useAppSelector(selectIsSavingDependenciesConfig);
 	const isDependenciesResolving = useAppSelector(selectIsResolvingDependencies);
-	const isDependenciesBuilding = useAppSelector(selectIsBuilding);
+	const isDependenciesComposing = useAppSelector(selectIsComposing);
 	const isIdentitiesSaving = useAppSelector(selectIsSavingIdentities);
 	const dependencyStatus = useAppSelector(selectDependencyStatus);
 	const isDependencyStatusLoading = useAppSelector(
@@ -130,12 +130,12 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 		dispatch(resolveDependencies({ clean: true }));
 	}, [dispatch]);
 
-	const handleBuild = useCallback(() => {
-		dispatch(buildDependencies({ autoPrefix: false }));
+	const handleCompose = useCallback(() => {
+		dispatch(composeDependencies({ autoPrefix: false }));
 	}, [dispatch]);
 
-	const handleBuildWithAutoPrefix = useCallback(() => {
-		dispatch(buildDependencies({ autoPrefix: true }));
+	const handleComposeWithAutoPrefix = useCallback(() => {
+		dispatch(composeDependencies({ autoPrefix: true }));
 	}, [dispatch]);
 
 	const isAnySaveInProgress =
@@ -144,24 +144,24 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 		isDependenciesLoading ||
 		isAnySaveInProgress ||
 		isDependenciesResolving ||
-		isDependenciesBuilding;
+		isDependenciesComposing;
 	const isResolveDisabled =
 		isDependencyStatusLoading ||
 		isDependenciesSaving ||
-		isDependenciesBuilding ||
+		isDependenciesComposing ||
 		isDependenciesResolving;
-	const isBuildDisabled =
+	const isComposeDisabled =
 		dependencyStatus !== "resolved" ||
 		isDependencyStatusLoading ||
 		isDependenciesSaving ||
 		isIdentitiesSaving ||
 		isDependenciesResolving ||
-		isDependenciesBuilding;
+		isDependenciesComposing;
 	const isSaveDisabled =
 		isDependenciesLoading ||
 		isAnySaveInProgress ||
 		isDependenciesResolving ||
-		isDependenciesBuilding ||
+		isDependenciesComposing ||
 		!hasUnsavedDependencyChanges;
 
 	return (
@@ -206,9 +206,9 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 						</StatusBanner>
 					)}
 
-					{dependenciesBuildError && (
+					{dependenciesComposeError && (
 						<StatusBanner variant="destructive" className="mt-2">
-							{dependenciesBuildError}
+							{dependenciesComposeError}
 						</StatusBanner>
 					)}
 
@@ -218,9 +218,9 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 						</StatusBanner>
 					)}
 
-					{dependenciesBuildMessage && (
+					{dependenciesComposeMessage && (
 						<StatusBanner variant="success" className="mt-2">
-							{dependenciesBuildMessage}
+							{dependenciesComposeMessage}
 						</StatusBanner>
 					)}
 				</div>
@@ -259,15 +259,15 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 					/>
 					<SplitActionButton
 						label="Build"
-						onClick={handleBuild}
-						loading={isDependenciesBuilding}
-						disabled={isBuildDisabled}
+						onClick={handleCompose}
+						loading={isDependenciesComposing}
+						disabled={isComposeDisabled}
 						title="Build dependencies"
 						optionsTitle="Build options"
 						options={[
 							{
 								label: "Build and Auto-prefix",
-								onClick: handleBuildWithAutoPrefix,
+								onClick: handleComposeWithAutoPrefix,
 							},
 						]}
 					/>

@@ -8,11 +8,11 @@ import { SplitActionButton } from "@/components/ui/split-action-button";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { useDependencyExploration } from "@/hooks/useDependencyExploration";
 import {
-	buildDependencies,
-	selectBuildError,
-	selectBuildMessage,
-	selectIsBuilding,
-} from "@/store/deps/build/buildSlice";
+	composeDependencies,
+	selectComposeError,
+	selectComposeMessage,
+	selectIsComposing,
+} from "@/store/deps/compose/composeSlice";
 import {
 	selectDependencyDrafts,
 	selectDependencyStatus,
@@ -27,9 +27,9 @@ export function ResolvedDependenciesSection() {
 	const dispatch = useAppDispatch();
 	const dependencies = useAppSelector(selectDependencyDrafts);
 	const dependencyStatus = useAppSelector(selectDependencyStatus);
-	const isBuilding = useAppSelector(selectIsBuilding);
-	const buildError = useAppSelector(selectBuildError);
-	const buildMessage = useAppSelector(selectBuildMessage);
+	const isComposing = useAppSelector(selectIsComposing);
+	const composeError = useAppSelector(selectComposeError);
+	const composeMessage = useAppSelector(selectComposeMessage);
 	const isDependencyStatusLoading = useAppSelector(
 		selectIsLoadingDependencyStatus,
 	);
@@ -53,24 +53,24 @@ export function ResolvedDependenciesSection() {
 		confirmPendingAction,
 	} = useDependencyExploration(resolvedDependencies);
 
-	const handleBuild = useCallback(() => {
-		dispatch(buildDependencies({ autoPrefix: false }));
+	const handleCompose = useCallback(() => {
+		dispatch(composeDependencies({ autoPrefix: false }));
 	}, [dispatch]);
 
-	const handleBuildWithAutoPrefix = useCallback(() => {
-		dispatch(buildDependencies({ autoPrefix: true }));
+	const handleComposeWithAutoPrefix = useCallback(() => {
+		dispatch(composeDependencies({ autoPrefix: true }));
 	}, [dispatch]);
 
 	if (dependencyStatus !== "resolved" || resolvedDependencies.length === 0) {
 		return null;
 	}
 
-	const isBuildDisabled =
+	const isComposeDisabled =
 		isDependencyStatusLoading ||
 		isDependenciesSaving ||
 		isIdentitiesSaving ||
 		isDependenciesResolving ||
-		isBuilding;
+		isComposing;
 
 	const dependencyCountText = `${resolvedDependencies.length} dependenc${resolvedDependencies.length === 1 ? "y" : "ies"}`;
 
@@ -93,15 +93,15 @@ export function ResolvedDependenciesSection() {
 					<SplitActionButton
 						label="Build"
 						icon={<Hammer />}
-						onClick={handleBuild}
-						loading={isBuilding}
-						disabled={isBuildDisabled}
+						onClick={handleCompose}
+						loading={isComposing}
+						disabled={isComposeDisabled}
 						title="Build dependencies"
 						optionsTitle="Build options"
 						options={[
 							{
 								label: "Build and Auto-prefix",
-								onClick: handleBuildWithAutoPrefix,
+								onClick: handleComposeWithAutoPrefix,
 							},
 						]}
 						className="flex-1"
@@ -109,11 +109,11 @@ export function ResolvedDependenciesSection() {
 					/>
 					<BuiltSchemaViewerButton />
 				</div>
-				{buildError && (
-					<StatusBanner variant="destructive">{buildError}</StatusBanner>
+				{composeError && (
+					<StatusBanner variant="destructive">{composeError}</StatusBanner>
 				)}
-				{buildMessage && (
-					<StatusBanner variant="success">{buildMessage}</StatusBanner>
+				{composeMessage && (
+					<StatusBanner variant="success">{composeMessage}</StatusBanner>
 				)}
 			</div>
 

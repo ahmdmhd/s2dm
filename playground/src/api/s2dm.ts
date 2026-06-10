@@ -149,7 +149,9 @@ export async function resolveDependencies(clean: boolean): Promise<string[]> {
 	}
 }
 
-export async function buildDependencies(autoPrefix: boolean): Promise<string> {
+export async function composeDependencies(
+	autoPrefix: boolean,
+): Promise<string> {
 	try {
 		const response = await apiClient.post<ExportResponse>(
 			"/api/v1/deps/build",

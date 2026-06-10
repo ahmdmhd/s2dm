@@ -1,5 +1,5 @@
 import type { CapabilitiesState } from "@/store/capabilities/capabilitiesSlice";
-import type { DepsBuildState } from "@/store/deps/build/buildSlice";
+import type { DepsComposeState } from "@/store/deps/compose/composeSlice";
 import type { DependencyExplorationState } from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import type { DepsState } from "@/store/deps/depsSlice";
 import type { DepsIdentitiesState } from "@/store/deps/identities/identitiesSlice";
@@ -15,7 +15,7 @@ export interface RootState {
 	dependencyExploration: DependencyExplorationState;
 	depsIdentities: DepsIdentitiesState;
 	depsResolve: DepsResolveState;
-	depsBuild: DepsBuildState;
+	depsCompose: DepsComposeState;
 	schema: SchemaState;
 	selection: SelectionState;
 	validation: ValidationState;
@@ -27,7 +27,7 @@ export interface RootState {
 export type {
 	CapabilitiesState,
 	DependencyExplorationState,
-	DepsBuildState,
+	DepsComposeState,
 	DepsIdentitiesState,
 	DepsResolveState,
 	DepsState,

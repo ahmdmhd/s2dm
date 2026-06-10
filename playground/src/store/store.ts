@@ -5,8 +5,8 @@ import { appSaga } from "@/store/app/appSaga";
 import appReducer from "@/store/app/appSlice";
 import { capabilitiesSaga } from "@/store/capabilities/capabilitiesSaga";
 import capabilitiesReducer from "@/store/capabilities/capabilitiesSlice";
-import { depsBuildSaga } from "@/store/deps/build/buildSaga";
-import depsBuildReducer from "@/store/deps/build/buildSlice";
+import { depsComposeSaga } from "@/store/deps/compose/composeSaga";
+import depsComposeReducer from "@/store/deps/compose/composeSlice";
 import { depsExplorationSaga } from "@/store/deps/dependencyExploration/dependencyExplorationSaga";
 import dependencyExplorationReducer from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import { depsSaga } from "@/store/deps/depsSaga";
@@ -32,7 +32,7 @@ function* rootSaga() {
 		depsExplorationSaga(),
 		depsIdentitiesSaga(),
 		depsResolveSaga(),
-		depsBuildSaga(),
+		depsComposeSaga(),
 		pruneSchemaSaga(),
 		validationSaga(),
 		exportSaga(),
@@ -49,7 +49,7 @@ export const store = configureStore({
 		dependencyExploration: dependencyExplorationReducer,
 		depsIdentities: depsIdentitiesReducer,
 		depsResolve: depsResolveReducer,
-		depsBuild: depsBuildReducer,
+		depsCompose: depsComposeReducer,
 		schema: schemaReducer,
 		selection: selectionReducer,
 		validation: validationReducer,

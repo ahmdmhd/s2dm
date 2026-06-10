@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TextEditor } from "@/components/TextEditor";
 import { TextEditorDialog } from "@/components/TextEditorDialog";
 import { Button } from "@/components/ui/button";
-import { selectBuiltSchema } from "@/store/deps/build/buildSlice";
+import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
 import { useAppSelector } from "@/store/hooks";
 
 const DIALOG_TITLE = "Built Dependency Schema";
@@ -16,8 +16,8 @@ export function BuiltSchemaViewerButton({
 	size = "icon",
 }: BuiltSchemaViewerButtonProps) {
 	const [open, setOpen] = useState(false);
-	const builtSchema = useAppSelector(selectBuiltSchema);
-	const hasBuiltSchema = Boolean(builtSchema?.trim());
+	const composedSchema = useAppSelector(selectComposedSchema);
+	const hasBuiltSchema = Boolean(composedSchema?.trim());
 
 	return (
 		<>
@@ -33,7 +33,7 @@ export function BuiltSchemaViewerButton({
 			<TextEditorDialog open={open} onOpenChange={setOpen} title={DIALOG_TITLE}>
 				<TextEditor
 					language="graphql"
-					value={builtSchema ?? ""}
+					value={composedSchema ?? ""}
 					fullscreenTitle={DIALOG_TITLE}
 					fileName="built-dependencies.graphql"
 					isExpandable={false}
