@@ -93,6 +93,40 @@ class TestDepsBuildRoute:
         assert "unit: String" not in composed_schema
         assert "type Cabin" not in composed_schema
 
+    def test_build_dependencies_invalid_selection_names_dependency(
+        self,
+        test_client: TestClient,
+        dependency_source_factory: DependencySourceFactory,
+        dependencies_config_payload_factory: DependenciesConfigPayloadFactory,
+    ) -> None:
+        source_directory = dependency_source_factory(
+            "source",
+            name="DemoDependency",
+            version="1.0.0",
+            schema="type Query { vehicle: Vehicle }\ntype Vehicle { vin: String }\n",
+            metadata_id="urn:test:demo",
+        )
+        test_client.post(
+            "/api/v1/deps/config",
+            json=dependencies_config_payload_factory(
+                [source_directory.resolve()],
+                names=["DemoDependency"],
+                versions=["1.0.0"],
+                selections=[{"type": "content", "content": "query Selection { vehicle { missingField } }\n"}],
+            ),
+        )
+        test_client.post("/api/v1/deps/resolve", json={"clean": False})
+
+        response = test_client.post("/api/v1/deps/build", json={"auto_prefix": False})
+
+        assert response.status_code == 422
+        data = response.json()
+        assert data["error"] == "ValidationError"
+        # The fix's contract: the error identifies which dependency failed.
+        assert "DemoDependency" in data["message"]
+        assert "1.0.0" in data["message"]
+        assert "missingField" in data["message"]
+
     def test_build_dependencies_conflicts_without_auto_prefix_returns_422(
         self,
         test_client: TestClient,

@@ -112,10 +112,15 @@ def load_vendored_dependency_schema_inputs(
         if dependency.selection is not None:
             selection_by_schema_path[resolved_schema_path] = parse(dependency.selection.read_text(encoding="utf-8"))
 
-        schema_content, _ = build_schema_str_with_optional_source_map(
-            [resolved_schema_path],
-            schema_selection_resolver=resolve_schema_selection,
-        )
+        try:
+            schema_content, _ = build_schema_str_with_optional_source_map(
+                [resolved_schema_path],
+                schema_selection_resolver=resolve_schema_selection,
+            )
+        except ValueError as error:
+            raise ValueError(
+                f"Failed to build dependency '{dependency.name}@{dependency.version}':\n{error}"
+            ) from error
         selected_schema_contents.append(schema_content)
         dependency_schema_inputs.append(
             DependencySchemaInput(
