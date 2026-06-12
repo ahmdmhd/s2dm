@@ -27,11 +27,29 @@ export class ApiValidationError extends Error {
 }
 
 function handleApiError(error: unknown): never {
-	if (error instanceof AxiosError && error.response?.data?.message) {
-		throw new Error(error.response.data.message);
+	if (error instanceof AxiosError) {
+		const responseMessage = error.response?.data?.message;
+		if (
+			typeof responseMessage === "string" &&
+			responseMessage.trim().length > 0
+		) {
+			throw new Error(responseMessage);
+		}
+
+		if (error.code === "ECONNABORTED") {
+			throw new Error("The API request timed out");
+		}
+
+		if (error.code === "ERR_NETWORK") {
+			throw new Error("Cannot reach the API server");
+		}
 	}
 
-	throw new Error("Something went wrong");
+	if (error instanceof Error && error.message.trim().length > 0) {
+		throw new Error(error.message);
+	}
+
+	throw new Error("We couldn't complete that request. Please try again.");
 }
 
 function isNotFoundError(error: unknown): boolean {

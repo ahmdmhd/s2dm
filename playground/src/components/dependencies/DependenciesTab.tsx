@@ -163,6 +163,15 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 		isDependenciesResolving ||
 		isDependenciesComposing ||
 		!hasUnsavedDependencyChanges;
+	const destructiveErrorMessages = [
+		dependenciesError,
+		resolveError,
+		dependenciesComposeError,
+	];
+	const destructiveErrors = destructiveErrorMessages.filter(
+		(error): error is string => Boolean(error),
+	);
+	const uniqueDestructiveErrors = Array.from(new Set(destructiveErrors));
 
 	return (
 		<>
@@ -194,23 +203,11 @@ export function DependenciesTab({ onDialogClose }: DependenciesTabProps) {
 				</div>
 
 				<div className="px-1">
-					{dependenciesError && (
-						<StatusBanner variant="destructive" className="mt-2">
-							{dependenciesError}
+					{uniqueDestructiveErrors.map((error) => (
+						<StatusBanner key={error} variant="destructive" className="mt-2">
+							{error}
 						</StatusBanner>
-					)}
-
-					{resolveError && (
-						<StatusBanner variant="destructive" className="mt-2">
-							{resolveError}
-						</StatusBanner>
-					)}
-
-					{dependenciesComposeError && (
-						<StatusBanner variant="destructive" className="mt-2">
-							{dependenciesComposeError}
-						</StatusBanner>
-					)}
+					))}
 
 					{dependencyWarnings.length > 0 && (
 						<StatusBanner variant="warning" className="mt-2">
