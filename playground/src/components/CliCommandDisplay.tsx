@@ -2,12 +2,16 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { selectExporterByEndpoint } from "@/store/capabilities/capabilitiesSlice";
+import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
 import {
 	selectExportFormat,
 	selectExportResult,
 } from "@/store/export/exportSlice";
 import { useAppSelector } from "@/store/hooks";
-import { selectSourceFiles } from "@/store/schema/schemaSlice";
+import {
+	selectIncludeBuiltDependencies,
+	selectSourceFiles,
+} from "@/store/schema/schemaSlice";
 import { selectSelectionQuery } from "@/store/selection/selectionSlice";
 import { buildCliCommand, buildComposeCommand } from "@/utils/buildCliCommand";
 
@@ -18,6 +22,10 @@ type CliCommandDisplayProps =
 export function CliCommandDisplay(props: CliCommandDisplayProps) {
 	const [copied, setCopied] = useState(false);
 	const schemas = useAppSelector(selectSourceFiles);
+	const includeBuiltDependencies = useAppSelector(
+		selectIncludeBuiltDependencies,
+	);
+	const composedDependenciesSchema = useAppSelector(selectComposedSchema);
 	const selectionQuery = useAppSelector(selectSelectionQuery);
 	const exporter = useAppSelector((state) =>
 		props.type === "export"
@@ -40,15 +48,24 @@ export function CliCommandDisplay(props: CliCommandDisplayProps) {
 	});
 
 	let command: string | null = null;
+	const hasBuiltDependenciesSchema =
+		includeBuiltDependencies &&
+		Boolean(composedDependenciesSchema?.trim().length);
 
 	if (props.type === "export") {
 		if (!exporter) {
 			return null;
 		}
 		const outputFormat = exportResult ? exportFormat : undefined;
-		command = buildCliCommand(exporter, schemas, selectionQuery, outputFormat);
+		command = buildCliCommand(
+			exporter,
+			schemas,
+			selectionQuery,
+			outputFormat,
+			hasBuiltDependenciesSchema,
+		);
 	} else if (props.type === "compose") {
-		command = buildComposeCommand(schemas);
+		command = buildComposeCommand(schemas, hasBuiltDependenciesSchema);
 	}
 
 	const handleCopy = async () => {

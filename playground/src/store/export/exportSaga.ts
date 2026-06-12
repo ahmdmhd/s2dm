@@ -3,15 +3,19 @@ import { AxiosError } from "axios";
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import { apiClient } from "@/api/client";
 import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
-import type { ExportResponse } from "@/api/types";
+import type { ExportResponse, SchemaInput } from "@/api/types";
 import { selectExporters } from "@/store/capabilities/capabilitiesSlice";
+import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
 import {
 	type ExportSchemaOptions,
 	exportFailure,
 	exportSchema as exportSchemaAction,
 	exportSuccess,
 } from "@/store/export/exportSlice";
-import { selectSourceFiles } from "@/store/schema/schemaSlice";
+import {
+	selectIncludeBuiltDependencies,
+	selectSourceFiles,
+} from "@/store/schema/schemaSlice";
 import { selectSelectionQuery } from "@/store/selection/selectionSlice";
 import type { ImportedFile } from "@/types/importedFile";
 import { getErrorMessage } from "@/utils/getErrorMessage";
@@ -57,6 +61,11 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 	try {
 		const { endpoint } = action.payload;
 		const sourceFiles: ImportedFile[] = yield select(selectSourceFiles);
+		const includeBuiltDependencies: boolean = yield select(
+			selectIncludeBuiltDependencies,
+		);
+		const composedDependenciesSchema: string | null =
+			yield select(selectComposedSchema);
 		const selectionQuery: string = yield select(selectSelectionQuery);
 		const exporters: ReturnType<typeof selectExporters> =
 			yield select(selectExporters);
@@ -95,7 +104,18 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 			return;
 		}
 
-		const schemas = mapImportedFilesToSchemaInputs(sourceFiles);
+		const mappedSchemas = mapImportedFilesToSchemaInputs(sourceFiles);
+		const schemas: SchemaInput[] = [...mappedSchemas];
+		const builtDependenciesSchema = composedDependenciesSchema ?? "";
+		const hasBuiltDependenciesSchema =
+			builtDependenciesSchema.trim().length > 0;
+
+		if (includeBuiltDependencies && hasBuiltDependenciesSchema) {
+			schemas.push({
+				type: "content",
+				content: builtDependenciesSchema,
+			});
+		}
 
 		let selectionQueryPayload = null;
 		if (hasSelectionQuery) {

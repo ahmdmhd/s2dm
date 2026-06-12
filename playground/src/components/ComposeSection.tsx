@@ -1,12 +1,15 @@
 import { Layers } from "lucide-react";
-import { useState } from "react";
 import { CliCommandDisplay } from "@/components/CliCommandDisplay";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormLabel } from "@/components/ui/form-label";
 import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectSourceFiles } from "@/store/schema/schemaSlice";
+import {
+	selectIncludeBuiltDependencies,
+	selectSourceFiles,
+	setIncludeBuiltDependencies,
+} from "@/store/schema/schemaSlice";
 import {
 	selectIsValidating,
 	validateAndCompose,
@@ -17,10 +20,10 @@ export function ComposeSection() {
 	const dispatch = useAppDispatch();
 	const files = useAppSelector(selectSourceFiles);
 	const composedDependenciesSchema = useAppSelector(selectComposedSchema);
+	const includeBuiltDependencies = useAppSelector(
+		selectIncludeBuiltDependencies,
+	);
 	const isValidating = useAppSelector(selectIsValidating);
-
-	const [includeBuiltDependencies, setIncludeBuiltDependencies] =
-		useState(false);
 
 	const handleCompose = () => {
 		const sourceContents =
@@ -65,9 +68,10 @@ export function ComposeSection() {
 							id="include-built-dependencies"
 							checked={includeBuiltDependencies}
 							disabled={!hasBuiltDependenciesSchema || isValidating}
-							onCheckedChange={(checked) =>
-								setIncludeBuiltDependencies(checked === true)
-							}
+							onCheckedChange={(checked) => {
+								const nextValue = checked === true;
+								dispatch(setIncludeBuiltDependencies(nextValue));
+							}}
 						/>
 						<FormLabel
 							htmlFor="include-built-dependencies"
