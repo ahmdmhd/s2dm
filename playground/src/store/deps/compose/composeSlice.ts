@@ -74,8 +74,10 @@ export const {
 
 export const selectIsComposing = (state: RootState) =>
 	state.depsCompose.isComposing;
-export const selectComposedSchema = (state: RootState) =>
+export const selectComposedDependenciesSchema = (state: RootState) =>
 	state.depsCompose.composedSchema;
+export const selectHasComposedDependenciesSchema = (state: RootState) =>
+	Boolean(state.depsCompose.composedSchema?.trim());
 export const selectComposeMessage = (state: RootState) =>
 	state.depsCompose.message;
 export const selectComposeError = (state: RootState) => state.depsCompose.error;

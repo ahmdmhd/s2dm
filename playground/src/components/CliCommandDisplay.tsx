@@ -2,7 +2,7 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { selectExporterByEndpoint } from "@/store/capabilities/capabilitiesSlice";
-import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
+import { selectHasComposedDependenciesSchema } from "@/store/deps/compose/composeSlice";
 import {
 	selectExportFormat,
 	selectExportResult,
@@ -12,7 +12,7 @@ import {
 	selectIncludeBuiltDependencies,
 	selectSourceFiles,
 } from "@/store/schema/schemaSlice";
-import { selectSelectionQuery } from "@/store/selection/selectionSlice";
+import { selectAppliedSelectionQuery } from "@/store/selection/selectionSlice";
 import { buildCliCommand, buildComposeCommand } from "@/utils/buildCliCommand";
 
 type CliCommandDisplayProps =
@@ -25,8 +25,10 @@ export function CliCommandDisplay(props: CliCommandDisplayProps) {
 	const includeBuiltDependencies = useAppSelector(
 		selectIncludeBuiltDependencies,
 	);
-	const composedDependenciesSchema = useAppSelector(selectComposedSchema);
-	const selectionQuery = useAppSelector(selectSelectionQuery);
+	const hasComposedDependenciesSchema = useAppSelector(
+		selectHasComposedDependenciesSchema,
+	);
+	const appliedSelectionQuery = useAppSelector(selectAppliedSelectionQuery);
 	const exporter = useAppSelector((state) =>
 		props.type === "export"
 			? selectExporterByEndpoint(state, props.selectedExporterEndpoint)
@@ -49,8 +51,7 @@ export function CliCommandDisplay(props: CliCommandDisplayProps) {
 
 	let command: string | null = null;
 	const hasBuiltDependenciesSchema =
-		includeBuiltDependencies &&
-		Boolean(composedDependenciesSchema?.trim().length);
+		includeBuiltDependencies && hasComposedDependenciesSchema;
 
 	if (props.type === "export") {
 		if (!exporter) {
@@ -60,7 +61,7 @@ export function CliCommandDisplay(props: CliCommandDisplayProps) {
 		command = buildCliCommand(
 			exporter,
 			schemas,
-			selectionQuery,
+			appliedSelectionQuery,
 			outputFormat,
 			hasBuiltDependenciesSchema,
 		);

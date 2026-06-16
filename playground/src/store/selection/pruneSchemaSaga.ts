@@ -9,9 +9,9 @@ import {
 	selectDependencyDrafts,
 	updateDependencyField,
 } from "@/store/deps/depsSlice";
+import { selectComposedSources } from "@/store/schema/composedSources";
 import {
 	selectOriginalSchema,
-	selectSourceFiles,
 	setFilteredSchema,
 } from "@/store/schema/schemaSlice";
 import {
@@ -22,7 +22,7 @@ import {
 	resetSelection,
 } from "@/store/selection/selectionSlice";
 import type { DependencyDraft } from "@/types/dependency";
-import type { ImportedFile } from "@/types/importedFile";
+import type { SchemaSource } from "@/types/schemaSource";
 import { getErrorMessage } from "@/utils/getErrorMessage";
 
 function* persistExploringDependencySelection(value: string) {
@@ -52,7 +52,7 @@ function* pruneSchemaWorker(action: PayloadAction<string>) {
 		return;
 	}
 
-	const sourceFiles: ImportedFile[] = yield select(selectSourceFiles);
+	const sources: SchemaSource[] = yield select(selectComposedSources);
 	const dependencies: DependencyDraft[] = yield select(selectDependencyDrafts);
 	const exploringDependencyId: string | null = yield select(
 		selectExploringDependencyId,
@@ -71,7 +71,7 @@ function* pruneSchemaWorker(action: PayloadAction<string>) {
 				},
 			];
 		} else {
-			schemas = mapImportedFilesToSchemaInputs(sourceFiles);
+			schemas = mapImportedFilesToSchemaInputs(sources);
 		}
 
 		const selectionQuery: QueryInput = { type: "content", content: query };

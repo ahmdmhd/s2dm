@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TextEditor } from "@/components/TextEditor";
 import { TextEditorDialog } from "@/components/TextEditorDialog";
 import { Button } from "@/components/ui/button";
-import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
+import { selectComposedDependenciesSchema } from "@/store/deps/compose/composeSlice";
 import { useAppSelector } from "@/store/hooks";
 
 const DIALOG_TITLE = "Built Dependency Schema";
@@ -16,7 +16,7 @@ export function BuiltSchemaViewerButton({
 	size = "icon",
 }: BuiltSchemaViewerButtonProps) {
 	const [open, setOpen] = useState(false);
-	const composedSchema = useAppSelector(selectComposedSchema);
+	const composedSchema = useAppSelector(selectComposedDependenciesSchema);
 	const hasBuiltSchema = Boolean(composedSchema?.trim());
 
 	return (

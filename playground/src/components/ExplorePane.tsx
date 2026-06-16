@@ -10,6 +10,7 @@ import { QueryEditorWrapper } from "@/components/QueryEditorWrapper";
 import { SchemaVisualizer } from "@/components/SchemaVisualizer";
 import { Button } from "@/components/ui/button";
 import { FormLabel } from "@/components/ui/form-label";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { SELECTION_QUERY_FILENAME } from "@/constants";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -28,6 +29,7 @@ import {
 	resetSelection,
 	selectAppliedSelectionQuery,
 	selectIsPruning,
+	selectPruningError,
 	selectSelectionQuery,
 	setSelectionQuery,
 } from "@/store/selection/selectionSlice";
@@ -69,6 +71,7 @@ export function ExplorePane({
 		selectExporterByEndpoint(state, selectedExporterEndpoint),
 	);
 	const isPruning = useAppSelector(selectIsPruning);
+	const pruningError = useAppSelector(selectPruningError);
 	const [docExplorerNode, setDocExplorerNode] = useState<HTMLDivElement | null>(
 		null,
 	);
@@ -234,40 +237,7 @@ export function ExplorePane({
 				</div>
 
 				<div className="flex-1 min-h-0">
-					<div className="h-full w-full flex flex-col relative">
-						<div className="absolute top-4 right-4 z-10 flex gap-2">
-							<Button
-								onClick={handleSelectionAction}
-								disabled={isSelectionActionDisabled}
-								loading={isPruning && !hasAppliedSelection}
-							>
-								{selectionActionLabel}
-							</Button>
-							<ConfirmActionDialog
-								trigger={
-									<Button
-										variant="destructive"
-										disabled={!hasSelectionText && !hasAppliedSelection}
-									>
-										Reset Selection
-									</Button>
-								}
-								title="Reset selection?"
-								description={resetDescription}
-								confirmLabel="Reset Selection"
-								onConfirm={() => dispatch(resetSelection())}
-							/>
-							<Button
-								onClick={handleDownloadQuery}
-								variant="outline"
-								size="icon"
-								disabled={!hasSelectionText}
-								aria-label="Download Selection Query"
-								title="Download Selection Query"
-							>
-								<Download className="h-4 w-4" />
-							</Button>
-						</div>
+					<div className="h-full w-full flex flex-col">
 						<GraphiQLProvider
 							schema={graphqlSchema}
 							fetcher={fetcher}
@@ -284,12 +254,57 @@ export function ExplorePane({
 								</div>
 								<div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden">
 									<div className="px-6 py-4 border-b">
-										<FormLabel
-											showRequired={isSelectionQueryRequired}
-											className="text-2xl leading-none font-bold text-foreground"
-										>
-											Selection Query
-										</FormLabel>
+										<div className="flex items-center justify-between gap-2">
+											<FormLabel
+												showRequired={isSelectionQueryRequired}
+												className="text-2xl leading-none font-bold text-foreground"
+											>
+												Selection Query
+											</FormLabel>
+											<div className="flex gap-2">
+												<Button
+													onClick={handleSelectionAction}
+													disabled={isSelectionActionDisabled}
+													loading={isPruning && !hasAppliedSelection}
+												>
+													{selectionActionLabel}
+												</Button>
+												<ConfirmActionDialog
+													trigger={
+														<Button
+															variant="destructive"
+															disabled={
+																!hasSelectionText && !hasAppliedSelection
+															}
+														>
+															Reset Selection
+														</Button>
+													}
+													title="Reset selection?"
+													description={resetDescription}
+													confirmLabel="Reset Selection"
+													onConfirm={() => dispatch(resetSelection())}
+												/>
+												<Button
+													onClick={handleDownloadQuery}
+													variant="outline"
+													size="icon"
+													disabled={!hasSelectionText}
+													aria-label="Download Selection Query"
+													title="Download Selection Query"
+												>
+													<Download className="h-4 w-4" />
+												</Button>
+											</div>
+										</div>
+										{pruningError && (
+											<StatusBanner
+												variant="destructive"
+												className="mt-4 whitespace-pre-wrap"
+											>
+												{pruningError}
+											</StatusBanner>
+										)}
 									</div>
 									<QueryEditorWrapper
 										selectionQuery={selectionQuery}

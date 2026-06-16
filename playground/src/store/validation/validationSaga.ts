@@ -1,42 +1,32 @@
-import type { PayloadAction } from "@reduxjs/toolkit";
-import { call, put, takeLatest } from "redux-saga/effects";
+import { call, put, select, takeLatest } from "redux-saga/effects";
 import { ApiValidationError, validateSchemas } from "@/api/s2dm";
 import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
 import type { ExportResponse } from "@/api/types";
-import { setOriginalSchema, setSourceFiles } from "@/store/schema/schemaSlice";
+import { selectComposedSources } from "@/store/schema/composedSources";
+import { setOriginalSchema } from "@/store/schema/schemaSlice";
 import {
-	type ValidateAndComposePayload,
 	validateAndCompose,
 	validationFailure,
 	validationSuccess,
 } from "@/store/validation/validationSlice";
+import type { SchemaSource } from "@/types/schemaSource";
 import { getErrorMessage } from "@/utils/getErrorMessage";
 
-function* validateAndComposeWorker(
-	action: PayloadAction<ValidateAndComposePayload>,
-) {
-	const sourceFiles = action.payload.sourceFiles;
-	const sourceContents = action.payload.sourceContents
-		.map((content) => content.trim())
-		.filter((content) => content.length > 0);
+function* validateAndComposeWorker() {
+	const sources: SchemaSource[] = yield select(selectComposedSources);
 
-	if (sourceFiles.length === 0) {
+	if (sources.length === 0) {
 		yield put(setOriginalSchema(""));
-		yield put(setSourceFiles([]));
 		yield put(validationSuccess());
 		return;
 	}
 
 	try {
-		const schemas = mapImportedFilesToSchemaInputs(sourceFiles);
-		for (const content of sourceContents) {
-			schemas.push({ type: "content", content });
-		}
+		const schemas = mapImportedFilesToSchemaInputs(sources);
 
 		const response: ExportResponse = yield call(validateSchemas, schemas);
 		const composedSchema = response.result[0] || "";
 
-		yield put(setSourceFiles(sourceFiles));
 		yield put(validationSuccess());
 		yield put(setOriginalSchema(composedSchema));
 	} catch (err) {

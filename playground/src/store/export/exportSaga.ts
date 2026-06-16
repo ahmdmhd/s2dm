@@ -3,21 +3,17 @@ import { AxiosError } from "axios";
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import { apiClient } from "@/api/client";
 import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
-import type { ExportResponse, SchemaInput } from "@/api/types";
+import type { ExportResponse } from "@/api/types";
 import { selectExporters } from "@/store/capabilities/capabilitiesSlice";
-import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
 import {
 	type ExportSchemaOptions,
 	exportFailure,
 	exportSchema as exportSchemaAction,
 	exportSuccess,
 } from "@/store/export/exportSlice";
-import {
-	selectIncludeBuiltDependencies,
-	selectSourceFiles,
-} from "@/store/schema/schemaSlice";
-import { selectSelectionQuery } from "@/store/selection/selectionSlice";
-import type { ImportedFile } from "@/types/importedFile";
+import { selectComposedSources } from "@/store/schema/composedSources";
+import { selectAppliedSelectionQuery } from "@/store/selection/selectionSlice";
+import type { SchemaSource } from "@/types/schemaSource";
 import { getErrorMessage } from "@/utils/getErrorMessage";
 
 function getExportErrorMessage(err: unknown): string {
@@ -60,13 +56,10 @@ function isEmpty(value: unknown, propertyType: string): boolean {
 function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 	try {
 		const { endpoint } = action.payload;
-		const sourceFiles: ImportedFile[] = yield select(selectSourceFiles);
-		const includeBuiltDependencies: boolean = yield select(
-			selectIncludeBuiltDependencies,
+		const sources: SchemaSource[] = yield select(selectComposedSources);
+		const appliedSelectionQuery: string = yield select(
+			selectAppliedSelectionQuery,
 		);
-		const composedDependenciesSchema: string | null =
-			yield select(selectComposedSchema);
-		const selectionQuery: string = yield select(selectSelectionQuery);
 		const exporters: ReturnType<typeof selectExporters> =
 			yield select(selectExporters);
 
@@ -78,7 +71,7 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 			return;
 		}
 
-		const hasSelectionQuery = selectionQuery.trim().length > 0;
+		const hasSelectionQuery = appliedSelectionQuery.trim().length > 0;
 
 		const missingRequired: string[] = [];
 		if (exporter.requiresSelectionQuery && !hasSelectionQuery) {
@@ -104,22 +97,14 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 			return;
 		}
 
-		const mappedSchemas = mapImportedFilesToSchemaInputs(sourceFiles);
-		const schemas: SchemaInput[] = [...mappedSchemas];
-		const builtDependenciesSchema = composedDependenciesSchema ?? "";
-		const hasBuiltDependenciesSchema =
-			builtDependenciesSchema.trim().length > 0;
-
-		if (includeBuiltDependencies && hasBuiltDependenciesSchema) {
-			schemas.push({
-				type: "content",
-				content: builtDependenciesSchema,
-			});
-		}
+		const schemas = mapImportedFilesToSchemaInputs(sources);
 
 		let selectionQueryPayload = null;
 		if (hasSelectionQuery) {
-			selectionQueryPayload = { type: "content", content: selectionQuery };
+			selectionQueryPayload = {
+				type: "content",
+				content: appliedSelectionQuery,
+			};
 		}
 
 		const transformedValues: Record<string, unknown> = {};

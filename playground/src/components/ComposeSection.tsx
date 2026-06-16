@@ -3,7 +3,7 @@ import { CliCommandDisplay } from "@/components/CliCommandDisplay";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormLabel } from "@/components/ui/form-label";
-import { selectComposedSchema } from "@/store/deps/compose/composeSlice";
+import { selectHasComposedDependenciesSchema } from "@/store/deps/compose/composeSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectIncludeBuiltDependencies,
@@ -19,27 +19,22 @@ import { cn } from "@/utils/cn";
 export function ComposeSection() {
 	const dispatch = useAppDispatch();
 	const files = useAppSelector(selectSourceFiles);
-	const composedDependenciesSchema = useAppSelector(selectComposedSchema);
+	const hasBuiltDependenciesSchema = useAppSelector(
+		selectHasComposedDependenciesSchema,
+	);
 	const includeBuiltDependencies = useAppSelector(
 		selectIncludeBuiltDependencies,
 	);
 	const isValidating = useAppSelector(selectIsValidating);
 
 	const handleCompose = () => {
-		const sourceContents =
-			includeBuiltDependencies && composedDependenciesSchema
-				? [composedDependenciesSchema]
-				: [];
-		dispatch(validateAndCompose({ sourceFiles: files, sourceContents }));
+		dispatch(validateAndCompose());
 	};
 
 	if (files.length === 0) {
 		return null;
 	}
 
-	const hasBuiltDependenciesSchema = Boolean(
-		composedDependenciesSchema?.trim(),
-	);
 	const includeBuiltDependenciesTooltip = hasBuiltDependenciesSchema
 		? undefined
 		: "Build dependencies in the Dependencies tab before including them in composition.";
