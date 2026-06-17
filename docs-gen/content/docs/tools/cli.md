@@ -236,7 +236,10 @@ s2dm check constraints -s <schema_path>
 
 The command performs the following validations:
 
-1. **instanceTag Field and Object Rules**: Validates proper usage of `@instanceTag` directive and `instanceTag` fields
+1. **@instanceTag Rules**: Validates correct usage of the `@instanceTag` directive:
+   - A field marked with `@instanceTag` must reference an object type that is itself marked with `@instanceTag`
+   - An object may have at most one `@instanceTag` field
+   - Every field of an `@instanceTag` object must be an enum
 2. **@range Directive**: Ensures `min` value is less than or equal to `max` value
 3. **@cardinality Directive**: Ensures `min` value is less than or equal to `max` value
 4. **Naming Conventions** (optional): When `--naming-config` is provided, validates that type names, field names, enum values, and other elements follow the specified naming conventions
@@ -263,7 +266,7 @@ See [Naming Configuration](#naming-configuration) for details on the naming conf
 
 ## Compose Command
 
-The `compose` command merges multiple GraphQL schema files into a single unified schema file. It automatically adds `@reference` directives to track which file each type was obtained from.
+The `compose` command merges multiple GraphQL schema files into a single unified schema file. If `@reference` is defined in the schema, it automatically adds `@reference` directives to track which file each type was obtained from.
 
 ### Basic Usage
 
@@ -300,7 +303,7 @@ s2dm compose -s ./schemas/vehicle -s ./schemas/person -o composed.graphql
 
 ### Reference Directives
 
-The compose command automatically adds `@reference(source: String!)` directives to all types to track their source:
+If `@reference(source: String!)` is defined in the schema, the compose command automatically adds `@reference(source: String!)` directives to all types to track their source:
 
 ```graphql
 type Vehicle @reference(source: "schema1.graphql") {
@@ -379,7 +382,7 @@ This exporter translates the given GraphQL schema to [JSON Schema](https://json-
 Consider the following GraphQL schema:
 
 ```gql
-directive @instanceTag on OBJECT
+directive @instanceTag on OBJECT | FIELD_DEFINITION
 directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 
 type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
@@ -389,7 +392,7 @@ type Vehicle @metadata(comment: "Vehicle entity", vssType: "branch") {
 
 type Door {
     locked: Boolean!
-    instanceTag: InCabinArea2x3
+    inCabinArea: InCabinArea2x3 @instanceTag
 }
 
 enum TwoRowsInCabinEnum {
@@ -421,8 +424,41 @@ The JSON Schema exporter with `--expanded-instances` produces:
         "id": {
           "type": "string"
         },
-        "Door": {
-          "$ref": "#/$defs/Door_Row"
+        "door": {
+          "additionalProperties": false,
+          "properties": {
+            "ROW1": {
+              "additionalProperties": false,
+              "properties": {
+                "DRIVERSIDE": {
+                  "$ref": "#/$defs/Door"
+                },
+                "MIDDLE": {
+                  "$ref": "#/$defs/Door"
+                },
+                "PASSENGERSIDE": {
+                  "$ref": "#/$defs/Door"
+                }
+              },
+              "type": "object"
+            },
+            "ROW2": {
+              "additionalProperties": false,
+              "properties": {
+                "DRIVERSIDE": {
+                  "$ref": "#/$defs/Door"
+                },
+                "MIDDLE": {
+                  "$ref": "#/$defs/Door"
+                },
+                "PASSENGERSIDE": {
+                  "$ref": "#/$defs/Door"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object",
@@ -431,8 +467,7 @@ The JSON Schema exporter with `--expanded-instances` produces:
         "vssType": "branch"
       },
       "required": [
-        "id",
-        "Door"
+        "id"
       ]
     },
     "Door": {
@@ -446,37 +481,11 @@ The JSON Schema exporter with `--expanded-instances` produces:
       "required": [
         "locked"
       ]
-    },
-    "Door_Row": {
-      "additionalProperties": false,
-      "properties": {
-        "ROW1": {
-          "$ref": "#/$defs/Door_Column"
-        },
-        "ROW2": {
-          "$ref": "#/$defs/Door_Column"
-        }
-      },
-      "type": "object"
-    },
-    "Door_Column": {
-      "additionalProperties": false,
-      "properties": {
-        "DRIVERSIDE": {
-          "$ref": "#/$defs/Door"
-        },
-        "MIDDLE": {
-          "$ref": "#/$defs/Door"
-        },
-        "PASSENGERSIDE": {
-          "$ref": "#/$defs/Door"
-        }
-      },
-      "type": "object"
     }
   },
-  "title": "Vehicle",
-  "$ref": "#/$defs/Vehicle"
+  "type": "object",
+  "title": "GraphQL Schema",
+  "description": "JSON Schema generated from GraphQL schema"
 }
 ```
 
@@ -527,13 +536,16 @@ Given this GraphQL schema:
 
 ```graphql
 type Vehicle {
-  id: ID!                    # Non-null
-  description: String        # Nullable
-  year: Int                  # Nullable
-  category: VehicleCategory  # Nullable enum
-  parts: [Part]              # Nullable list of nullable parts
-  doors: [Door!]!            # Non-null list of non-null doors
-  wheels: [Wheel]!           # Non-null list of nullable wheels
+  id: ID!                       # Non-null
+  description: String           # Nullable
+  category: VehicleCategory     # Nullable enum
+  doorsOptional: [Door]         # Nullable list of nullable doors
+  doorsRequired: [Door]!        # Non-null list of nullable doors
+  doors: [Door!]!               # Non-null list of non-null doors
+}
+
+type Door {
+  id: ID!
 }
 
 enum VehicleCategory {
@@ -606,8 +618,9 @@ enum VehicleCategory {
       ]
     }
   },
-  "title": "Vehicle",
-  "$ref": "#/$defs/Vehicle"
+  "type": "object",
+  "title": "GraphQL Schema",
+  "description": "JSON Schema generated from GraphQL schema"
 }
 ```
 
@@ -706,8 +719,9 @@ enum VehicleCategory {
       ]
     }
   },
-  "title": "Vehicle",
-  "$ref": "#/$defs/Vehicle"
+  "type": "object",
+  "title": "GraphQL Schema",
+  "description": "JSON Schema generated from GraphQL schema"
 }
 ```
 
@@ -807,6 +821,7 @@ classes:
   Vehicle:
     attributes:
       id:
+        identifier: true
         range: string
         required: true
       make:
@@ -816,6 +831,7 @@ classes:
         range: integer
       fuelType:
         range: FuelType
+    tree_root: true
 ```
 
 #### Type Mappings
@@ -894,7 +910,7 @@ type Cabin {
 
 type Door {
   isLocked: Boolean
-  instanceTag: DoorPosition
+  doorPosition: DoorPosition @instanceTag
 }
 
 type DoorPosition @instanceTag {
@@ -924,7 +940,7 @@ query Selection {
   cabin {
     doors {
       isLocked
-      instanceTag {
+      doorPosition {
         row
         side
       }
@@ -942,14 +958,13 @@ The Protobuf exporter produces:
 syntax = "proto3";
 
 import "google/protobuf/descriptor.proto";
-import "buf/validate/validate.proto";
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
 }
 
 message RowEnum {
-  option (source) = "RowEnum";
+  option (message_source) = "RowEnum";
 
   enum Enum {
     ROWENUM_UNSPECIFIED = 0;
@@ -957,9 +972,8 @@ message RowEnum {
     ROW2 = 2;
   }
 }
-
 message SideEnum {
-  option (source) = "SideEnum";
+  option (message_source) = "SideEnum";
 
   enum Enum {
     SIDEENUM_UNSPECIFIED = 0;
@@ -968,29 +982,29 @@ message SideEnum {
   }
 }
 
-message DoorPosition {
-  option (source) = "DoorPosition";
-
-  RowEnum.Enum row = 1;
-  SideEnum.Enum side = 2;
-}
-
 message Cabin {
-  option (source) = "Cabin";
+  option (message_source) = "Cabin";
 
   repeated Door doors = 1;
-  float temperature = 2;
+  optional float temperature = 2;
 }
 
 message Door {
-  option (source) = "Door";
+  option (message_source) = "Door";
 
-  bool isLocked = 1;
-  DoorPosition instanceTag = 2;
+  optional bool isLocked = 1;
+  optional DoorPosition doorPosition = 2;
+}
+
+message DoorPosition {
+  option (message_source) = "DoorPosition";
+
+  optional RowEnum.Enum row = 1;
+  optional SideEnum.Enum side = 2;
 }
 
 message Selection {
-  option (source) = "Query";
+  option (message_source) = "query: Selection";
 
   optional Cabin cabin = 1;
 }
@@ -1073,11 +1087,17 @@ import "google/protobuf/descriptor.proto";
 import "buf/validate/validate.proto";
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
+}
+
+extend google.protobuf.FieldOptions {
+  string field_source = 50002;
 }
 
 message Selection {
-  bool Vehicle_adas_abs_isEngaged = 1;
+  option (message_source) = "query: Selection";
+
+  optional bool Vehicle_adas_abs_isEngaged = 1 [(field_source) = "ABS"];
 }
 
 ```
@@ -1105,7 +1125,7 @@ type Cabin {
 
 type Door {
   isLocked: Boolean
-  instanceTag: DoorPosition
+  doorPosition: DoorPosition @instanceTag
 }
 
 type DoorPosition @instanceTag {
@@ -1135,7 +1155,7 @@ query Selection {
   cabin {
     doors {
       isLocked
-      instanceTag {
+      doorPosition {
         row
         side
       }
@@ -1144,20 +1164,19 @@ query Selection {
 }
 ```
 
-Default output uses repeated fields and includes the instanceTag field:
+Default output uses repeated fields and includes the doorPosition field:
 
 ```protobuf
 syntax = "proto3";
 
 import "google/protobuf/descriptor.proto";
-import "buf/validate/validate.proto";
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
 }
 
 message RowEnum {
-  option (source) = "RowEnum";
+  option (message_source) = "RowEnum";
 
   enum Enum {
     ROWENUM_UNSPECIFIED = 0;
@@ -1165,9 +1184,8 @@ message RowEnum {
     ROW2 = 2;
   }
 }
-
 message SideEnum {
-  option (source) = "SideEnum";
+  option (message_source) = "SideEnum";
 
   enum Enum {
     SIDEENUM_UNSPECIFIED = 0;
@@ -1176,30 +1194,28 @@ message SideEnum {
   }
 }
 
-message Door {
-  option (source) = "Door";
-
-  optional bool isLocked = 1;
-  optional DoorPosition instanceTag = 2;
-}
-
-
 message Cabin {
-  option (source) = "Cabin";
+  option (message_source) = "Cabin";
 
   repeated Door doors = 1;
 }
 
+message Door {
+  option (message_source) = "Door";
+
+  optional bool isLocked = 1;
+  optional DoorPosition doorPosition = 2;
+}
 
 message DoorPosition {
-  option (source) = "DoorPosition";
+  option (message_source) = "DoorPosition";
 
   optional RowEnum.Enum row = 1;
   optional SideEnum.Enum side = 2;
 }
 
 message Selection {
-  option (source) = "Query";
+  option (message_source) = "query: Selection";
 
   optional Cabin cabin = 1;
 }
@@ -1216,11 +1232,11 @@ import "google/protobuf/descriptor.proto";
 import "buf/validate/validate.proto";
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
 }
 
 message RowEnum {
-  option (source) = "RowEnum";
+  option (message_source) = "RowEnum";
 
   enum Enum {
     ROWENUM_UNSPECIFIED = 0;
@@ -1230,7 +1246,7 @@ message RowEnum {
 }
 
 message SideEnum {
-  option (source) = "SideEnum";
+  option (message_source) = "SideEnum";
 
   enum Enum {
     SIDEENUM_UNSPECIFIED = 0;
@@ -1239,36 +1255,36 @@ message SideEnum {
   }
 }
 
-message Door {
-  option (source) = "Door";
-
-  optional bool isLocked = 1;
-}
-
 message Cabin {
-  option (source) = "Cabin";
+  option (message_source) = "Cabin";
 
   Door_Row Door = 1 [(buf.validate.field).required = true];
 }
 
+message Door {
+  option (message_source) = "Door";
+
+  optional bool isLocked = 1;
+}
+
+message Selection {
+  option (message_source) = "query: Selection";
+
+  optional Cabin cabin = 1;
+}
+
 message Door_Side {
-  option (source) = "Door_Side";
+  option (message_source) = "Door_Side";
 
   optional Door DRIVERSIDE = 1;
   optional Door PASSENGERSIDE = 2;
 }
 
 message Door_Row {
-  option (source) = "Door_Row";
+  option (message_source) = "Door_Row";
 
   Door_Side ROW1 = 1 [(buf.validate.field).required = true];
   Door_Side ROW2 = 2 [(buf.validate.field).required = true];
-}
-
-message Selection {
-  option (source) = "Query";
-
-  optional Cabin cabin = 1;
 }
 ```
 
@@ -1276,7 +1292,7 @@ message Selection {
 
 - Instance tag enums (`RowEnum`, `SideEnum`) remain in the output
 - Types with `@instanceTag` directive (`DoorPosition`) are excluded from the output
-- The `instanceTag` field is excluded from the Door message
+- The `doorPosition` field is excluded from the Door message
 - Intermediate types (`Door_Row`, `Door_Side`) are created as top-level messages
 - Field names use the type name (`Door` not `doors`)
 - The field becomes required and non-repeated
@@ -1322,18 +1338,18 @@ import "google/protobuf/descriptor.proto";
 import "buf/validate/validate.proto";
 
 extend google.protobuf.MessageOptions {
-  string source = 50001;
+  string message_source = 50001;
 }
 
 message Vehicle {
-  option (source) = "Vehicle";
+  option (message_source) = "Vehicle";
 
-  int32 speed = 1 [(buf.validate.field).int32 = {gte: 0, lte: 300}];
+  optional int32 speed = 1 [(buf.validate.field).int32 = {gte: 0, lte: 300}];
   repeated string tags = 2 [(buf.validate.field).repeated = {unique: true, min_items: 1, max_items: 10}];
 }
 
 message Selection {
-  option (source) = "Query";
+  option (message_source) = "query: Selection";
 
   optional Vehicle vehicle = 1;
 }
@@ -1390,7 +1406,7 @@ Produces:
 
 ```protobuf
 message User {
-  option (source) = "User";
+  option (message_source) = "User";
 
   string id = 1 [(buf.validate.field).required = true];
   optional string name = 2;
@@ -1626,7 +1642,7 @@ protocol Vehicle {
   record Vehicle {
     string? id;
     string? make;
-    string? status;
+    string? status; /* enum Status */
   }
 }
 ```
@@ -2390,7 +2406,6 @@ The naming configuration system enforces several validation rules to ensure cons
 **Context-specific Rules:**
 
 - **EnumValue-InstanceTag pairing**: If `enumValue` is present in the configuration for transformation commands, `instanceTag` must also be present.
-- **InstanceTag preservation**: The literal field name `instanceTag` is never transformed or validated, regardless of naming configuration, to preserve its semantic meaning.
 
 #### Notes
 
@@ -2418,13 +2433,15 @@ s2dm compose --expanded-instances ...
 Given a schema with instance tags:
 
 ```graphql
+directive @instanceTag on OBJECT | FIELD_DEFINITION
+
 type Cabin {
   doors: [Door]
 }
 
 type Door {
   isLocked: Boolean
-  instanceTag: DoorPosition
+  doorPosition: DoorPosition @instanceTag
 }
 
 type DoorPosition @instanceTag {
@@ -2445,7 +2462,7 @@ enum SideEnum {
 
 **Without `--expanded-instances` (default):**
 
-The schema structure remains as-is with list fields and instanceTag preserved.
+The schema structure remains as-is with list fields and the doorPosition field preserved.
 
 **With `--expanded-instances`:**
 
@@ -2453,12 +2470,12 @@ The schema is transformed to use nested intermediate types:
 
 ```graphql
 type Cabin {
-  Door: Door_Row
+  Door: Door_Row!
 }
 
 type Door_Row {
-  ROW1: Door_Side
-  ROW2: Door_Side
+  ROW1: Door_Side!
+  ROW2: Door_Side!
 }
 
 type Door_Side {
@@ -2486,6 +2503,6 @@ enum SideEnum {
 - **Field names**: Plural list fields (`doors`) are renamed to singular (`Door`)
 - **Field types**: List types (`[Door]`) become intermediate types (`Door_Row`)
 - **Intermediate types**: New types are created representing the cartesian product of instance tag enums (`Door_Row`, `Door_Side`)
-- **Instance tag removal**: The `instanceTag` field is removed from the base type (`Door`)
+- **Instance tag removal**: The `doorPosition` field is removed from the base type (`Door`)
 - **Type removal**: Types with `@instanceTag` directive (`DoorPosition`) are removed from the schema
 - **Enum preservation**: Instance tag enums (`RowEnum`, `SideEnum`) remain in the schema

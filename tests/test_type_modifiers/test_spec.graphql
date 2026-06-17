@@ -82,7 +82,7 @@ enum SomeEnum {
 }
 
 type ExampleTypeWithInstances {
-    instanceTag: ExampleTypeInstance
+    exampleType: ExampleTypeInstance @instanceTag
     anotherField: Boolean
 }
 

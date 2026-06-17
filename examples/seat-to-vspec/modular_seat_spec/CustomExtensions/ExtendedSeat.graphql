@@ -1,5 +1,5 @@
 extend type Seat {
-    instanceTag: InCabinArea2x2
+    inCabinArea: InCabinArea2x2 @instanceTag
 }
 
 # Example if a vehicle would have 10 rows

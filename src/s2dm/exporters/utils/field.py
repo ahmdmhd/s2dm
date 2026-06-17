@@ -3,6 +3,7 @@ from enum import Enum
 
 from graphql import GraphQLField, GraphQLInputField, is_list_type, is_non_null_type
 
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 
 
@@ -133,7 +134,7 @@ def get_field_case_extended(field: GraphQLField) -> FieldCase:
         FieldCase: The case of the field as one of (6 base + custom ones).
     """
     base_case = get_field_case(field)
-    if has_given_directive(field, "noDuplicates"):
+    if has_given_directive(field, Directive.NO_DUPLICATES):
         if base_case == FieldCase.LIST:
             return FieldCase.SET
         elif base_case == FieldCase.LIST_NON_NULL:
@@ -157,13 +158,21 @@ def get_cardinality(field: GraphQLField | GraphQLInputField) -> Cardinality | No
     Returns:
         Cardinality | None: The Cardinality if the directive is present, otherwise None.
     """
-    if has_given_directive(field, "cardinality"):
-        args = get_directive_arguments(field, "cardinality")
+    if has_given_directive(field, Directive.CARDINALITY):
+        args = get_directive_arguments(field, Directive.CARDINALITY)
         min_val = None
         max_val = None
         if args:
-            min_val = int(args["min"]) if "min" in args and args["min"] is not None else None
-            max_val = int(args["max"]) if "max" in args and args["max"] is not None else None
+            min_val = (
+                int(args[DirectiveArgument.MIN])
+                if DirectiveArgument.MIN in args and args[DirectiveArgument.MIN] is not None
+                else None
+            )
+            max_val = (
+                int(args[DirectiveArgument.MAX])
+                if DirectiveArgument.MAX in args and args[DirectiveArgument.MAX] is not None
+                else None
+            )
         return Cardinality(min=min_val, max=max_val)
     else:
         return None

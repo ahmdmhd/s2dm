@@ -1,5 +1,5 @@
 extend type VehicleTrailer {
-    instanceTag: TrailerTag
+    trailer: TrailerTag @instanceTag
 }
 
 type TrailerTag @instanceTag {
@@ -14,7 +14,7 @@ enum ThreeTrailers {
 }
 
 extend type VehicleTrailerAxle {
-    instanceTag: TrailerAxleTag
+    trailerAxle: TrailerAxleTag @instanceTag
 }
 
 type TrailerAxleTag @instanceTag {
@@ -40,7 +40,7 @@ enum AxlePositionEnum {
 }
 
 extend type VehicleTrailerWheel {
-    instanceTag: TrailerWheelTag
+    trailerWheel: TrailerWheelTag @instanceTag
 }
 
 type TrailerWheelTag @instanceTag {

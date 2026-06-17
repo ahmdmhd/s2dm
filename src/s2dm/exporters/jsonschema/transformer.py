@@ -22,15 +22,12 @@ from graphql import (
 )
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import TypeMetadata
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_named_types
 from s2dm.exporters.utils.field import get_cardinality
 from s2dm.exporters.utils.graphql_type import is_root_type
-from s2dm.exporters.utils.instance_tag import (
-    is_instance_tag_field,
-    is_valid_instance_tag_field,
-)
 
 GRAPHQL_SCALAR_TO_JSON_SCHEMA = {
     "String": "string",
@@ -165,14 +162,8 @@ class JsonSchemaTransformer:
         Returns:
             Optional[Dict[str, Any]]: JSON Schema definition or None if not transformable
         """
-        if is_object_type(graphql_type) and not has_given_directive(
-            cast(GraphQLObjectType, graphql_type), "instanceTag"
-        ):
+        if is_object_type(graphql_type):
             return self.transform_object_type(cast(GraphQLObjectType, graphql_type))
-        elif is_object_type(graphql_type) and has_given_directive(cast(GraphQLObjectType, graphql_type), "instanceTag"):
-            object_type = cast(GraphQLObjectType, graphql_type)
-            log.warning(f"Skipping object type with @instanceTag directive: {object_type.name}")
-            return None
         elif is_enum_type(graphql_type):
             return self.transform_enum_type(cast(GraphQLEnumType, graphql_type))
         elif is_interface_type(graphql_type):
@@ -211,14 +202,6 @@ class JsonSchemaTransformer:
 
         required_fields = []
         for field_name, field in object_type.fields.items():
-            if is_valid_instance_tag_field(field, self.graphql_schema):
-                if is_instance_tag_field(field_name):
-                    continue
-                else:
-                    raise ValueError(
-                        f"Invalid schema: instanceTag object found on non-instanceTag named field '{field_name}'"
-                    )
-
             target_type_name = get_named_type(field.type).name
             if self._is_intermediate(target_type_name):
                 # Inline the expansion structure; never add to required (matches previous output)
@@ -413,7 +396,7 @@ class JsonSchemaTransformer:
         field_extensions: dict[str, Any] = {}
         contained_type_extensions: dict[str, Any] = {}
 
-        if has_given_directive(element, "noDuplicates"):
+        if has_given_directive(element, Directive.NO_DUPLICATES):
             field_extensions["uniqueItems"] = True
 
         if isinstance(element, GraphQLField):
@@ -424,13 +407,13 @@ class JsonSchemaTransformer:
                 if cardinality.max is not None:
                     field_extensions["maxItems"] = cardinality.max
 
-        if has_given_directive(element, "range"):
-            args = get_directive_arguments(element, "range")
+        if has_given_directive(element, Directive.RANGE):
+            args = get_directive_arguments(element, Directive.RANGE)
             range_extensions = {}
-            if "min" in args:
-                range_extensions["minimum"] = args["min"]
-            if "max" in args:
-                range_extensions["maximum"] = args["max"]
+            if DirectiveArgument.MIN in args:
+                range_extensions["minimum"] = args[DirectiveArgument.MIN]
+            if DirectiveArgument.MAX in args:
+                range_extensions["maximum"] = args[DirectiveArgument.MAX]
 
             unwrapped_type = field_type
             if unwrapped_type and is_non_null_type(unwrapped_type):
@@ -441,11 +424,11 @@ class JsonSchemaTransformer:
             else:
                 field_extensions.update(range_extensions)
 
-        if has_given_directive(element, "metadata"):
-            args = get_directive_arguments(element, "metadata")
-            if "comment" in args:
-                field_extensions["$comment"] = args["comment"]
-            other_metadata = {k: v for k, v in args.items() if k != "comment"}
+        if has_given_directive(element, Directive.METADATA):
+            args = get_directive_arguments(element, Directive.METADATA)
+            if DirectiveArgument.COMMENT in args:
+                field_extensions["$comment"] = args[DirectiveArgument.COMMENT]
+            other_metadata = {k: v for k, v in args.items() if k != DirectiveArgument.COMMENT}
             if other_metadata:
                 field_extensions["x-metadata"] = other_metadata
 

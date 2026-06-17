@@ -1,0 +1,32 @@
+directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum SideEnum {
+  LEFT
+  RIGHT
+}
+
+type CabinPosition @instanceTag {
+  row: RowEnum!
+  side: SideEnum!
+}
+
+type Seat {
+  cabinPosition: CabinPosition @instanceTag
+  fallbackPosition: CabinPosition @instanceTag
+  isOccupied: Boolean
+}
+
+type Door {
+  cabinPosition: CabinPosition @instanceTag
+  isLocked: Boolean
+}
+
+type Query {
+  seat: Seat
+  door: Door
+}

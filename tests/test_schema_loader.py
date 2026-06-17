@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 from graphql import DocumentNode, GraphQLObjectType, build_schema, parse
 
-from s2dm.exporters.utils.schema_loader import load_schema_with_source_map, print_schema_with_directives_preserved
+from s2dm.exporters.utils.schema_loader import (
+    check_correct_schema,
+    load_schema_with_source_map,
+    print_schema_with_directives_preserved,
+)
+from s2dm.exporters.utils.violations import ConstraintCode
 
 
 @pytest.fixture
@@ -302,3 +307,44 @@ def test_compose_preserves_directive_with_various_scalar_types() -> None:
     assert "enabled: true" in result
     # Ensure enums are not quoted
     assert "status: ACTIVE" in result
+
+
+def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
+    schema_str = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+    type TagObj @instanceTag {
+      level: TagEnum
+    }
+    enum TagEnum { A B }
+
+    type Foo {
+      tag1: TagObj @instanceTag
+      tag2: TagObj @instanceTag
+    }
+
+    type Query { foo: Foo }
+    """
+    schema = build_schema(schema_str)
+    codes = [violation.code for violation in check_correct_schema(schema)]
+    assert ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS in codes
+
+
+def test_check_correct_schema_allows_single_instance_tag_field() -> None:
+    schema_str = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+    type TagObj @instanceTag {
+      level: TagEnum
+    }
+    enum TagEnum { A B }
+
+    type Foo {
+      tag: TagObj @instanceTag
+    }
+
+    type Query { foo: Foo }
+    """
+    schema = build_schema(schema_str)
+    codes = [violation.code for violation in check_correct_schema(schema)]
+    assert ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS not in codes

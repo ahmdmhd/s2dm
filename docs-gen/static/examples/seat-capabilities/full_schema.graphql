@@ -6,7 +6,7 @@ directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
 
 directive @noDuplicates on FIELD_DEFINITION
 
-directive @instanceTag on OBJECT
+directive @instanceTag on OBJECT | FIELD_DEFINITION
 
 directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 
@@ -86,7 +86,7 @@ degrees = seat tilted backwards, seat x-axis tilted upward, seat z-axis is tilte
   backrest: Backrest
   headrest: Headrest
   seating: Seating
-  instanceTag: InCabinArea2x2
+  inCabinArea: InCabinArea2x2 @instanceTag
 }
 
 type Airbag {

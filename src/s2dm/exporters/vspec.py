@@ -15,6 +15,7 @@ from graphql import (
 )
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_object_types
@@ -261,26 +262,26 @@ def process_field(
         }
 
         # TODO: Fix numbers that are appearing with quotes as strings.
-        if has_given_directive(field, "range"):
-            args = get_directive_arguments(field, "range")
+        if has_given_directive(field, Directive.RANGE):
+            args = get_directive_arguments(field, Directive.RANGE)
             datatype = field_dict["datatype"]
             is_integer_type = "int" in datatype
             is_float_type = datatype in ("float", "double")
 
-            if "min" in args:
+            if DirectiveArgument.MIN in args:
                 if is_integer_type:
-                    field_dict["min"] = int(args["min"])
+                    field_dict["min"] = int(args[DirectiveArgument.MIN])
                 elif is_float_type:
-                    field_dict["min"] = float(args["min"])
+                    field_dict["min"] = float(args[DirectiveArgument.MIN])
                 else:
-                    field_dict["min"] = args["min"]
-            if "max" in args:
+                    field_dict["min"] = args[DirectiveArgument.MIN]
+            if DirectiveArgument.MAX in args:
                 if is_integer_type:
-                    field_dict["max"] = int(args["max"])
+                    field_dict["max"] = int(args[DirectiveArgument.MAX])
                 elif is_float_type:
-                    field_dict["max"] = float(args["max"])
+                    field_dict["max"] = float(args[DirectiveArgument.MAX])
                 else:
-                    field_dict["max"] = args["max"]
+                    field_dict["max"] = args[DirectiveArgument.MAX]
 
         # TODO: Map the unit name. i.e., SCREAMMING_SNAKE_CASE used in graphql to abbreviated vss unit name.
         if "unit" in field.args:
@@ -288,11 +289,16 @@ def process_field(
             if unit_arg is not None and unit_arg is not Undefined and unit_arg in UNITS_DICT:
                 field_dict["unit"] = UNITS_DICT[unit_arg]
 
-        if has_given_directive(field, "metadata"):
+        if has_given_directive(field, Directive.METADATA):
             metadata_directive = None
             if field.ast_node and field.ast_node.directives:
                 metadata_directive = next(
-                    (directive for directive in field.ast_node.directives if directive.name.value == "metadata"), None
+                    (
+                        directive
+                        for directive in field.ast_node.directives
+                        if directive.name.value == Directive.METADATA
+                    ),
+                    None,
                 )
 
             metadata_args = {}
@@ -301,8 +307,8 @@ def process_field(
                     if hasattr(arg.value, "value"):  # Ensure arg.value has the 'value' attribute
                         metadata_args[arg.name.value] = arg.value.value
 
-            comment = metadata_args.get("comment")
-            vss_type = metadata_args.get("vssType")
+            comment = metadata_args.get(DirectiveArgument.COMMENT)
+            vss_type = metadata_args.get(DirectiveArgument.VSS_TYPE)
             if comment:
                 field_dict["comment"] = comment
             if vss_type:

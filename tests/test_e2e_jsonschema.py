@@ -125,7 +125,7 @@ class TestJsonSchemaE2E:
 
         type Door {
           isLocked: Boolean
-          instanceTag: DoorPosition
+          doorPosition: DoorPosition @instanceTag
         }
 
         type RegularItem {

@@ -1693,7 +1693,7 @@ def test_compose_preserves_custom_directives(
     assert "directive @range(min: Float, max: Float) on FIELD_DEFINITION" in composed_content
     assert "directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION" in composed_content
     assert "directive @noDuplicates on FIELD_DEFINITION" in composed_content
-    assert "directive @instanceTag on OBJECT" in composed_content
+    assert "directive @instanceTag on OBJECT | FIELD_DEFINITION" in composed_content
 
     assert "type Vehicle" in composed_content
     assert "type Vehicle_ADAS_ObstacleDetection" in composed_content

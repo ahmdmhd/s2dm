@@ -4,6 +4,7 @@ from graphql import GraphQLNamedType, GraphQLObjectType, is_named_type
 from graphql.language.ast import ListValueNode, ObjectValueNode, StringValueNode
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_argument_content
 from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
@@ -11,13 +12,12 @@ from s2dm.exporters.utils.schema_loader import get_referenced_types
 
 from .protocol_transformer import AvroProtocolTransformer
 
-VSPEC_DIRECTIVE = "vspec"
 STRUCT_ELEMENT = "STRUCT"
 
 
 def get_namespace_from_metadata(object_type: GraphQLObjectType, global_namespace: str) -> str:
     """Extract namespace from @vspec metadata key-value pairs, fallback to global."""
-    metadata = get_argument_content(object_type, VSPEC_DIRECTIVE, "metadata")
+    metadata = get_argument_content(object_type, Directive.VSPEC, DirectiveArgument.METADATA)
 
     if not metadata or not isinstance(metadata, ListValueNode):
         return global_namespace
@@ -61,14 +61,14 @@ def _generate_protocol_for_struct_types(
     """
     schema = annotated_schema.schema
     all_objects = get_all_object_types(schema)
-    vspec_types = get_all_objects_with_directive(all_objects, VSPEC_DIRECTIVE)
+    vspec_types = get_all_objects_with_directive(all_objects, Directive.VSPEC)
     struct_types = [
         vspec_type
         for vspec_type in vspec_types
-        if get_argument_content(vspec_type, VSPEC_DIRECTIVE, "element") == STRUCT_ELEMENT
+        if get_argument_content(vspec_type, Directive.VSPEC, DirectiveArgument.ELEMENT) == STRUCT_ELEMENT
     ]
 
-    log.info(f"Found {len(struct_types)} types with @{VSPEC_DIRECTIVE}(element: {STRUCT_ELEMENT}) directive")
+    log.info(f"Found {len(struct_types)} types with @{Directive.VSPEC.value}(element: {STRUCT_ELEMENT}) directive")
 
     protocols: dict[str, str] = {}
 

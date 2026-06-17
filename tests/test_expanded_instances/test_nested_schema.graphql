@@ -21,12 +21,12 @@ type Chassis {
 }
 
 type Axle {
-  instanceTag: ChassisAxleRowTag
+  chassisAxleRow: ChassisAxleRowTag @instanceTag
   Wheels: [Wheel] @noDuplicates
 }
 
 type Wheel {
-  instanceTag: LateralPositionTag
+  lateralPosition: LateralPositionTag @instanceTag
   Tire: Tire
 }
 

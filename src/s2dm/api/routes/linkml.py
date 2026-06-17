@@ -32,7 +32,7 @@ def export_linkml(request: LinkmlExportRequest) -> ApiResponse:
 
         schema_errors = check_correct_schema(annotated_schema.schema)
         if schema_errors:
-            raise ValueError(f"Schema validation failed: {'; '.join(schema_errors)}")
+            raise ValueError(f"Schema validation failed: {'; '.join(str(error) for error in schema_errors)}")
 
         linkml_content = translate_to_linkml(
             annotated_schema,

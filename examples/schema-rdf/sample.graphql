@@ -19,7 +19,7 @@ enum CabinKindEnum {
 
 """Door with instance tag, isOpen, and window."""
 type Door {
-  instanceTag: InCabinArea2x2
+  inCabinArea: InCabinArea2x2 @instanceTag
   isOpen: Boolean
   window: Window
 }

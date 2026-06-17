@@ -361,7 +361,7 @@ def assert_correct_schema(schema: GraphQLSchema) -> None:
     if schema_errors:
         log.error("Schema validation failed:")
         for error in schema_errors:
-            log.error(error)
+            log.error(error.message)
         log.error(f"Found {len(schema_errors)} validation error(s). Please fix the schema before exporting.")
         sys.exit(1)
 
@@ -1455,12 +1455,12 @@ def check_constraints(schemas: list[Path], naming_config: Path | None) -> None:
     naming_convention_config = load_naming_convention_config(naming_config, ValidationMode.CHECK)
 
     constraint_checker = ConstraintChecker(gql_schema, naming_convention_config)
-    errors = constraint_checker.run(objects)
+    violations = constraint_checker.run(objects)
 
-    if errors:
+    if violations:
         log.rule("Constraint Violations", style="bold red")
-        for err in errors:
-            log.error(f"- {err}")
+        for violation in violations:
+            log.error(f"- {violation.message}")
         raise sys.exit(1)
     else:
         log.success("All constraints passed!")

@@ -9,7 +9,7 @@ from graphql import (
 
 from s2dm.exporters.utils.field import FieldCase, get_field_case
 from s2dm.exporters.utils.graphql_type import is_introspection_type
-from s2dm.exporters.utils.naming import TYPE_CONTEXTS, convert_name, is_instance_tag_field
+from s2dm.exporters.utils.naming import TYPE_CONTEXTS, convert_name
 from s2dm.exporters.utils.naming_config import (
     CaseFormat,
     ContextType,
@@ -108,7 +108,7 @@ def check_naming_conventions(
             for field_name, field in object_type.fields.items():
                 if field_case:
                     matches, suggestion = _matches_case_format(field_name, field_case)
-                    if not is_instance_tag_field(field_name, field, schema) and not matches:
+                    if not matches:
                         field_errors.append(
                             f"[naming] Field '{object_type.name}.{field_name}' should be {field_case.value} "
                             f"(suggestion: '{suggestion}')"
