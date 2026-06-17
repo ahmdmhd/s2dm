@@ -19,6 +19,7 @@ from s2dm.deps.models import (
 from s2dm.deps.naming import sanitize_prefix
 from s2dm.deps.resolve.common import DEPENDENCY_LOCK_FILENAME, METADATA_FILENAME, SCHEMA_FILENAME, VENDOR_DIRECTORY
 from s2dm.deps.resolve.context import ResolverContext
+from s2dm.deps.resolve.errors import DependencySourceError
 from s2dm.deps.resolve.factory import ResolverFactory
 
 
@@ -118,7 +119,7 @@ def resolve_dependencies(
         lock_entry = _resolve_dependency(dependency, vendor_root, existing_lock_entries, context)
         lock_entries.append(lock_entry)
 
-    warn_on_prefix_collisions(lock_entries, vendor_root)
+    warn_on_prefix_collisions(lock_entries, vendor_root, context)
 
     return DependencyLockFile(dependencies=lock_entries)
 
@@ -157,17 +158,25 @@ def get_prefix_collisions(
     return collisions
 
 
-def warn_on_prefix_collisions(lock_entries: list[ResolvedDependencyLockEntry], vendor_root: Path) -> None:
+def warn_on_prefix_collisions(
+    lock_entries: list[ResolvedDependencyLockEntry],
+    vendor_root: Path,
+    context: ResolverContext | None,
+) -> None:
     """Warn when multiple dependencies share the same sanitized prefix/id."""
     prefix_collisions = get_prefix_collisions(lock_entries, vendor_root)
     for collision in prefix_collisions:
         quoted_conflicts = ", ".join(f"'{dep.name}@{dep.version}'" for dep in collision.conflicting_dependencies)
-        log.warning(
+        message = (
             f"Dependency '{collision.dependency.name}@{collision.dependency.version}' "
             f"resolves prefix '{collision.sanitized_prefix}' (from '{collision.raw_source}') "
             f"which conflicts with: {quoted_conflicts}. "
             f"This might cause issues when type names conflict resolution is applied."
         )
+        if context is None:
+            log.warning(message)
+            continue
+        context.warn(message)
 
 
 def _resolve_dependency(
@@ -183,11 +192,9 @@ def _resolve_dependency(
 
     existing_lock_entry = existing_lock_entries.get(vendor_key)
     if target_directory.exists():
-        lock_entry = _resolve_cached_dependency(
+        lock_entry = validate_cached_dependency(
             dependency=dependency,
-            target_directory=target_directory,
-            schema_path=vendored_schema_path,
-            metadata_path=vendored_metadata_path,
+            vendor_root=vendor_root,
             existing_lock_entry=existing_lock_entry,
         )
         log.info(
@@ -202,9 +209,11 @@ def _resolve_dependency(
 
     metadata = DependencyMetadata.load(resolved_source.source.metadata_path)
     if dependency.name != metadata.name:
-        raise ValueError(f"Dependency name mismatch for '{dependency.name}': metadata.yaml declares '{metadata.name}'")
+        raise DependencySourceError(
+            f"Dependency name mismatch for '{dependency.name}': metadata.yaml declares '{metadata.name}'"
+        )
     if dependency.version != metadata.version:
-        raise ValueError(
+        raise DependencySourceError(
             f"Dependency version mismatch for '{dependency.name}': metadata.yaml declares '{metadata.version}'"
         )
     _build_dependency_schema(resolved_source.source.schema_path, dependency.name, dependency.version)
@@ -224,27 +233,34 @@ def _resolve_dependency(
     )
 
 
-def _resolve_cached_dependency(
+def validate_cached_dependency(
     dependency: DependencyEntry,
-    target_directory: Path,
-    schema_path: Path,
-    metadata_path: Path,
+    vendor_root: Path,
     existing_lock_entry: ResolvedDependencyLockEntry | None,
 ) -> ResolvedDependencyLockEntry:
+    """Validate a vendored dependency target against the config and optional lock entry."""
+    target_directory = vendor_root / dependency.name / dependency.version
+    schema_path = target_directory / SCHEMA_FILENAME
+    metadata_path = target_directory / METADATA_FILENAME
+
     if not target_directory.is_dir():
-        raise ValueError(f"Cached dependency target must be a directory: {target_directory}")
+        raise DependencySourceError(f"Cached dependency target must be a directory: {target_directory}")
     if not schema_path.is_file():
-        raise ValueError(f"Cached dependency '{dependency.name}/{dependency.version}' is missing {SCHEMA_FILENAME}")
+        raise DependencySourceError(
+            f"Cached dependency '{dependency.name}/{dependency.version}' is missing {SCHEMA_FILENAME}"
+        )
     if not metadata_path.is_file():
-        raise ValueError(f"Cached dependency '{dependency.name}/{dependency.version}' is missing {METADATA_FILENAME}")
+        raise DependencySourceError(
+            f"Cached dependency '{dependency.name}/{dependency.version}' is missing {METADATA_FILENAME}"
+        )
 
     metadata = DependencyMetadata.load(metadata_path)
     if dependency.name != metadata.name:
-        raise ValueError(
+        raise DependencySourceError(
             f"Cached dependency '{dependency.name}/{dependency.version}' metadata.yaml declares name '{metadata.name}'"
         )
     if dependency.version != metadata.version:
-        raise ValueError(
+        raise DependencySourceError(
             f"Cached dependency '{dependency.name}/{dependency.version}' metadata.yaml declares version "
             f"'{metadata.version}'"
         )
@@ -262,21 +278,21 @@ def _resolve_cached_dependency(
         )
 
     if existing_lock_entry.name != dependency.name:
-        raise ValueError(
+        raise DependencySourceError(
             f"Lock entry for cached dependency '{dependency.name}/{dependency.version}' declares name "
             f"'{existing_lock_entry.name}'"
         )
     if existing_lock_entry.version != dependency.version:
-        raise ValueError(
+        raise DependencySourceError(
             f"Lock entry for cached dependency '{dependency.name}/{dependency.version}' declares version "
             f"'{existing_lock_entry.version}'"
         )
     if str(existing_lock_entry.resolved_path) != expected_resolved_path:
-        raise ValueError(
+        raise DependencySourceError(
             f"Cached dependency '{dependency.name}/{dependency.version}' resolved_path does not match deps file"
         )
     if existing_lock_entry.integrity != schema_integrity:
-        raise ValueError(
+        raise DependencySourceError(
             f"Cached dependency '{dependency.name}/{dependency.version}' schema integrity does not match lock file"
         )
 
@@ -332,7 +348,7 @@ def _build_dependency_schema(schema_path: Path, dependency_name: str, dependency
     try:
         build_schema(schema_path.read_text(encoding="utf-8"))
     except GraphQLError:
-        raise ValueError(f"Dependency '{dependency_label}' schema is invalid: {schema_path}") from None
+        raise DependencySourceError(f"Dependency '{dependency_label}' schema is invalid: {schema_path}") from None
 
 
 def _sha256_for_file(path: Path) -> str:

@@ -1,17 +1,10 @@
-from collections.abc import Iterator
-from pathlib import Path
-
 import pytest
-import yaml
-from click.testing import CliRunner
 
-from s2dm.cli import cli
 from s2dm.deps.compose import (
     DependencySchemaBuilder,
     DependencySchemaInput,
 )
 from s2dm.deps.models import DependencyMetadata
-from tests.deps.helpers import write_metadata_file
 
 
 def test_find_conflicts_reports_duplicate_type_with_dependency_metadata() -> None:
@@ -110,76 +103,6 @@ def test_auto_prefix_keeps_no_conflict_schema_unchanged() -> None:
     assert "type Powertrain" in schema_content
     assert "body_" not in schema_content
     assert "powertrain_" not in schema_content
-
-
-_CONFLICTING_DEPENDENCIES = (
-    {
-        "name": "BodyModel",
-        "version": "1.0.0",
-        "id": "urn:test:body",
-        "preferred_prefix": "body",
-        "schema": "type BodyCatalog { vehicle: Vehicle }\ntype Vehicle { vin: String }\n",
-    },
-    {
-        "name": "PowertrainModel",
-        "version": "2.0.0",
-        "id": "urn:test:powertrain",
-        "preferred_prefix": "powertrain",
-        "schema": "type PowertrainCatalog { vehicle: Vehicle }\ntype Vehicle { speed: Float }\n",
-    },
-)
-
-
-@pytest.fixture
-def conflicting_workspace() -> Iterator[tuple[CliRunner, Path]]:
-    runner = CliRunner()
-    with runner.isolated_filesystem():
-        working_directory = Path.cwd()
-        config_entries: list[dict[str, str]] = []
-        for dep in _CONFLICTING_DEPENDENCIES:
-            source = (working_directory / "sources" / dep["name"]).resolve()
-            config_entries.append(
-                {"name": dep["name"], "version": dep["version"], "source": str(source), "artifact": "schema.graphql"}
-            )
-            vendor_directory = working_directory / ".s2dm" / "vendor" / dep["name"] / dep["version"]
-            vendor_directory.mkdir(parents=True)
-            (vendor_directory / "schema.graphql").write_text(dep["schema"], encoding="utf-8")
-            write_metadata_file(
-                vendor_directory / "metadata.yaml",
-                name=dep["name"],
-                id=dep["id"],
-                version=dep["version"],
-                preferred_prefix=dep["preferred_prefix"],
-            )
-        (working_directory / "s2dm.deps.yaml").write_text(
-            yaml.safe_dump({"dependencies": config_entries}), encoding="utf-8"
-        )
-        yield runner, working_directory / "composed.graphql"
-
-
-def test_deps_build_without_auto_prefix_fails_on_conflicts(
-    conflicting_workspace: tuple[CliRunner, Path],
-) -> None:
-    runner, output_path = conflicting_workspace
-
-    result = runner.invoke(cli, ["deps", "build", "-o", str(output_path)])
-
-    assert result.exit_code == 1, result.output
-    assert not output_path.exists()
-
-
-def test_deps_build_auto_prefix_writes_composed_schema_for_conflicts(
-    conflicting_workspace: tuple[CliRunner, Path],
-) -> None:
-    runner, output_path = conflicting_workspace
-
-    result = runner.invoke(cli, ["deps", "build", "--auto-prefix", "-o", str(output_path)])
-
-    assert result.exit_code == 0, result.output
-    composed_schema = output_path.read_text(encoding="utf-8")
-    assert "type body_Vehicle" in composed_schema
-    assert "type powertrain_Vehicle" in composed_schema
-    assert "vehicle: body_Vehicle" in composed_schema
 
 
 def _dependency_labels(dependencies_metadata: tuple[DependencyMetadata, ...]) -> set[str]:

@@ -313,6 +313,41 @@ def print_schema_with_directives_preserved(schema: GraphQLSchema, source_map: di
     return add_directives_to_schema(base_schema, directive_map)
 
 
+def compose_schemas_to_string(
+    schemas: list[Path],
+    root_type: str | None,
+    selection_query: Path | None,
+    naming_config: Path | None,
+    expanded_instances: bool,
+    source_map_value_resolver: SourceMapValueResolver | None = None,
+    schema_selection_resolver: SchemaSelectionResolver | None = None,
+) -> str:
+    """Compose schema files into a single GraphQL schema string with optional filtering and naming transforms."""
+    graphql_schema, source_map = load_schema_with_source_map(
+        schemas,
+        source_map_value_resolver=source_map_value_resolver,
+        schema_selection_resolver=schema_selection_resolver,
+    )
+    schema_errors = check_correct_schema(graphql_schema)
+    if schema_errors:
+        raise ValueError("Schema validation failed:\n" + "\n".join(schema_errors))
+
+    query_document = None
+    if selection_query:
+        query_document = parse(selection_query.read_text())
+
+    naming_config_dict = load_naming_config(naming_config)
+    annotated_schema = process_schema(
+        schema=graphql_schema,
+        source_map=source_map,
+        naming_config=naming_config_dict,
+        query_document=query_document,
+        root_type=root_type,
+        expanded_instances=expanded_instances,
+    )
+    return print_schema_with_directives_preserved(annotated_schema.schema, source_map)
+
+
 def load_schema_as_str(graphql_schema_paths: list[Path], add_references: bool = False) -> str:
     """Load and build GraphQL schema but return as str."""
     source_map_value_resolver = _default_source_map_value_resolver if add_references else None
@@ -590,15 +625,16 @@ def get_referenced_types(
     return referenced
 
 
-def _validate_schema(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSchema | None:
+def _validate_schema(schema: GraphQLSchema, document: DocumentNode) -> GraphQLSchema:
     log.debug("Validating schema against the provided document")
 
     errors = graphql_validate(schema, document)
     if errors:
+        error_messages = [f"  - {error.message}" for error in errors]
         log.error("Schema validation failed:")
-        for error in errors:
-            log.error(f" - {error}")
-        return None
+        for message in error_messages:
+            log.error(message)
+        raise ValueError("Schema validation failed:\n" + "\n".join(error_messages))
 
     log.debug("Schema validation succeeded")
 
@@ -622,8 +658,7 @@ def prune_schema_using_query_selection(
     if not schema.query_type:
         raise ValueError("Schema has no query type defined")
 
-    if _validate_schema(schema, document) is None:
-        raise ValueError("Schema validation failed")
+    _validate_schema(schema, document)
 
     fields_to_keep: dict[str, set[str]] = {}
     types_to_keep: set[str] = set()

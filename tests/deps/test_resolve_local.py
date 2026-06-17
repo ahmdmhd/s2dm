@@ -9,6 +9,7 @@ from s2dm.deps.resolve.common import (
     METADATA_FILENAME,
     SCHEMA_FILENAME,
 )
+from s2dm.deps.resolve.errors import DependencyConfigError, DependencySourceError
 from s2dm.deps.resolve.resolve import resolve_dependencies
 from tests.deps.helpers import (
     create_archive,
@@ -73,7 +74,7 @@ def test_resolve_dependencies_fails_for_incomplete_cached_dependency(tmp_path: P
         integrity=file_sha256(vendored_directory / SCHEMA_FILENAME),
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DependencySourceError):
         resolve_dependencies(DependencyConfig.load(config_path), workspace)
 
     assert not (vendored_directory / METADATA_FILENAME).exists()
@@ -136,7 +137,7 @@ def test_resolve_dependencies_fails_for_cached_dependency_mismatch(tmp_path: Pat
         integrity=integrity,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DependencySourceError):
         resolve_dependencies(DependencyConfig.load(config_path), workspace)
 
 
@@ -207,7 +208,7 @@ def test_resolve_dependencies_fails_for_invalid_archive_schema_count(
     config_path = workspace / DEFAULT_DEPS_CONFIG_FILENAME
     write_dependency_config(config_path, str(source_directory.resolve()), archive_path.name)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DependencySourceError):
         resolve_dependencies(DependencyConfig.load(config_path), workspace)
 
 
@@ -225,7 +226,7 @@ def test_resolve_dependencies_fails_for_non_fixed_schema_name(
     config_path = workspace / DEFAULT_DEPS_CONFIG_FILENAME
     write_dependency_config(config_path, str(source_directory.resolve()), "model.graphql")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DependencyConfigError):
         resolve_dependencies(DependencyConfig.load(config_path), workspace)
 
 
@@ -243,5 +244,5 @@ def test_resolve_dependencies_fails_for_version_mismatch(
     config_path = workspace / DEFAULT_DEPS_CONFIG_FILENAME
     write_dependency_config(config_path, str(source_directory.resolve()), SCHEMA_FILENAME, version="5.1.0")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DependencySourceError):
         resolve_dependencies(DependencyConfig.load(config_path), workspace)

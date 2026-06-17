@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from s2dm.deps.models import DependencyEntry, ResolvedDependencySource
 from s2dm.deps.resolve.common import METADATA_FILENAME
+from s2dm.deps.resolve.errors import DependencyConfigError, DependencySourceError, DependencyUpstreamError
 from s2dm.deps.resolve.factory import ResolverFactory
 from s2dm.deps.resolve.resolvers.resolver import Resolver
 from s2dm.utils.download import download_url_to_path
@@ -112,7 +113,7 @@ class RemoteResolver(Resolver):
         try:
             response.raise_for_status()
         except requests.RequestException as error:
-            raise RuntimeError(f"Failed to load dependency release metadata from {release_url}: {error}") from error
+            raise self._translate_request_error(error=error, repository=repository, version=version) from error
 
         release_payload = response.json()
         release = _GitHubReleaseResponse.model_validate(release_payload)
@@ -128,27 +129,43 @@ class RemoteResolver(Resolver):
 
         if download_context.token is None or download_context.release_assets is None:
             asset_url = self._build_release_asset_url(download_context.repository, download_context.version, asset_name)
-            return download_url_to_path(
-                url=asset_url,
-                destination_path=destination_path,
-                resource_label=resource_label,
-                overwrite=False,
-            )
+            try:
+                return download_url_to_path(
+                    url=asset_url,
+                    destination_path=destination_path,
+                    resource_label=resource_label,
+                    overwrite=False,
+                )
+            except RuntimeError as error:
+                raise self._translate_download_error(
+                    error=error,
+                    repository=download_context.repository,
+                    version=download_context.version,
+                    asset_name=asset_name,
+                ) from error
 
         asset_api_url = download_context.release_assets.get(asset_name)
         if asset_api_url is None:
-            raise ValueError(f"Dependency release asset not found: {asset_name}")
+            raise DependencySourceError(f"Dependency release asset not found: {asset_name}")
 
-        return download_url_to_path(
-            url=asset_api_url,
-            destination_path=destination_path,
-            resource_label=resource_label,
-            overwrite=False,
-            headers={
-                "Authorization": f"Bearer {download_context.token}",
-                "Accept": ASSET_ACCEPT_HEADER_VALUE,
-            },
-        )
+        try:
+            return download_url_to_path(
+                url=asset_api_url,
+                destination_path=destination_path,
+                resource_label=resource_label,
+                overwrite=False,
+                headers={
+                    "Authorization": f"Bearer {download_context.token}",
+                    "Accept": ASSET_ACCEPT_HEADER_VALUE,
+                },
+            )
+        except RuntimeError as error:
+            raise self._translate_download_error(
+                error=error,
+                repository=download_context.repository,
+                version=download_context.version,
+                asset_name=asset_name,
+            ) from error
 
     def _build_api_base_url(self, repository_host: str) -> str:
         if repository_host.lower() == GITHUB_HOST_NAME:
@@ -158,9 +175,61 @@ class RemoteResolver(Resolver):
     def _parse_repository_details(self, repository: str) -> tuple[str, str]:
         repository_scope = self._resolve_identity_scope(urlparse(repository).path)
         if repository_scope is None:
-            raise ValueError(f"Dependency repository URL must include owner and repository: {repository}")
+            raise DependencyConfigError(f"Dependency repository URL must include owner and repository: {repository}")
         owner, repository_name = repository_scope.split("/", maxsplit=1)
         return owner, repository_name
+
+    def _translate_download_error(
+        self,
+        error: RuntimeError,
+        repository: str,
+        version: str,
+        asset_name: str,
+    ) -> DependencySourceError | DependencyUpstreamError:
+        cause = error.__cause__
+        if isinstance(cause, requests.RequestException):
+            return self._translate_request_error(
+                error=cause,
+                repository=repository,
+                version=version,
+                asset_name=asset_name,
+            )
+        return DependencyUpstreamError(self._build_upstream_message(repository, version, error, asset_name=asset_name))
+
+    def _translate_request_error(
+        self,
+        error: requests.RequestException,
+        repository: str,
+        version: str,
+        asset_name: str | None = None,
+    ) -> DependencySourceError | DependencyUpstreamError:
+        response = error.response
+        if response is not None and response.status_code in {401, 403, 404}:
+            return DependencySourceError(self._build_source_message(repository, version, asset_name=asset_name))
+        return DependencyUpstreamError(self._build_upstream_message(repository, version, error, asset_name=asset_name))
+
+    def _build_source_message(self, repository: str, version: str, asset_name: str | None = None) -> str:
+        resource_label = self._build_resource_label(asset_name)
+        return (
+            f"Unable to access {resource_label} for '{repository}' version '{version}'. "
+            "The dependency may not exist or may require authentication."
+        )
+
+    def _build_upstream_message(
+        self,
+        repository: str,
+        version: str,
+        error: Exception,
+        asset_name: str | None = None,
+    ) -> str:
+        if asset_name is None:
+            return f"Failed to load dependency release metadata for '{repository}' version '{version}': {error}"
+        return f"Failed to download dependency asset '{asset_name}' for '{repository}' " f"version '{version}': {error}"
+
+    def _build_resource_label(self, asset_name: str | None) -> str:
+        if asset_name is None:
+            return "dependency release metadata"
+        return f"dependency asset '{asset_name}'"
 
     def _resolve_identity_token(self, repository: str) -> str | None:
         if self.context is None or self.context.remote_identity_provider is None:
