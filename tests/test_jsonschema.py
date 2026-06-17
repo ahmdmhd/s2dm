@@ -2,7 +2,6 @@
 
 import json
 
-import pytest
 from graphql import build_schema
 
 from s2dm.exporters.jsonschema.jsonschema import transform
@@ -604,10 +603,10 @@ class TestAdvancedFeatures:
 
 
 class TestInstanceTagHandling:
-    def test_instance_tag_objects_excluded_from_schema(self) -> None:
-        """Test that objects with @instanceTag directive are excluded from JSON Schema."""
+    def test_instance_tag_objects_are_included_in_schema(self) -> None:
+        """Test that @instanceTag object types are emitted like normal object types."""
         schema_str = """
-            directive @instanceTag on OBJECT
+            directive @instanceTag on OBJECT | FIELD_DEFINITION
 
             type Query {
                 vehicle: Vehicle
@@ -647,12 +646,12 @@ class TestInstanceTagHandling:
         assert "RowEnum" in schema["$defs"]
         assert "ColumnEnum" in schema["$defs"]
 
-        assert "SeatPosition" not in schema["$defs"]
+        assert "SeatPosition" in schema["$defs"]
 
-    def test_error_on_invalid_instance_tag_field_name(self) -> None:
-        """Test that an error is raised if an instanceTag object is referenced incorrectly."""
+    def test_instance_tag_directive_allows_non_literal_field_name(self) -> None:
+        """Test that a field-level @instanceTag works on any field name."""
         schema_str = """
-            directive @instanceTag on OBJECT
+            directive @instanceTag on OBJECT | FIELD_DEFINITION
 
             type Query {
                 vehicle: Vehicle
@@ -660,7 +659,7 @@ class TestInstanceTagHandling:
 
             type Vehicle {
                 id: ID!
-                seatPosition: SeatPosition!
+                seatPosition: SeatPosition! @instanceTag
             }
 
             type SeatPosition @instanceTag {
@@ -680,15 +679,19 @@ class TestInstanceTagHandling:
         """
         graphql_schema = build_schema(schema_str)
 
-        with pytest.raises(
-            ValueError, match="Invalid schema: instanceTag object found on non-instanceTag named field 'seatPosition'"
-        ):
-            transform(graphql_schema)
+        result = transform(graphql_schema)
+        schema = json.loads(result)
 
-    def test_instance_tag_field_excluded_when_valid(self) -> None:
-        """Test that instanceTag fields are excluded when they reference valid instance tag objects."""
+        vehicle_def = schema["$defs"]["Vehicle"]
+        properties = vehicle_def["properties"]
+
+        assert properties["seatPosition"]["$ref"] == "#/$defs/SeatPosition"
+        assert schema["$defs"]["SeatPosition"]["type"] == "object"
+
+    def test_instance_tag_field_is_included_when_valid(self) -> None:
+        """Test that a valid field-level @instanceTag is emitted like a normal object field."""
         schema_str = """
-            directive @instanceTag on OBJECT
+            directive @instanceTag on OBJECT | FIELD_DEFINITION
 
             type Query {
                 vehicle: Vehicle
@@ -696,7 +699,7 @@ class TestInstanceTagHandling:
 
             type Vehicle {
                 id: ID!
-                instanceTag: CabinPosition!
+                cabinPosition: CabinPosition! @instanceTag
                 normalField: String!
             }
 
@@ -719,15 +722,12 @@ class TestInstanceTagHandling:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        assert "Vehicle" in schema["$defs"]
         vehicle_def = schema["$defs"]["Vehicle"]
+        properties = vehicle_def["properties"]
 
-        assert "instanceTag" not in vehicle_def["properties"]
-
-        assert "id" in vehicle_def["properties"]
-        assert "normalField" in vehicle_def["properties"]
-
-        assert "CabinPosition" not in schema["$defs"]
+        assert properties["cabinPosition"]["$ref"] == "#/$defs/CabinPosition"
+        assert properties["normalField"]["type"] == "string"
+        assert schema["$defs"]["CabinPosition"]["type"] == "object"
 
     def test_instance_tag_field_included_when_invalid(self) -> None:
         """Test that instanceTag fields are included when they don't reference valid instance tag objects."""
@@ -738,7 +738,7 @@ class TestInstanceTagHandling:
 
             type Vehicle {
                 id: ID!
-                instanceTag: String!  # Not a valid instance tag object
+                tag: String!
                 normalField: String!
             }
         """
@@ -746,19 +746,16 @@ class TestInstanceTagHandling:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        assert "Vehicle" in schema["$defs"]
         vehicle_def = schema["$defs"]["Vehicle"]
+        properties = vehicle_def["properties"]
 
-        assert "instanceTag" in vehicle_def["properties"]
-        assert vehicle_def["properties"]["instanceTag"]["type"] == "string"
-
-        assert "id" in vehicle_def["properties"]
-        assert "normalField" in vehicle_def["properties"]
+        assert properties["tag"]["type"] == "string"
+        assert properties["normalField"]["type"] == "string"
 
     def test_instance_tag_field_with_non_instance_tag_object(self) -> None:
         """Test that instanceTag fields referencing regular objects (without @instanceTag) are included."""
         schema_str = """
-            directive @instanceTag on OBJECT
+            directive @instanceTag on OBJECT | FIELD_DEFINITION
 
             type Query {
                 vehicle: Vehicle
@@ -766,7 +763,7 @@ class TestInstanceTagHandling:
 
             type Vehicle {
                 id: ID!
-                instanceTag: RegularObject!  # References object without @instanceTag
+                tag: RegularObject!
                 normalField: String!
             }
 
@@ -779,16 +776,12 @@ class TestInstanceTagHandling:
         result = transform(graphql_schema)
         schema = json.loads(result)
 
-        assert "Vehicle" in schema["$defs"]
         vehicle_def = schema["$defs"]["Vehicle"]
+        properties = vehicle_def["properties"]
 
-        assert "instanceTag" in vehicle_def["properties"]
-        assert vehicle_def["properties"]["instanceTag"]["$ref"] == "#/$defs/RegularObject"
-
-        assert "RegularObject" in schema["$defs"]
-
-        assert "id" in vehicle_def["properties"]
-        assert "normalField" in vehicle_def["properties"]
+        assert properties["tag"]["$ref"] == "#/$defs/RegularObject"
+        assert schema["$defs"]["RegularObject"]["type"] == "object"
+        assert properties["normalField"]["type"] == "string"
 
 
 class TestStrictMode:

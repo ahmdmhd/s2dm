@@ -53,7 +53,7 @@ class TestAvroIDLE2EExpandedInstances:
             r"record\s+Door\s*\{.*?"
             r"boolean\?\s+isLocked;.*?"
             r"int\?\s+position;.*?"
-            r"DoorPosition\?\s+instanceTag;.*?"
+            r"DoorPosition\?\s+doorPosition;.*?"
             r"\}.*?"
             r"\}",
             cabin_idl,
@@ -76,7 +76,7 @@ class TestAvroIDLE2EExpandedInstances:
             r"record\s+Seat\s*\{.*?"
             r"boolean\?\s+isOccupied;.*?"
             r"int\?\s+height;.*?"
-            r"SeatPosition\?\s+instanceTag;.*?"
+            r"SeatPosition\?\s+seatPosition;.*?"
             r"\}.*?"
             r"\}",
             cabin_idl,

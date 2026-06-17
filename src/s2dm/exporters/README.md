@@ -88,7 +88,7 @@ type Cabin {
 }
 
 type Seat {
-  instanceTag: InCabinArea2x2
+  inCabinArea: InCabinArea2x2 @instanceTag
   position(unit: Length_Unit_Enum = MILLIMETER): UInt16
     @metadata(vssType: "actuator")
 }
@@ -223,7 +223,7 @@ type Cabin {
 }
 
 type Door {
-  instanceTag: Area2x2
+  area: Area2x2 @instanceTag
 }
 
 type Area2x2 @instanceTag {

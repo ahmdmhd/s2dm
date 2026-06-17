@@ -24,6 +24,7 @@ from graphql import (
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.protobuf.models import ProtoEnum, ProtoEnumValue, ProtoField, ProtoMessage, ProtoSchema, ProtoUnion
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
@@ -479,7 +480,7 @@ class ProtobufTransformer:
         repeated_rules = []
         is_repeated = "repeated" in proto_type
 
-        if has_given_directive(field, "noDuplicates"):
+        if has_given_directive(field, Directive.NO_DUPLICATES):
             unwrapped_type = get_named_type(field.type)
             if is_scalar_type(unwrapped_type) or is_enum_type(unwrapped_type):
                 repeated_rules.append("unique: true")
@@ -491,15 +492,15 @@ class ProtobufTransformer:
             if cardinality.max is not None:
                 repeated_rules.append(f"max_items: {cardinality.max}")
 
-        if has_given_directive(field, "range"):
-            args = get_directive_arguments(field, "range")
+        if has_given_directive(field, Directive.RANGE):
+            args = get_directive_arguments(field, Directive.RANGE)
             scalar_type = self._get_validation_type(proto_type)
             if scalar_type:
                 range_rules = []
-                if "min" in args:
-                    range_rules.append(f"gte: {args['min']}")
-                if "max" in args:
-                    range_rules.append(f"lte: {args['max']}")
+                if DirectiveArgument.MIN in args:
+                    range_rules.append(f"gte: {args[DirectiveArgument.MIN]}")
+                if DirectiveArgument.MAX in args:
+                    range_rules.append(f"lte: {args[DirectiveArgument.MAX]}")
                 if range_rules:
                     if is_repeated:
                         repeated_rules.append(f"items: {{{scalar_type}: {{{', '.join(range_rules)}}}}}")

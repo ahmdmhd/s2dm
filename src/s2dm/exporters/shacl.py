@@ -13,6 +13,7 @@ from rdflib import RDF, RDFS, SH, XSD, BNode, Graph, Literal, Namespace, Node, U
 from rdflib.collection import Collection
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_argument_content
 from s2dm.exporters.utils.extraction import get_all_object_types
@@ -45,7 +46,7 @@ def get_xsd_datatype(scalar: GraphQLScalarType) -> URIRef:
 
 def add_comment_to_property_node(field: GraphQLField, property_node: BNode, graph: Graph) -> None:
     """Add comment metadata to a property node if it exists."""
-    comment = get_argument_content(field, "metadata", "comment")
+    comment = get_argument_content(field, Directive.METADATA, DirectiveArgument.COMMENT)
     if comment and comment != {}:
         _ = graph.add((property_node, RDFS.comment, Literal(comment)))
 

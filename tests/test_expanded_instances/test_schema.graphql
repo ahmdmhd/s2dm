@@ -22,7 +22,7 @@ type DoorPosition @instanceTag {
 type Door {
   isLocked: Boolean
   position: Int @range(min: 0, max: 100)
-  instanceTag: DoorPosition
+  doorPosition: DoorPosition @instanceTag
 }
 
 type Vehicle @vspec(element: STRUCT) {
@@ -52,7 +52,7 @@ type SeatPosition @instanceTag {
 type Seat {
   isOccupied: Boolean
   height: Int @range(min: 0, max: 100)
-  instanceTag: SeatPosition
+  seatPosition: SeatPosition @instanceTag
 }
 
 type Cabin @vspec(element: STRUCT) {

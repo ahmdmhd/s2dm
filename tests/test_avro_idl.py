@@ -378,7 +378,7 @@ class TestStrictMode:
         """Test that strict mode includes enum definitions used by @instanceTag types."""
         schema_str = """
         directive @vspec(element: VspecElement!) on OBJECT
-        directive @instanceTag on OBJECT
+        directive @instanceTag on OBJECT | FIELD_DEFINITION
 
         enum VspecElement {
             STRUCT
@@ -402,7 +402,7 @@ class TestStrictMode:
         type Door {
             isLocked: Boolean
             position: Int
-            instanceTag: DoorPosition
+            doorPosition: DoorPosition @instanceTag
         }
 
         type Vehicle @vspec(element: STRUCT) {

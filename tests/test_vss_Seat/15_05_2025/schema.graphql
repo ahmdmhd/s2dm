@@ -4,7 +4,7 @@ directive @range(min: Float, max: Float) on FIELD_DEFINITION
 
                     directive @noDuplicates on FIELD_DEFINITION
 
-                    directive @instanceTag on OBJECT
+                    directive @instanceTag on OBJECT | FIELD_DEFINITION
 
                     directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 
@@ -171,7 +171,7 @@ directive @range(min: Float, max: Float) on FIELD_DEFINITION
                       backrest: Backrest
                       headrest: Headrest
                       seating: Seating
-                      instanceTag: ManySeatsInstanceTag
+                      manySeats: ManySeatsInstanceTag @instanceTag
                     }
 
                     """Airbag signals."""

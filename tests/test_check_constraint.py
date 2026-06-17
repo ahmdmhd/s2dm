@@ -1,6 +1,7 @@
 from graphql import GraphQLObjectType, GraphQLSchema, build_schema
 
 from s2dm.exporters.utils.extraction import get_all_object_types
+from s2dm.exporters.utils.violations import ConstraintCode
 from s2dm.tools.constraint_checker import ConstraintChecker
 
 
@@ -15,7 +16,7 @@ def get_objects(schema: GraphQLSchema) -> list[GraphQLObjectType]:
 
 def test_instance_tag_field_must_reference_instance_tag_object() -> None:
     sdl = """
-    directive @instanceTag on OBJECT
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
 
     type TagObj @instanceTag {
       level: TagEnum
@@ -23,52 +24,94 @@ def test_instance_tag_field_must_reference_instance_tag_object() -> None:
     enum TagEnum { A B }
 
     type Foo {
-      instanceTag: TagObj
+      tag: TagObj @instanceTag
     }
     """
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert not errors
+    violations = checker.run(objects)
+    assert not violations
 
 
 def test_instance_tag_field_wrong_type() -> None:
     sdl = """
-    directive @instanceTag on OBJECT
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
 
     type NotTagObj {
       foo: String
     }
 
     type Foo {
-      instanceTag: NotTagObj
+      tag: NotTagObj @instanceTag
     }
     """
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert any("must reference an object type with @instanceTag" in e for e in errors)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.INSTANCE_TAG_INVALID_REFERENCE for violation in violations)
 
 
 def test_instance_tag_object_fields_must_be_enum() -> None:
     sdl = """
-    directive @instanceTag on OBJECT
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
 
     type TagObj @instanceTag {
       notEnum: String
     }
 
     type Foo {
-      instanceTag: TagObj
+      tag: TagObj @instanceTag
     }
     """
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert any("must be an enum" in e for e in errors)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.INSTANCE_TAG_NON_ENUM_FIELD for violation in violations)
+
+
+def test_instance_tag_at_most_one_field_per_type() -> None:
+    sdl = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+    type TagObj @instanceTag {
+      level: TagEnum
+    }
+    enum TagEnum { A B }
+
+    type Foo {
+      tag1: TagObj @instanceTag
+      tag2: TagObj @instanceTag
+    }
+    """
+    schema = make_schema(sdl)
+    objects = get_objects(schema)
+    checker = ConstraintChecker(schema)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS for violation in violations)
+
+
+def test_instance_tag_single_field_is_allowed() -> None:
+    sdl = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+    type TagObj @instanceTag {
+      level: TagEnum
+    }
+    enum TagEnum { A B }
+
+    type Foo {
+      tag: TagObj @instanceTag
+      other: String
+    }
+    """
+    schema = make_schema(sdl)
+    objects = get_objects(schema)
+    checker = ConstraintChecker(schema)
+    violations = checker.run(objects)
+    assert not violations
 
 
 def test_range_min_leq_max() -> None:
@@ -82,8 +125,8 @@ def test_range_min_leq_max() -> None:
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert not errors
+    violations = checker.run(objects)
+    assert not violations
 
 
 def test_range_min_gt_max() -> None:
@@ -97,8 +140,8 @@ def test_range_min_gt_max() -> None:
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert any("has min > max" in e for e in errors)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.MIN_GREATER_THAN_MAX for violation in violations)
 
 
 def test_cardinality_min_leq_max() -> None:
@@ -112,8 +155,8 @@ def test_cardinality_min_leq_max() -> None:
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert not errors
+    violations = checker.run(objects)
+    assert not violations
 
 
 def test_cardinality_min_gt_max() -> None:
@@ -127,5 +170,5 @@ def test_cardinality_min_gt_max() -> None:
     schema = make_schema(sdl)
     objects = get_objects(schema)
     checker = ConstraintChecker(schema)
-    errors = checker.run(objects)
-    assert any("has min > max" in e for e in errors)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.MIN_GREATER_THAN_MAX for violation in violations)

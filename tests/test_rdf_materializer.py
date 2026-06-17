@@ -40,6 +40,8 @@ def _subject(graph: Graph, rdf_type: Any, name_in: str, *, exclude: str | None =
 def _cabin_door_schema() -> GraphQLSchema:
     """Test Cabin/Door/Window schema."""
     return build_schema("""
+        directive @instanceTag on OBJECT | FIELD_DEFINITION
+
         type Query { cabin: Cabin }
 
         type Cabin {
@@ -53,7 +55,7 @@ def _cabin_door_schema() -> GraphQLSchema:
         }
 
         type Door {
-            instanceTag: InCabinArea2x2
+            inCabinArea: InCabinArea2x2 @instanceTag
             isOpen: Boolean
             window: Window
         }
@@ -62,7 +64,7 @@ def _cabin_door_schema() -> GraphQLSchema:
             isTinted: Boolean
         }
 
-        type InCabinArea2x2 {
+        type InCabinArea2x2 @instanceTag {
             row: TwoRowsInCabinEnum
             column: TwoColumnsInCabinEnum
         }

@@ -4,7 +4,7 @@ directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
 
 directive @noDuplicates on FIELD_DEFINITION
 
-directive @instanceTag on OBJECT
+directive @instanceTag on OBJECT | FIELD_DEFINITION
 
 directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 
@@ -112,7 +112,7 @@ type VehicleTrailer {
 
     """Number of axles on the trailer"""
     axleCount: UInt8
-    instanceTag: TrailerTag
+    trailer: TrailerTag @instanceTag
 }
 
 enum VehicleTrailerKindEnum {
@@ -185,7 +185,7 @@ from the midway points between the inner and outer tires.
 
     """Number of wheels on the axle"""
     wheelCount: UInt8
-    instanceTag: TrailerAxleTag
+    trailerAxle: TrailerAxleTag @instanceTag
 }
 
 """
@@ -199,7 +199,7 @@ type VehicleTrailerWheel {
     speed(unit: Velocity_Unit_Enum = KILOMETER_PER_HOUR): Float
     brake: TrailerWheelBrake
     tire: TrailerWheelTire
-    instanceTag: TrailerWheelTag
+    trailerWheel: TrailerWheelTag @instanceTag
 }
 
 """Brake signals for wheel"""

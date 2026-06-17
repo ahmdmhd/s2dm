@@ -32,6 +32,7 @@ from linkml_runtime.linkml_model.meta import (
 from linkml_runtime.linkml_model.units import UnitOfMeasure
 from linkml_runtime.utils.schema_as_dict import schema_as_dict
 
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
 from s2dm.exporters.utils.directive import get_argument_content, get_directive_arguments, has_given_directive
 from s2dm.exporters.utils.field import FieldCase, get_cardinality, get_field_case
@@ -160,7 +161,7 @@ class LinkmlTransformer:
             permissible_values: dict[str, PermissibleValue] = {}
             for enum_value_name, enum_value in named_type.values.items():
                 permissible_value = PermissibleValue(text=enum_value_name)
-                meaning = get_argument_content(enum_value, "reference", "uri")
+                meaning = get_argument_content(enum_value, Directive.REFERENCE, DirectiveArgument.URI)
                 if meaning:
                     permissible_value.meaning = meaning
                 permissible_values[enum_value_name] = permissible_value
@@ -171,7 +172,7 @@ class LinkmlTransformer:
             )
             if named_type.description:
                 enum_definition.description = named_type.description
-            enum_uri = get_argument_content(named_type, "reference", "uri")
+            enum_uri = get_argument_content(named_type, Directive.REFERENCE, DirectiveArgument.URI)
             if enum_uri:
                 enum_definition.exact_mappings = [enum_uri]
             enum_definitions[named_type.name] = enum_definition
@@ -305,9 +306,11 @@ class LinkmlTransformer:
         field: GraphQLField | GraphQLInputField,
         multivalued: bool,
     ) -> None:
-        range_arguments = get_directive_arguments(field, "range") if has_given_directive(field, "range") else {}
-        min_value = range_arguments.get("min")
-        max_value = range_arguments.get("max")
+        range_arguments = (
+            get_directive_arguments(field, Directive.RANGE) if has_given_directive(field, Directive.RANGE) else {}
+        )
+        min_value = range_arguments.get(DirectiveArgument.MIN)
+        max_value = range_arguments.get(DirectiveArgument.MAX)
         if isinstance(min_value, int | float):
             slot_definition.minimum_value = min_value
         if isinstance(max_value, int | float):
@@ -320,7 +323,7 @@ class LinkmlTransformer:
             if cardinality.max is not None:
                 slot_definition.maximum_cardinality = cardinality.max
 
-        if multivalued and has_given_directive(field, "noDuplicates"):
+        if multivalued and has_given_directive(field, Directive.NO_DUPLICATES):
             slot_definition.list_elements_unique = True
 
     def _apply_unit_mapping(self, slot_definition: SlotDefinition, field: GraphQLField | GraphQLInputField) -> None:
@@ -346,11 +349,11 @@ class LinkmlTransformer:
         unit_symbol, enum_value = enum_match
         unit_payload: dict[str, Any] = {"symbol": unit_symbol}
 
-        unit_uri = get_argument_content(enum_value, "reference", "uri")
+        unit_uri = get_argument_content(enum_value, Directive.REFERENCE, DirectiveArgument.URI)
         if unit_uri:
             unit_payload["exact_mappings"] = [unit_uri]
 
-        quantity_kind_uri = get_argument_content(unit_type, "reference", "uri")
+        quantity_kind_uri = get_argument_content(unit_type, Directive.REFERENCE, DirectiveArgument.URI)
         if quantity_kind_uri:
             unit_payload["has_quantity_kind"] = quantity_kind_uri
 
@@ -380,10 +383,10 @@ class LinkmlTransformer:
         | GraphQLInputObjectType
         | GraphQLInterfaceType,
     ) -> None:
-        if not has_given_directive(source_element, "metadata"):
+        if not has_given_directive(source_element, Directive.METADATA):
             return
 
-        metadata_arguments = get_directive_arguments(source_element, "metadata")
+        metadata_arguments = get_directive_arguments(source_element, Directive.METADATA)
         annotations = {
             f"s2dm_metadata_{key}": self._stringify_directive_value(value)
             for key, value in metadata_arguments.items()

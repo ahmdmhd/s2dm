@@ -13,15 +13,16 @@ from graphql import (
 )
 
 from s2dm import log
+from s2dm.constants.directive import Directive
 from s2dm.exporters.utils.annotated_schema import FieldMetadata, TypeMetadata
-from s2dm.exporters.utils.directive import has_given_directive
+from s2dm.exporters.utils.directive import get_field_with_applied_directive, has_given_directive
 from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
 from s2dm.exporters.utils.naming import apply_naming_to_instance_values, convert_name
 from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingConventionConfig, get_case_for_element
 
 
-def is_instance_tag_field(field_name: str) -> bool:
-    return field_name == "instanceTag"
+def is_instance_tag_field(field: GraphQLField) -> bool:
+    return has_given_directive(field, Directive.INSTANCE_TAG)
 
 
 def get_all_expanded_instance_tags(
@@ -29,7 +30,7 @@ def get_all_expanded_instance_tags(
     naming_config: NamingConventionConfig | None = None,
 ) -> dict[GraphQLObjectType, list[str]]:
     all_expanded_instance_tags: dict[GraphQLObjectType, list[str]] = {}
-    for object in get_all_objects_with_directive(get_all_object_types(schema), "instanceTag"):
+    for object in get_all_objects_with_directive(get_all_object_types(schema), Directive.INSTANCE_TAG):
         all_expanded_instance_tags[object] = expand_instance_tag(object, naming_config)
 
     log.debug(f"All expanded tags in the spec: {all_expanded_instance_tags}")
@@ -40,7 +41,7 @@ def get_all_expanded_instance_tags(
 def expand_instance_tag(object: GraphQLObjectType, naming_config: NamingConventionConfig | None = None) -> list[str]:
     log.debug(f"Expanding instanceTag for object: {object.name}")
     expanded_tags = []
-    if not has_given_directive(object, "instanceTag"):
+    if not has_given_directive(object, Directive.INSTANCE_TAG):
         raise ValueError(f"Object '{object.name}' does not have an instance tag directive.")
     else:
         tags_per_enum_field = []
@@ -67,8 +68,9 @@ def expand_instance_tag(object: GraphQLObjectType, naming_config: NamingConventi
 
 def is_valid_instance_tag_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
     """
-    Check if the output type of the given field is a valid instanceTag.
-    A valid instanceTag is an object type with the @instanceTag directive.
+    Check if the given field is a valid instanceTag field.
+    A valid instanceTag field is annotated with @instanceTag and references an
+    object type with the @instanceTag directive.
 
     Args:
         field (GraphQLField): The field to check.
@@ -77,14 +79,16 @@ def is_valid_instance_tag_field(field: GraphQLField, schema: GraphQLSchema) -> b
     Returns:
         bool: True if the field's output type is a valid instanceTag, False otherwise.
     """
+    if not is_instance_tag_field(field):
+        return False
+
     output_type = schema.get_type(get_named_type(field.type).name)
-    return isinstance(output_type, GraphQLObjectType) and has_given_directive(output_type, "instanceTag")
+    return isinstance(output_type, GraphQLObjectType) and has_given_directive(output_type, Directive.INSTANCE_TAG)
 
 
 def has_valid_instance_tag_field(object_type: GraphQLObjectType, schema: GraphQLSchema) -> bool:
     """
-    Check if a given object type has a field named 'instanceTag' and if the field's output type
-    is a valid instanceTag.
+    Check if a given object type has a valid instanceTag field.
 
     Args:
         object_type (GraphQLObjectType): The object type to check.
@@ -93,13 +97,25 @@ def has_valid_instance_tag_field(object_type: GraphQLObjectType, schema: GraphQL
     Returns:
         bool: True if the object type has a valid instanceTag field, False otherwise.
     """
-    if "instanceTag" in object_type.fields:
-        log.debug(f"instanceTag? {True}")
-        field = object_type.fields["instanceTag"]
-        return is_valid_instance_tag_field(field, schema)
-    else:
-        log.debug(f"instanceTag? {False}")
-        return False
+    return get_instance_tag_field_name(object_type, schema) is not None
+
+
+def get_instance_tag_field_name(object_type: GraphQLObjectType, schema: GraphQLSchema) -> str | None:
+    """
+    Get the name of the field annotated with a valid @instanceTag directive.
+
+    Args:
+        object_type (GraphQLObjectType): The object type to inspect.
+        schema (GraphQLSchema): The GraphQL schema to validate against.
+
+    Returns:
+        str | None: The name of the valid instanceTag field if found, None otherwise.
+    """
+    instance_tag_fields = get_field_with_applied_directive(object_type, Directive.INSTANCE_TAG)
+    for field_name, field in instance_tag_fields.items():
+        if is_valid_instance_tag_field(field, schema):
+            return field_name
+    return None
 
 
 def get_instance_tag_object(object_type: GraphQLObjectType, schema: GraphQLSchema) -> GraphQLObjectType | None:
@@ -113,15 +129,14 @@ def get_instance_tag_object(object_type: GraphQLObjectType, schema: GraphQLSchem
     Returns:
         GraphQLObjectType | None: The valid instance tag object type if found, None otherwise.
     """
+    field_name = get_instance_tag_field_name(object_type, schema)
+    if field_name is None:
+        return None
 
-    instance_tag_field_name = "instanceTag"
-    if instance_tag_field_name in object_type.fields:
-        field = object_type.fields[instance_tag_field_name]
-        instance_tag_type = schema.get_type(get_named_type(field.type).name)
-        if isinstance(
-            instance_tag_type, GraphQLObjectType
-        ):  # and has_given_directive(instance_tag_type, instance_tag_field_name):
-            return instance_tag_type
+    field = object_type.fields[field_name]
+    instance_tag_type = schema.get_type(get_named_type(field.type).name)
+    if isinstance(instance_tag_type, GraphQLObjectType):
+        return instance_tag_type
     return None
 
 
@@ -336,12 +351,14 @@ def expand_instances_in_schema(
         base_types_to_clean.add(base_type)
 
     all_types_to_remove = set(instance_tag_types_to_remove)
-    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), "instanceTag")
+    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), Directive.INSTANCE_TAG)
     all_types_to_remove.update(t.name for t in all_instance_tag_types)
 
     for base_type in base_types_to_clean:
-        del base_type.fields["instanceTag"]
-        log.debug(f"Removed 'instanceTag' field from type '{base_type.name}'")
+        tag_field_name = get_instance_tag_field_name(base_type, schema)
+        if tag_field_name is not None:
+            del base_type.fields[tag_field_name]
+            log.debug(f"Removed '{tag_field_name}' instanceTag field from type '{base_type.name}'")
 
     for type_name in all_types_to_remove:
         if type_name in schema.type_map:

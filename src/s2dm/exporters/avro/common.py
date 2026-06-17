@@ -1,5 +1,6 @@
 from graphql import GraphQLField, GraphQLScalarType
 
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
 
 INT32_MIN = -(2**31)
@@ -25,10 +26,10 @@ def get_avro_scalar_type(scalar_type: GraphQLScalarType, field: GraphQLField | N
     """Get Avro type for a GraphQL scalar, considering @range directive."""
     base_type = GRAPHQL_SCALAR_TO_AVRO.get(scalar_type.name, "string")
 
-    if field and base_type in ("int", "long") and has_given_directive(field, "range"):
-        range_args = get_directive_arguments(field, "range")
+    if field and base_type in ("int", "long") and has_given_directive(field, Directive.RANGE):
+        range_args = get_directive_arguments(field, Directive.RANGE)
 
-        for key in ("min", "max"):
+        for key in (DirectiveArgument.MIN, DirectiveArgument.MAX):
             if key in range_args:
                 val = range_args[key]
                 if val < INT32_MIN or val > INT32_MAX:

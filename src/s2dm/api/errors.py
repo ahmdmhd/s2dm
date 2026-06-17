@@ -1,5 +1,7 @@
 """API-specific error types and translation helpers."""
 
+from collections.abc import Sequence
+
 import yaml
 from ariadne.exceptions import GraphQLFileSyntaxError
 from graphql import GraphQLError, GraphQLSyntaxError
@@ -15,12 +17,16 @@ class ResourceNotFoundError(FileNotFoundError):
     """Resource requested through the API does not exist."""
 
 
-def format_error_list(summary: str, errors: list[str]) -> str:
-    """Format multiple validation errors as a multiline message."""
+def format_error_list(summary: str, errors: Sequence[object]) -> str:
+    """Format multiple validation errors as a multiline message.
+
+    Accepts plain strings or any object whose ``str()`` is the error message
+    (e.g. ``ConstraintViolation``).
+    """
     if not errors:
         return summary
 
-    return f"{summary}:\n" + "\n".join(errors)
+    return f"{summary}:\n" + "\n".join(str(error) for error in errors)
 
 
 def to_response_error(exc: Exception) -> ResponseError | None:

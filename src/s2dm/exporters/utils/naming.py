@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from caseconverter import camelcase, cobolcase, flatcase, kebabcase, macrocase, pascalcase, snakecase, titlecase
 from graphql import (
@@ -13,6 +12,7 @@ from graphql import (
     get_named_type,
 )
 
+from s2dm.constants.directive import Directive
 from s2dm.exporters.utils.directive import has_given_directive
 from s2dm.exporters.utils.graphql_type import is_graphql_system_type
 from s2dm.exporters.utils.naming_config import (
@@ -62,7 +62,7 @@ def _collect_instance_tag_enum_names(schema: GraphQLSchema) -> set[str]:
     """Collect names of enum types used as fields of @instanceTag object types."""
     instance_tag_enum_names: set[str] = set()
     for type_obj in schema.type_map.values():
-        if not isinstance(type_obj, GraphQLObjectType) or not has_given_directive(type_obj, "instanceTag"):
+        if not isinstance(type_obj, GraphQLObjectType) or not has_given_directive(type_obj, Directive.INSTANCE_TAG):
             continue
         for field in type_obj.fields.values():
             field_base_type = get_named_type(field.type)
@@ -108,33 +108,6 @@ def apply_naming_to_schema(schema: GraphQLSchema, naming_config: NamingConventio
         schema.type_map[new_name] = type_obj
 
 
-def is_instance_tag_field(field_name: str, field: Any, schema: GraphQLSchema) -> bool:
-    """Check if a field is an instanceTag field that should not be renamed.
-
-    Args:
-        field_name: Name of the field to check
-        field: The GraphQL field object
-        schema: The GraphQL schema containing the field's type
-
-    Returns:
-        True if this is an instanceTag field that should preserve its name
-    """
-    if field_name != "instanceTag":
-        return False
-
-    field_type = get_named_type(field.type)
-    target_type = schema.get_type(field_type.name)
-
-    if not isinstance(target_type, GraphQLObjectType):
-        return False
-
-    if target_type.ast_node and target_type.ast_node.directives:
-        for directive in target_type.ast_node.directives:
-            if directive.name.value == "instanceTag":
-                return True
-    return False
-
-
 def convert_field_names(
     type_obj: GraphQLObjectType | GraphQLInterfaceType | GraphQLInputObjectType,
     naming_config: NamingConventionConfig,
@@ -155,11 +128,8 @@ def convert_field_names(
     if target_case:
         new_fields = {}
         for old_name, field in type_obj.fields.items():
-            if is_instance_tag_field(old_name, field, schema):
-                new_fields[old_name] = field
-            else:
-                new_name = convert_name(old_name, target_case)
-                new_fields[new_name] = field
+            new_name = convert_name(old_name, target_case)
+            new_fields[new_name] = field
 
         type_obj.fields.clear()
         type_obj.fields.update(new_fields)

@@ -224,7 +224,7 @@ class RemoteResolver(Resolver):
     ) -> str:
         if asset_name is None:
             return f"Failed to load dependency release metadata for '{repository}' version '{version}': {error}"
-        return f"Failed to download dependency asset '{asset_name}' for '{repository}' " f"version '{version}': {error}"
+        return f"Failed to download dependency asset '{asset_name}' for '{repository}' version '{version}': {error}"
 
     def _build_resource_label(self, asset_name: str | None) -> str:
         if asset_name is None:

@@ -196,7 +196,7 @@ class TestApplyNamingToSchema:
         from graphql import build_schema as _build_schema
 
         schema = _build_schema("""
-            directive @instanceTag on OBJECT
+            directive @instanceTag on OBJECT | FIELD_DEFINITION
             type Query { car: Car }
             type Car { kind: CarKind }
             enum TwoRows { front rear }
@@ -301,27 +301,6 @@ class TestConvertFieldNames:
         convert_field_names(object_type, NamingConventionConfig(), schema)
 
         assert "TestField" in object_type.fields
-
-    def test_skip_instance_tag_field_conversion(self, spec_directory: Path) -> None:
-        """Test that instanceTag fields pointing to @instanceTag types are not converted."""
-        schema_path = Path(__file__).parent / "test_expanded_instances" / "test_schema.graphql"
-        schema = load_schema([spec_directory, schema_path])
-
-        door_type = schema.get_type("Door")
-        assert isinstance(door_type, GraphQLObjectType)
-
-        door_type.fields["regularField"] = GraphQLField(GraphQLString)
-
-        naming_config = NamingConventionConfig(field=FieldNamingConfig(object=CaseFormat.CAMEL_CASE))
-        convert_field_names(door_type, naming_config, schema)
-
-        assert "instanceTag" in door_type.fields
-        assert "instancetag" not in door_type.fields
-
-        assert "regularField" in door_type.fields
-        assert "RegularField" not in door_type.fields
-
-        assert "isLocked" in door_type.fields  # was "isLocked" -> should stay as is in camelCase
 
 
 class TestConvertEnumValues:

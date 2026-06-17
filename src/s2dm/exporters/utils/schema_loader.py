@@ -39,6 +39,7 @@ from graphql.language.ast import (
 )
 
 from s2dm import log
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import (
     AnnotatedSchema,
     FieldMetadata,
@@ -48,13 +49,16 @@ from s2dm.exporters.utils.directive import (
     GRAPHQL_TYPE_DEFINITION_PATTERN,
     add_directives_to_schema,
     build_directive_map,
+    get_objects_with_multiple_fields_with_directive,
     get_type_directive_location,
     has_given_directive,
 )
+from s2dm.exporters.utils.extraction import get_all_object_types
 from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type, is_introspection_type
-from s2dm.exporters.utils.instance_tag import expand_instances_in_schema
+from s2dm.exporters.utils.instance_tag import expand_instances_in_schema, is_valid_instance_tag_field
 from s2dm.exporters.utils.naming import apply_naming_to_schema, convert_name, load_naming_config
 from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingConventionConfig, get_case_for_element
+from s2dm.exporters.utils.violations import ConstraintCode, ConstraintViolation
 from s2dm.utils.download import download_url_to_temp
 
 SourceMapValueResolver = Callable[[Path, str], str]
@@ -288,8 +292,8 @@ def print_schema_with_directives_preserved(schema: GraphQLSchema, source_map: di
     """
     directive_map = build_directive_map(schema)
 
-    reference_directive = schema.get_directive("reference")
-    if source_map and reference_directive is not None and "source" in reference_directive.args:
+    reference_directive = schema.get_directive(Directive.REFERENCE)
+    if source_map and reference_directive is not None and DirectiveArgument.SOURCE in reference_directive.args:
         log.info(f"Adding @reference directive to the the following locations only: {reference_directive.locations}")
 
         for type_name, source_filename in source_map.items():
@@ -330,7 +334,7 @@ def compose_schemas_to_string(
     )
     schema_errors = check_correct_schema(graphql_schema)
     if schema_errors:
-        raise ValueError("Schema validation failed:\n" + "\n".join(schema_errors))
+        raise ValueError("Schema validation failed:\n" + "\n".join(violation.message for violation in schema_errors))
 
     query_document = None
     if selection_query:
@@ -486,42 +490,45 @@ def check_enum_defaults(schema: GraphQLSchema) -> list[str]:
 
 
 @overload
-def check_correct_schema(schema: GraphQLSchema) -> list[str]: ...
+def check_correct_schema(schema: GraphQLSchema) -> list[ConstraintViolation]: ...
 
 
 @overload
-def check_correct_schema(schema: Path) -> list[str]: ...
+def check_correct_schema(schema: Path) -> list[ConstraintViolation]: ...
 
 
-def check_correct_schema(schema: GraphQLSchema | Path) -> list[str]:
-    """Assert that the schema conforms to GraphQL specification and has valid enum defaults.
+def check_correct_schema(schema: GraphQLSchema | Path) -> list[ConstraintViolation]:
+    """Validate that the schema conforms to the GraphQL spec, has valid enum defaults, and valid instance tags.
 
     Args:
         schema: The GraphQL schema or schema file path to validate
 
     Returns:
-        list[str]: List of error messages if any validation errors are found
-
-    Exits:
-        Calls sys.exit(1) if the schema has validation errors
+        list[ConstraintViolation]: Structured violations found, empty if the schema is valid.
     """
     if isinstance(schema, Path):
         schema = build_schema(schema.read_text(encoding="utf-8"))
 
     spec_errors = validate_schema(schema)
     enum_errors = check_enum_defaults(schema)
+    objects_with_multiple_instance_tags = get_objects_with_multiple_fields_with_directive(
+        get_all_object_types(schema), Directive.INSTANCE_TAG
+    )
 
-    all_errors: list[str] = []
+    violations: list[ConstraintViolation] = []
 
-    if spec_errors:
-        for spec_error in spec_errors:
-            all_errors.append(f"  - {spec_error.message}")
+    for spec_error in spec_errors:
+        violations.append(ConstraintViolation(ConstraintCode.SCHEMA_SPEC, spec_error.message))
 
-    if enum_errors:
-        for enum_error in enum_errors:
-            all_errors.append(f"  - {enum_error}")
+    for enum_error in enum_errors:
+        violations.append(ConstraintViolation(ConstraintCode.ENUM_DEFAULT, str(enum_error)))
 
-    return all_errors
+    for obj_name, field_names in objects_with_multiple_instance_tags.items():
+        joined = ", ".join(field_names)
+        message = f"[instanceTag] {obj_name} must have at most one @instanceTag field (found: {joined})"
+        violations.append(ConstraintViolation(ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS, message))
+
+    return violations
 
 
 def ensure_query(schema: GraphQLSchema) -> GraphQLSchema:
@@ -587,7 +594,7 @@ def get_referenced_types(
 
         if is_object_type(type_def):
             object_type = cast(GraphQLObjectType, type_def)
-            if not has_given_directive(object_type, "instanceTag") or include_instance_tag_fields:
+            if not has_given_directive(object_type, Directive.INSTANCE_TAG) or include_instance_tag_fields:
                 visit_object_type(object_type)
         elif is_interface_type(type_def):
             visit_interface_type(cast(GraphQLInterfaceType, type_def))
@@ -750,11 +757,20 @@ def prune_schema_using_query_selection(
 
         composite_type = cast(GraphQLObjectType | GraphQLInterfaceType, graphql_type)
 
-        if include_instance_tag_fields and "instanceTag" in composite_type.fields:
-            fields_to_keep[type_name].add("instanceTag")
-            instance_tag_field = composite_type.fields["instanceTag"]
-            instance_tag_type = get_named_type(instance_tag_field.type)
-            keep_type(instance_tag_type.name)
+        if include_instance_tag_fields:
+            instance_tag_field_name = next(
+                (
+                    field_name
+                    for field_name, field in composite_type.fields.items()
+                    if is_valid_instance_tag_field(field, schema)
+                ),
+                None,
+            )
+            if instance_tag_field_name is not None:
+                fields_to_keep[type_name].add(instance_tag_field_name)
+                instance_tag_field = composite_type.fields[instance_tag_field_name]
+                instance_tag_type = get_named_type(instance_tag_field.type)
+                keep_type(instance_tag_type.name)
 
         for selection in selection_set.selections:
             if isinstance(selection, InlineFragmentNode) and selection.selection_set is not None:

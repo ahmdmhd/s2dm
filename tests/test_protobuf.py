@@ -525,8 +525,8 @@ class TestProtobufExporter:
         """Test that types with @instanceTag directive are included when expansion is disabled."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
         selection_query = parse(
-            "query Selection { cabin { seats { isOccupied height instanceTag { row position } } "
-            "doors { isLocked position instanceTag { row side } } temperature } }"
+            "query Selection { cabin { seats { isOccupied height seatPosition { row position } } "
+            "doors { isLocked position doorPosition { row side } } temperature } }"
         )
         annotated_schema = process_schema(schema=graphql_schema, source_map={}, query_document=selection_query)
         result = translate_to_protobuf(annotated_schema, selection_query=selection_query)
@@ -556,7 +556,7 @@ class TestProtobufExporter:
             r'option \(message_source\) = "Seat".*?;.*?'
             r"bool isOccupied = 1.*?;.*?"
             r"int32 height = 2.*?"
-            r"SeatPosition instanceTag = 3.*?;.*?"
+            r"SeatPosition seatPosition = 3.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -567,7 +567,7 @@ class TestProtobufExporter:
             r'option \(message_source\) = "Door".*?;.*?'
             r"bool isLocked = 1.*?;.*?"
             r"int32 position = 2.*?"
-            r"DoorPosition instanceTag = 3.*?;.*?"
+            r"DoorPosition doorPosition = 3.*?;.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -766,7 +766,7 @@ class TestProtobufExporter:
         """Test that flatten mode includes types referenced by non-flattened types and their dependencies."""
         graphql_schema = load_schema_with_naming(test_schema_path, None)
         selection_query = parse(
-            "query Selection { vehicle { doors { isLocked position instanceTag { row side } } model year features } }"
+            "query Selection { vehicle { doors { isLocked position doorPosition { row side } } model year features } }"
         )
         annotated_schema = process_schema(schema=graphql_schema, source_map={}, query_document=selection_query)
         result = translate_to_protobuf(
@@ -790,7 +790,7 @@ class TestProtobufExporter:
             r'option \(message_source\) = "Door";.*?'
             r"optional bool isLocked = 1;.*?"
             r"optional int32 position = 2 \[\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r"optional DoorPosition instanceTag = 3;.*?"
+            r"optional DoorPosition doorPosition = 3;.*?"
             r"\}",
             result,
             re.DOTALL,
@@ -932,7 +932,7 @@ class TestProtobufExporter:
             door {
                 isLocked
                 position
-                instanceTag { row side }
+                doorPosition { row side }
             }
         }
         """
@@ -956,9 +956,9 @@ class TestProtobufExporter:
             r'optional bool Door_isLocked = 5 \[\(field_source\) = "Door"\];.*?'
             r'optional int32 Door_position = 6 \[\(field_source\) = "Door", '
             r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'RowEnum\.Enum Door_instanceTag_row = 7 \[\(field_source\) = "DoorPosition", '
+            r'RowEnum\.Enum Door_doorPosition_row = 7 \[\(field_source\) = "DoorPosition", '
             r"\(buf\.validate\.field\)\.required = true\];.*?"
-            r'SideEnum\.Enum Door_instanceTag_side = 8 \[\(field_source\) = "DoorPosition", '
+            r'SideEnum\.Enum Door_doorPosition_side = 8 \[\(field_source\) = "DoorPosition", '
             r"\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,
@@ -1037,7 +1037,7 @@ class TestProtobufExporter:
             door {
                 isLocked
                 position
-                instanceTag { row side }
+                doorPosition { row side }
             }
         }
         """
@@ -1059,9 +1059,9 @@ class TestProtobufExporter:
             r'optional bool Door_isLocked = 5 \[\(field_source\) = "Door"\];.*?'
             r'optional int32 Door_position = 6 \[\(field_source\) = "Door", '
             r"\(buf\.validate\.field\)\.int32 = \{gte: 0, lte: 100\}\];.*?"
-            r'RowEnum\.Enum Door_instanceTag_row = 7 \[\(field_source\) = "DoorPosition", '
+            r'RowEnum\.Enum Door_doorPosition_row = 7 \[\(field_source\) = "DoorPosition", '
             r"\(buf\.validate\.field\)\.required = true\];.*?"
-            r'SideEnum\.Enum Door_instanceTag_side = 8 \[\(field_source\) = "DoorPosition", '
+            r'SideEnum\.Enum Door_doorPosition_side = 8 \[\(field_source\) = "DoorPosition", '
             r"\(buf\.validate\.field\)\.required = true\];.*?"
             r"\}",
             result,

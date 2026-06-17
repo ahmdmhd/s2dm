@@ -1,7 +1,14 @@
 from graphql import GraphQLEnumType, GraphQLObjectType, GraphQLSchema, get_named_type
 
-from s2dm.exporters.utils.directive import get_directive_arguments, has_given_directive
+from s2dm.constants.directive import Directive, DirectiveArgument
+from s2dm.exporters.utils.directive import (
+    get_directive_arguments,
+    get_objects_with_multiple_fields_with_directive,
+    has_given_directive,
+)
+from s2dm.exporters.utils.instance_tag import is_instance_tag_field
 from s2dm.exporters.utils.naming_config import NamingConventionConfig
+from s2dm.exporters.utils.violations import ConstraintCode, ConstraintViolation
 from s2dm.tools.naming_checker import check_naming_conventions
 
 
@@ -10,45 +17,78 @@ class ConstraintChecker:
         self.schema = schema
         self.naming_config = naming_config
 
-    def check_min_leq_max(self, objects: list[GraphQLObjectType], directive: str) -> list[str]:
-        errors = []
+    def check_min_leq_max(self, objects: list[GraphQLObjectType], directive: Directive) -> list[ConstraintViolation]:
+        violations: list[ConstraintViolation] = []
         for obj in objects:
             for fname, field in obj.fields.items():
                 if has_given_directive(field, directive):
                     args = get_directive_arguments(field, directive)
                     try:
-                        min_val = args.get("min")
-                        max_val = args.get("max")
+                        min_val = args.get(DirectiveArgument.MIN)
+                        max_val = args.get(DirectiveArgument.MAX)
                         if min_val is not None and max_val is not None and float(min_val) > float(max_val):
-                            errors.append(f"[{directive}] {obj.name}.{fname} has min > max ({min_val} > {max_val})")
-                    except (ValueError, TypeError) as e:
-                        errors.append(f"[{directive}] {obj.name}.{fname} has invalid min/max values: {e}")
+                            violations.append(
+                                ConstraintViolation(
+                                    ConstraintCode.MIN_GREATER_THAN_MAX,
+                                    f"[{directive.value}] {obj.name}.{fname} has min > max ({min_val} > {max_val})",
+                                )
+                            )
+                    except (ValueError, TypeError) as exc:
+                        violations.append(
+                            ConstraintViolation(
+                                ConstraintCode.INVALID_MIN_MAX,
+                                f"[{directive.value}] {obj.name}.{fname} has invalid min/max values: {exc}",
+                            )
+                        )
 
-        return errors
+        return violations
 
-    def run(self, objects: list[GraphQLObjectType]) -> list[str]:
-        errors: list[str] = []
-        # instanceTag field rule
+    def run(self, objects: list[GraphQLObjectType]) -> list[ConstraintViolation]:
+        violations: list[ConstraintViolation] = []
         for obj in objects:
-            if "instanceTag" in obj.fields:
-                field = obj.fields["instanceTag"]
+            for fname, field in obj.fields.items():
+                if not is_instance_tag_field(field):
+                    continue
+
                 output_type = self.schema.get_type(get_named_type(field.type).name)
-                if not (isinstance(output_type, GraphQLObjectType) and has_given_directive(output_type, "instanceTag")):
-                    errors.append(
-                        f"[instanceTag] {obj.name}.instanceTag must reference an object type with @instanceTag"
+                if not (
+                    isinstance(output_type, GraphQLObjectType)
+                    and has_given_directive(output_type, Directive.INSTANCE_TAG)
+                ):
+                    violations.append(
+                        ConstraintViolation(
+                            ConstraintCode.INSTANCE_TAG_INVALID_REFERENCE,
+                            f"[instanceTag] {obj.name}.{fname} must reference an object type with @instanceTag",
+                        )
                     )
 
-        # instanceTag object fields must be enums
+        for obj_name, field_names in get_objects_with_multiple_fields_with_directive(
+            objects, Directive.INSTANCE_TAG
+        ).items():
+            joined = ", ".join(field_names)
+            violations.append(
+                ConstraintViolation(
+                    ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS,
+                    f"[instanceTag] {obj_name} must have at most one @instanceTag field (found: {joined})",
+                )
+            )
+
         for obj in objects:
-            if has_given_directive(obj, "instanceTag"):
+            if has_given_directive(obj, Directive.INSTANCE_TAG):
                 for fname, field in obj.fields.items():
                     if not isinstance(field.type, GraphQLEnumType):
-                        errors.append(f"[instanceTag] {obj.name}.{fname} must be an enum (in @instanceTag object)")
+                        violations.append(
+                            ConstraintViolation(
+                                ConstraintCode.INSTANCE_TAG_NON_ENUM_FIELD,
+                                f"[instanceTag] {obj.name}.{fname} must be an enum (in @instanceTag object)",
+                            )
+                        )
 
-        errors += self.check_min_leq_max(objects, "range")
-        errors += self.check_min_leq_max(objects, "cardinality")
+        violations += self.check_min_leq_max(objects, Directive.RANGE)
+        violations += self.check_min_leq_max(objects, Directive.CARDINALITY)
 
         if self.naming_config:
-            errors += check_naming_conventions(self.schema, self.naming_config)
+            naming_errors = check_naming_conventions(self.schema, self.naming_config)
+            violations += [ConstraintViolation(ConstraintCode.NAMING_CONVENTION, error) for error in naming_errors]
 
-        return errors
+        return violations

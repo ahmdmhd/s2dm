@@ -19,6 +19,8 @@ from graphql import (
 )
 from graphql.language.printer import print_ast
 
+from s2dm.constants.directive import BuiltInDirective
+
 GRAPHQL_TYPE_DEFINITION_PATTERN = r"^(type|interface|input|enum|union|scalar)\s+(\w+)"
 
 DirectiveElement = (
@@ -89,6 +91,48 @@ def has_given_directive(element: DirectiveElement, directive_name: str) -> bool:
     return False
 
 
+def get_field_with_applied_directive(
+    object_type: GraphQLObjectType, directive_to_check: str
+) -> dict[str, GraphQLField]:
+    """
+    Collect all fields of an object type that have the given directive applied.
+
+    Args:
+        object_type: The object type whose fields are inspected.
+        directive_to_check: The name of the directive to look for on each field.
+
+    Returns:
+        dict[str, GraphQLField]: A mapping of field name to field for every field carrying the directive.
+    """
+    return {
+        field_name: field
+        for field_name, field in object_type.fields.items()
+        if has_given_directive(field, directive_to_check)
+    }
+
+
+def get_objects_with_multiple_fields_with_directive(
+    object_types: list[GraphQLObjectType], directive_to_check: str
+) -> dict[str, list[str]]:
+    """
+    Find object types that declare more than one field with the given directive applied.
+
+    Args:
+        object_types: The object types to inspect.
+        directive_to_check: The name of the directive to look for on each field.
+
+    Returns:
+        dict[str, list[str]]: Mapping of object type name to its matching field names,
+        for each object type that declares more than one such field.
+    """
+    objects: dict[str, list[str]] = {}
+    for object_type in object_types:
+        fields_with_directive = list(get_field_with_applied_directive(object_type, directive_to_check))
+        if len(fields_with_directive) > 1:
+            objects[object_type.name] = fields_with_directive
+    return objects
+
+
 def get_argument_content(element: DirectiveElement, directive_name: str, argument_name: str) -> Any | None:
     """
     Extracts the comment from a GraphQL element (field or named type).
@@ -107,7 +151,7 @@ def get_argument_content(element: DirectiveElement, directive_name: str, argumen
 
 def format_directive_from_ast(directive_node: Any) -> str:
     directive_name = directive_node.name.value
-    if directive_name in {"deprecated", "specifiedBy"}:
+    if directive_name in {BuiltInDirective.DEPRECATED, BuiltInDirective.SPECIFIED_BY}:
         return ""
 
     args_str = ""
