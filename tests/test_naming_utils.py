@@ -12,11 +12,11 @@ from graphql import (
     GraphQLObjectType,
     GraphQLSchema,
     GraphQLString,
+    build_schema,
 )
 
 from s2dm.exporters.shacl import translate_to_shacl
-from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
-from s2dm.exporters.utils.instance_tag import expand_instance_tag, expand_instances_in_schema
+from s2dm.exporters.utils.instance_tag import expand_instances_in_schema
 from s2dm.exporters.utils.naming import (
     apply_naming_to_schema,
     convert_enum_values,
@@ -193,9 +193,7 @@ class TestApplyNamingToSchema:
 
     def test_apply_naming_routes_instancetag_enums_to_instancetag_case(self) -> None:
         """Enums inside @instanceTag types get instanceTag case; other enums get enumValue case."""
-        from graphql import build_schema as _build_schema
-
-        schema = _build_schema("""
+        schema = build_schema("""
             directive @instanceTag on OBJECT | FIELD_DEFINITION
             type Query { car: Car }
             type Car { kind: CarKind }
@@ -228,6 +226,32 @@ class TestApplyNamingToSchema:
         assert "SEDAN" in car_kind.values
         assert "SUV" in car_kind.values
         assert "sedan" not in car_kind.values
+
+    def test_apply_naming_routes_directly_tagged_enum_to_instancetag_case(self) -> None:
+        """Enums tagged with @instanceTag directly get instanceTag case."""
+        schema = build_schema("""
+            directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+            type Query { door: Door }
+            type Door { state: DoorState @instanceTag }
+            enum DoorState @instanceTag { front_left front_right }
+            enum CarKind { sedan suv }
+        """)
+        naming_config = NamingConventionConfig(
+            enum_value=CaseFormat.MACRO_CASE,
+            instance_tag=CaseFormat.PASCAL_CASE,
+        )
+        apply_naming_to_schema(schema, naming_config)
+
+        door_state = schema.get_type("DoorState")
+        assert isinstance(door_state, GraphQLEnumType)
+        assert "FrontLeft" in door_state.values
+        assert "FrontRight" in door_state.values
+        assert "front_left" not in door_state.values
+
+        car_kind = schema.get_type("CarKind")
+        assert isinstance(car_kind, GraphQLEnumType)
+        assert "SEDAN" in car_kind.values
+        assert "SUV" in car_kind.values
 
 
 class TestConvertFieldNames:
@@ -347,38 +371,6 @@ class TestConvertEnumValues:
 class TestInstanceTagConversion:
     """Test instance tag expansion with naming conversion."""
 
-    def test_expand_instance_tag_with_naming_config(self, spec_directory: Path) -> None:
-        """Test that instance tag expansion applies naming conversion."""
-        schema_path = Path(__file__).parent / "test_expanded_instances" / "test_schema.graphql"
-        schema = load_schema([spec_directory, schema_path])
-        object_types = get_all_object_types(schema)
-        instance_tag_objects = get_all_objects_with_directive(object_types, "instanceTag")
-
-        assert len(instance_tag_objects) > 0
-        door_position = next((obj for obj in instance_tag_objects if obj.name == "DoorPosition"), None)
-        assert door_position is not None
-
-        naming_config = NamingConventionConfig(instance_tag=CaseFormat.PASCAL_CASE)
-        result = expand_instance_tag(door_position, naming_config)
-
-        expected = ["Row1.Driverside", "Row1.Passengerside", "Row2.Driverside", "Row2.Passengerside"]
-        assert set(result) == set(expected)
-
-    def test_expand_instance_tag_without_naming_config(self, spec_directory: Path) -> None:
-        """Test that instance tag expansion works without naming config."""
-        schema_path = Path(__file__).parent / "test_expanded_instances" / "test_schema.graphql"
-        schema = load_schema([spec_directory, schema_path])
-        object_types = get_all_object_types(schema)
-        instance_tag_objects = get_all_objects_with_directive(object_types, "instanceTag")
-
-        door_position = next((obj for obj in instance_tag_objects if obj.name == "DoorPosition"), None)
-        assert door_position is not None
-
-        result = expand_instance_tag(door_position)
-
-        expected = ["ROW1.DRIVERSIDE", "ROW1.PASSENGERSIDE", "ROW2.DRIVERSIDE", "ROW2.PASSENGERSIDE"]
-        assert set(result) == set(expected)
-
     def test_expand_instances_in_schema_pipeline_applies_instance_tag_case(self, spec_directory: Path) -> None:
         """Full pipeline: expand_instances_in_schema applies instanceTag case to resolved_names."""
         schema_path = Path(__file__).parent / "test_expanded_instances" / "test_schema.graphql"
@@ -400,6 +392,40 @@ class TestInstanceTagConversion:
             "Door.Row2.Driverside",
             "Door.Row2.Passengerside",
         }
+
+    def test_expand_instances_exclude_matches_schema_literals_with_instance_tag_naming(self) -> None:
+        schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+
+        enum RowEnum { ROW1 ROW2 }
+        enum SideEnum { LEFT RIGHT }
+
+        type DoorPosition @instanceTag {
+          row: RowEnum!
+          side: SideEnum!
+        }
+
+        type Door {
+          doorPosition: DoorPosition @instanceTag(exclude: [\"ROW1.LEFT\"])
+        }
+
+        type Cabin {
+          doors: [Door]
+        }
+
+        type Query {
+          cabin: Cabin
+        }
+        """)
+
+        naming_config = NamingConventionConfig(instance_tag=CaseFormat.PASCAL_CASE)
+
+        apply_naming_to_schema(schema, naming_config)
+        _, _, field_metadata = expand_instances_in_schema(schema, naming_config)
+
+        door_meta = field_metadata.get(("Cabin", "Door"))
+        assert door_meta is not None
+        assert door_meta.resolved_names == ["Door.Row1.Right", "Door.Row2.Left", "Door.Row2.Right"]
 
     def test_shacl_instancetag_nodeshape_uses_instance_tag_case(self, spec_directory: Path) -> None:
         """translate_to_shacl applies instanceTag naming to sh:in values inside @instanceTag NodeShapes."""

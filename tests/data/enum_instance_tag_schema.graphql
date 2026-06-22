@@ -1,0 +1,20 @@
+directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+
+enum MirrorPosition @instanceTag {
+  LEFT
+  CENTER
+  RIGHT
+}
+
+type Mirror {
+  position: MirrorPosition @instanceTag
+  isFolded: Boolean
+}
+
+type Vehicle {
+  mirrors: [Mirror]
+}
+
+type Query {
+  vehicle: Vehicle
+}

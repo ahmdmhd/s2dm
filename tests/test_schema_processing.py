@@ -92,6 +92,92 @@ class TestLoadAndProcessSchema:
         assert "Seat" in cabin_type.fields
         assert "seats" not in cabin_type.fields
 
+    def test_load_with_expanded_instances_uses_enum_values_without_tag_field_wrapper(
+        self, enum_instance_tag_schema_path: Path
+    ) -> None:
+        annotated_schema, _, _ = load_and_process_schema(
+            [enum_instance_tag_schema_path], None, None, None, expanded_instances=True
+        )
+
+        vehicle_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Vehicle"])
+        assert "Mirror" in vehicle_type.fields
+        assert "mirrors" not in vehicle_type.fields
+
+        mirror_branch_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Mirror_Position"])
+        assert "LEFT" in mirror_branch_type.fields
+        assert "CENTER" in mirror_branch_type.fields
+        assert "RIGHT" in mirror_branch_type.fields
+        assert "position" not in mirror_branch_type.fields
+
+        mirror_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Mirror"])
+        assert "isFolded" in mirror_type.fields
+        assert "position" not in mirror_type.fields
+
+        field_meta = annotated_schema.field_metadata[("Vehicle", "Mirror")]
+        assert field_meta.resolved_names == ["Mirror.LEFT", "Mirror.CENTER", "Mirror.RIGHT"]
+
+    def test_load_with_expanded_instances_prunes_excluded_instance_tag_combination(self, tmp_path: Path) -> None:
+        schema_path = tmp_path / "excluded_instance.graphql"
+        schema_path.write_text("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+
+        enum RowEnum { ROW1 ROW2 }
+        enum SideEnum { LEFT RIGHT }
+
+        type DoorPosition @instanceTag {
+          row: RowEnum!
+          side: SideEnum!
+        }
+
+        type Door {
+          isLocked: Boolean
+          doorPosition: DoorPosition @instanceTag(exclude: [\"ROW1.LEFT\"])
+        }
+
+        type Cabin {
+          doors: [Door]
+        }
+
+        type Query {
+          cabin: Cabin
+        }
+        """)
+
+        annotated_schema, _, _ = load_and_process_schema([schema_path], None, None, None, expanded_instances=True)
+
+        field_meta = annotated_schema.field_metadata[("Cabin", "Door")]
+
+        assert field_meta.resolved_names == ["Door.ROW1.RIGHT", "Door.ROW2.LEFT", "Door.ROW2.RIGHT"]
+
+    def test_load_with_expanded_instances_raises_when_exclude_list_matches_nothing(self, tmp_path: Path) -> None:
+        schema_path = tmp_path / "invalid_excluded_instance.graphql"
+        schema_path.write_text("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+
+        enum RowEnum { ROW1 ROW2 }
+        enum SideEnum { LEFT RIGHT }
+
+        type DoorPosition @instanceTag {
+          row: RowEnum!
+          side: SideEnum!
+        }
+
+        type Door {
+          doorPosition: DoorPosition @instanceTag(exclude: [\"ROW9.LEFT\"])
+        }
+
+        type Cabin {
+          doors: [Door]
+        }
+
+        type Query {
+          cabin: Cabin
+        }
+        """)
+
+        with pytest.raises(ValueError):
+            load_and_process_schema([schema_path], None, None, None, expanded_instances=True)
+
     def test_load_with_naming_config(self, schema_path: list[Path], naming_config_path: Path) -> None:
         annotated_schema, naming_config, query_document = load_and_process_schema(
             schema_path, naming_config_path, None, None, False

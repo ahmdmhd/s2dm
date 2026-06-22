@@ -9,7 +9,7 @@ from graphql import (
 
 from s2dm.exporters.utils.field import FieldCase, get_field_case
 from s2dm.exporters.utils.graphql_type import is_introspection_type
-from s2dm.exporters.utils.naming import TYPE_CONTEXTS, convert_name
+from s2dm.exporters.utils.naming import TYPE_CONTEXTS, collect_instance_tag_enum_names, convert_name
 from s2dm.exporters.utils.naming_config import (
     CaseFormat,
     ContextType,
@@ -68,6 +68,7 @@ def check_naming_conventions(
     argument_errors = []
     enum_value_errors = []
     plural_errors = []
+    instance_tag_enum_names = collect_instance_tag_enum_names(schema)
 
     for type_name, object_type in schema.type_map.items():
         if is_introspection_type(type_name):
@@ -87,7 +88,10 @@ def check_naming_conventions(
                 )
 
         if isinstance(object_type, GraphQLEnumType):
-            expected_case = get_case_for_element(ElementType.ENUM_VALUE, None, config)
+            enum_element_type = (
+                ElementType.INSTANCE_TAG if type_name in instance_tag_enum_names else ElementType.ENUM_VALUE
+            )
+            expected_case = get_case_for_element(enum_element_type, None, config)
             if expected_case:
                 for value_name in object_type.values:
                     matches, suggestion = _matches_case_format(value_name, expected_case)

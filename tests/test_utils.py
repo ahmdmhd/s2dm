@@ -266,42 +266,6 @@ def test_get_all_objects_with_directive(schema_path: list[Path]) -> None:
 # #########################################################
 
 
-def test_expand_instance_tag_and_get_all_expanded_instance_tags(schema_path: list[Path]) -> None:
-    schema = schema_loader_utils.load_schema(schema_path)
-    tags: dict[GraphQLObjectType, list[str]] = instance_tag_utils.get_all_expanded_instance_tags(schema)
-    assert isinstance(tags, dict)
-
-
-def test_is_valid_instance_tag_field_and_has_valid_instance_tag_field(schema_path: list[Path]) -> None:
-    schema = schema_loader_utils.load_schema(schema_path)
-    object_types = extraction_utils.get_all_object_types(schema)
-    for obj in object_types:
-        for field in obj.fields.values():
-            _ = instance_tag_utils.is_valid_instance_tag_field(field, schema)
-            break
-        break
-    for obj in object_types:
-        _ = instance_tag_utils.has_valid_instance_tag_field(obj, schema)
-        break
-
-
-def test_get_instance_tag_object_and_dict(schema_path: list[Path]) -> None:
-    schema = schema_loader_utils.load_schema(schema_path)
-    object_types = extraction_utils.get_all_object_types(schema)
-    for obj in object_types:
-        tag_obj = instance_tag_utils.get_instance_tag_object(obj, schema)
-        if tag_obj:
-            tag_dict: dict[str, list[str]] = instance_tag_utils.get_instance_tag_dict(tag_obj)
-            assert isinstance(tag_dict, dict)
-        break
-    for obj in object_types:
-        tag_obj = instance_tag_utils.get_instance_tag_object(obj, schema)
-        if tag_obj:
-            tag_dict = instance_tag_utils.get_instance_tag_dict(tag_obj)
-            assert isinstance(tag_dict, dict)
-        break
-
-
 def test_expand_instances_in_schema(spec_directory: Path) -> None:
     schema = schema_loader_utils.load_schema(
         [spec_directory, Path("tests/test_expanded_instances/test_schema.graphql")]
@@ -344,6 +308,211 @@ def test_expand_instances_in_schema(spec_directory: Path) -> None:
     assert "instanceTag" not in seat_type.fields
 
 
+def test_expand_instances_with_exclusion_diverges_intermediate_types() -> None:
+    """Excluding one combination splits the affected level into prefixed per-branch types."""
+    schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum RowEnum {
+            ROW1
+            ROW2
+        }
+
+        enum SideEnum {
+            LEFT
+            RIGHT
+        }
+
+        type DoorPosition @instanceTag {
+            row: RowEnum!
+            side: SideEnum!
+        }
+
+        type Door {
+            doorPosition: DoorPosition @instanceTag(exclude: ["ROW1.LEFT"])
+        }
+
+        type Cabin {
+            doors: [Door]
+        }
+
+        type Query {
+            cabin: Cabin
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_Row"]).fields) == {"ROW1", "ROW2"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_Side"]).fields) == {"RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_Side"]).fields) == {"LEFT", "RIGHT"}
+    assert "Door_Side" not in type_map
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.ROW1.RIGHT",
+        "Door.ROW2.LEFT",
+        "Door.ROW2.RIGHT",
+    ]
+
+
+def test_expand_instances_with_exclusion_across_multiple_dimensions() -> None:
+    """With three dimensions, only branches touched by the exclusion diverge; the rest stay shared."""
+    schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum RowEnum {
+            ROW1
+            ROW2
+        }
+
+        enum SideEnum {
+            LEFT
+            RIGHT
+        }
+
+        enum HeightEnum {
+            TOP
+            BOTTOM
+        }
+
+        type DoorPosition @instanceTag {
+            row: RowEnum!
+            side: SideEnum!
+            height: HeightEnum!
+        }
+
+        type Door {
+            doorPosition: DoorPosition @instanceTag(exclude: ["ROW1.LEFT.TOP", "ROW2.RIGHT.BOTTOM"])
+        }
+
+        type Cabin {
+            doors: [Door]
+        }
+
+        type Query {
+            cabin: Cabin
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_Row"]).fields) == {"ROW1", "ROW2"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_Side"]).fields) == {"LEFT", "RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_Side"]).fields) == {"LEFT", "RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_LEFT_Height"]).fields) == {"BOTTOM"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_RIGHT_Height"]).fields) == {"TOP", "BOTTOM"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_LEFT_Height"]).fields) == {"TOP", "BOTTOM"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_RIGHT_Height"]).fields) == {"TOP"}
+    assert "Door_Height" not in type_map
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.ROW1.LEFT.BOTTOM",
+        "Door.ROW1.RIGHT.TOP",
+        "Door.ROW1.RIGHT.BOTTOM",
+        "Door.ROW2.LEFT.TOP",
+        "Door.ROW2.LEFT.BOTTOM",
+        "Door.ROW2.RIGHT.TOP",
+    ]
+
+
+def test_expand_instances_multiple_dimensions_share_level_types_without_exclusion() -> None:
+    """Without exclusion, every level collapses to a single shared type across all three dimensions."""
+    schema = build_schema("""
+        directive @instanceTag on OBJECT | FIELD_DEFINITION
+
+        enum RowEnum {
+            ROW1
+            ROW2
+        }
+
+        enum SideEnum {
+            LEFT
+            RIGHT
+        }
+
+        enum HeightEnum {
+            TOP
+            BOTTOM
+        }
+
+        type DoorPosition @instanceTag {
+            row: RowEnum!
+            side: SideEnum!
+            height: HeightEnum!
+        }
+
+        type Door {
+            doorPosition: DoorPosition @instanceTag
+        }
+
+        type Cabin {
+            doors: [Door]
+        }
+
+        type Query {
+            cabin: Cabin
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_Row"]).fields) == {"ROW1", "ROW2"}
+    assert set(cast(GraphQLObjectType, type_map["Door_Side"]).fields) == {"LEFT", "RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_Height"]).fields) == {"TOP", "BOTTOM"}
+    assert not any("ROW1_" in name or "ROW2_" in name for name in type_map)
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.ROW1.LEFT.TOP",
+        "Door.ROW1.LEFT.BOTTOM",
+        "Door.ROW1.RIGHT.TOP",
+        "Door.ROW1.RIGHT.BOTTOM",
+        "Door.ROW2.LEFT.TOP",
+        "Door.ROW2.LEFT.BOTTOM",
+        "Door.ROW2.RIGHT.TOP",
+        "Door.ROW2.RIGHT.BOTTOM",
+    ]
+
+
+def test_expand_instances_with_exclusion_on_flat_enum_instance() -> None:
+    """A directly-tagged enum is a single dimension; excluding a value drops it from the one level type."""
+    schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum DoorPosition @instanceTag {
+            FRONT_LEFT
+            FRONT_RIGHT
+            REAR_LEFT
+            REAR_RIGHT
+        }
+
+        type Door {
+            position: DoorPosition @instanceTag(exclude: ["FRONT_LEFT"])
+        }
+
+        type Cabin {
+            doors: [Door]
+        }
+
+        type Query {
+            cabin: Cabin
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_Position"]).fields) == {"FRONT_RIGHT", "REAR_LEFT", "REAR_RIGHT"}
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.FRONT_RIGHT",
+        "Door.REAR_LEFT",
+        "Door.REAR_RIGHT",
+    ]
+
+
 # #########################################################
 # Directive utils
 # #########################################################
@@ -358,6 +527,35 @@ def test_get_directive_arguments(schema_path: list[Path]) -> None:
             assert isinstance(args, dict)
             break
         break
+
+
+def test_get_directive_arguments_parses_instance_tag_exclude_list() -> None:
+    schema = build_schema("""
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    enum RowEnum { ROW1 ROW2 }
+    enum SideEnum { LEFT RIGHT }
+
+    type DoorPosition @instanceTag {
+      row: RowEnum!
+      side: SideEnum!
+    }
+
+    type Door {
+      doorPosition: DoorPosition @instanceTag(exclude: [\"ROW1.LEFT\"])
+    }
+
+    type Query {
+      door: Door
+    }
+    """)
+
+    door_type = schema.type_map["Door"]
+    assert isinstance(door_type, GraphQLObjectType)
+
+    args = directive_utils.get_directive_arguments(door_type.fields["doorPosition"], "instanceTag")
+
+    assert args["exclude"] == ["ROW1.LEFT"]
 
 
 def test_has_given_directive(schema_path: list[Path]) -> None:
