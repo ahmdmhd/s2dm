@@ -1,4 +1,4 @@
-directive @instanceTag on OBJECT | FIELD_DEFINITION
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
 enum RowEnum {
   ROW1

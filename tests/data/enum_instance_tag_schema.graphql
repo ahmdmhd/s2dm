@@ -1,4 +1,4 @@
-directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM | ENUM
 
 enum MirrorPosition @instanceTag {
   LEFT

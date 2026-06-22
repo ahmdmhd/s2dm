@@ -40,7 +40,7 @@ def _subject(graph: Graph, rdf_type: Any, name_in: str, *, exclude: str | None =
 def _cabin_door_schema() -> GraphQLSchema:
     """Test Cabin/Door/Window schema."""
     return build_schema("""
-        directive @instanceTag on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         type Query { cabin: Cabin }
 

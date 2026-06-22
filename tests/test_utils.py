@@ -420,7 +420,7 @@ def test_expand_instances_with_exclusion_across_multiple_dimensions() -> None:
 def test_expand_instances_multiple_dimensions_share_level_types_without_exclusion() -> None:
     """Without exclusion, every level collapses to a single shared type across all three dimensions."""
     schema = build_schema("""
-        directive @instanceTag on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         enum RowEnum {
             ROW1

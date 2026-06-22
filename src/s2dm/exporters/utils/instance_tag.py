@@ -31,6 +31,7 @@ from s2dm.exporters.utils.naming_config import (
 
 InstanceTagSource = GraphQLObjectType | GraphQLEnumType
 
+
 class _ExpandableField(NamedTuple):
     """Everything discovered for one expandable field, captured before any schema mutation."""
 
@@ -44,6 +45,7 @@ class _ExpandableField(NamedTuple):
     is_list: bool
     original_field: GraphQLField
     exclude: list[str]
+
 
 class _ResolvedInstanceTag(NamedTuple):
     """The valid @instanceTag field of an object type, resolved in a single pass."""
@@ -295,9 +297,7 @@ def _build_instance_types(
                     child = build(level + 1, subsuffixes, f"{name_prefix}{value}_")
                     fields[value] = GraphQLField(GraphQLNonNull(child))
 
-        instance_type = GraphQLObjectType(
-            name=f"{base_type.name}_{name_prefix}{dimension.capitalize()}", fields=fields
-        )
+        instance_type = GraphQLObjectType(name=f"{base_type.name}_{name_prefix}{dimension.capitalize()}", fields=fields)
         created.append(instance_type)
         log.debug(f"Created intermediate type '{instance_type.name}' with fields: {list(fields)}")
         return instance_type

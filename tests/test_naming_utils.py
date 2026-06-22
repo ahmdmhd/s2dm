@@ -194,7 +194,7 @@ class TestApplyNamingToSchema:
     def test_apply_naming_routes_instancetag_enums_to_instancetag_case(self) -> None:
         """Enums inside @instanceTag types get instanceTag case; other enums get enumValue case."""
         schema = build_schema("""
-            directive @instanceTag on OBJECT | FIELD_DEFINITION
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
             type Query { car: Car }
             type Car { kind: CarKind }
             enum TwoRows { front rear }
@@ -230,7 +230,7 @@ class TestApplyNamingToSchema:
     def test_apply_naming_routes_directly_tagged_enum_to_instancetag_case(self) -> None:
         """Enums tagged with @instanceTag directly get instanceTag case."""
         schema = build_schema("""
-            directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM | ENUM
             type Query { door: Door }
             type Door { state: DoorState @instanceTag }
             enum DoorState @instanceTag { front_left front_right }
@@ -395,7 +395,7 @@ class TestInstanceTagConversion:
 
     def test_expand_instances_exclude_matches_schema_literals_with_instance_tag_naming(self) -> None:
         schema = build_schema("""
-        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         enum RowEnum { ROW1 ROW2 }
         enum SideEnum { LEFT RIGHT }
