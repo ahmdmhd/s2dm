@@ -311,7 +311,7 @@ def test_compose_preserves_directive_with_various_scalar_types() -> None:
 
 def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
     schema_str = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       level: TagEnum
@@ -332,7 +332,7 @@ def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
 
 def test_check_correct_schema_allows_single_instance_tag_field() -> None:
     schema_str = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       level: TagEnum

@@ -378,7 +378,7 @@ class TestStrictMode:
         """Test that strict mode includes enum definitions used by @instanceTag types."""
         schema_str = """
         directive @vspec(element: VspecElement!) on OBJECT
-        directive @instanceTag on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         enum VspecElement {
             STRUCT

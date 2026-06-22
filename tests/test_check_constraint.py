@@ -16,7 +16,7 @@ def get_objects(schema: GraphQLSchema) -> list[GraphQLObjectType]:
 
 def test_instance_tag_field_must_reference_instance_tag_object() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       level: TagEnum
@@ -36,7 +36,7 @@ def test_instance_tag_field_must_reference_instance_tag_object() -> None:
 
 def test_instance_tag_field_wrong_type() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type NotTagObj {
       foo: String
@@ -55,7 +55,7 @@ def test_instance_tag_field_wrong_type() -> None:
 
 def test_instance_tag_object_fields_must_be_enum() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       notEnum: String
@@ -74,7 +74,7 @@ def test_instance_tag_object_fields_must_be_enum() -> None:
 
 def test_instance_tag_at_most_one_field_per_type() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       level: TagEnum
@@ -95,7 +95,7 @@ def test_instance_tag_at_most_one_field_per_type() -> None:
 
 def test_instance_tag_single_field_is_allowed() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
     type TagObj @instanceTag {
       level: TagEnum
@@ -116,7 +116,7 @@ def test_instance_tag_single_field_is_allowed() -> None:
 
 def test_instance_tag_field_may_reference_instance_tag_enum() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM | ENUM
 
     enum TagEnum @instanceTag {
       A
@@ -136,7 +136,7 @@ def test_instance_tag_field_may_reference_instance_tag_enum() -> None:
 
 def test_instance_tag_field_referencing_plain_enum_is_invalid() -> None:
     sdl = """
-    directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM | ENUM
 
     enum TagEnum {
       A

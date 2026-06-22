@@ -606,7 +606,7 @@ class TestInstanceTagHandling:
     def test_instance_tag_objects_are_included_in_schema(self) -> None:
         """Test that @instanceTag object types are emitted like normal object types."""
         schema_str = """
-            directive @instanceTag on OBJECT | FIELD_DEFINITION
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
             type Query {
                 vehicle: Vehicle
@@ -651,7 +651,7 @@ class TestInstanceTagHandling:
     def test_instance_tag_directive_allows_non_literal_field_name(self) -> None:
         """Test that a field-level @instanceTag works on any field name."""
         schema_str = """
-            directive @instanceTag on OBJECT | FIELD_DEFINITION
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
             type Query {
                 vehicle: Vehicle
@@ -691,7 +691,7 @@ class TestInstanceTagHandling:
     def test_instance_tag_field_is_included_when_valid(self) -> None:
         """Test that a valid field-level @instanceTag is emitted like a normal object field."""
         schema_str = """
-            directive @instanceTag on OBJECT | FIELD_DEFINITION
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
             type Query {
                 vehicle: Vehicle
@@ -755,7 +755,7 @@ class TestInstanceTagHandling:
     def test_instance_tag_field_with_non_instance_tag_object(self) -> None:
         """Test that instanceTag fields referencing regular objects (without @instanceTag) are included."""
         schema_str = """
-            directive @instanceTag on OBJECT | FIELD_DEFINITION
+            directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
             type Query {
                 vehicle: Vehicle

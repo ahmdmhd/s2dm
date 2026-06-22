@@ -6,7 +6,7 @@ directive @cardinality(min: Int, max: Int) on FIELD_DEFINITION
 
 directive @noDuplicates on FIELD_DEFINITION
 
-directive @instanceTag on OBJECT | FIELD_DEFINITION
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
 directive @metadata(comment: String, vssType: String) on FIELD_DEFINITION | OBJECT
 

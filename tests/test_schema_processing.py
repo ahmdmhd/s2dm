@@ -119,7 +119,7 @@ class TestLoadAndProcessSchema:
     def test_load_with_expanded_instances_prunes_excluded_instance_tag_combination(self, tmp_path: Path) -> None:
         schema_path = tmp_path / "excluded_instance.graphql"
         schema_path.write_text("""
-        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         enum RowEnum { ROW1 ROW2 }
         enum SideEnum { LEFT RIGHT }
@@ -152,7 +152,7 @@ class TestLoadAndProcessSchema:
     def test_load_with_expanded_instances_raises_when_exclude_list_matches_nothing(self, tmp_path: Path) -> None:
         schema_path = tmp_path / "invalid_excluded_instance.graphql"
         schema_path.write_text("""
-        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
         enum RowEnum { ROW1 ROW2 }
         enum SideEnum { LEFT RIGHT }
