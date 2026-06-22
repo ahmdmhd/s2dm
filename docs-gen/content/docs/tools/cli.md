@@ -2433,10 +2433,11 @@ s2dm compose --expanded-instances ...
 Given a schema with instance tags:
 
 ```graphql
-directive @instanceTag on OBJECT | FIELD_DEFINITION
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
 type Cabin {
   doors: [Door]
+  mirrors: [Mirror]
 }
 
 type Door {
@@ -2449,6 +2450,17 @@ type DoorPosition @instanceTag {
   side: SideEnum
 }
 
+type Mirror {
+  isFolded: Boolean
+  position: MirrorPosition @instanceTag
+}
+
+enum MirrorPosition @instanceTag {
+  LEFT
+  CENTER
+  RIGHT
+}
+
 enum RowEnum {
   ROW1
   ROW2
@@ -2460,22 +2472,44 @@ enum SideEnum {
 }
 ```
 
+An instance tag can be backed either by an object type (`DoorPosition`, whose enum fields form a multi-dimensional cartesian product) or directly by an enum (`MirrorPosition`, a single dimension marked with `@instanceTag` on the enum itself).
+
 **Without `--expanded-instances` (default):**
 
-The schema structure remains as-is with list fields and the doorPosition field preserved.
+The schema structure remains as-is with the list fields and the instance-tag fields (`doorPosition`, `position`) preserved.
 
 **With `--expanded-instances`:**
 
 The schema is transformed to use nested intermediate types:
 
 ```graphql
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
 type Cabin {
   Door: Door_Row!
+  Mirror: Mirror_Position!
 }
 
-type Door_Row {
-  ROW1: Door_Side!
-  ROW2: Door_Side!
+type Door {
+  isLocked: Boolean
+}
+
+type Mirror {
+  isFolded: Boolean
+}
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum SideEnum {
+  DRIVERSIDE
+  PASSENGERSIDE
+}
+
+type Query {
+  cabin: Cabin
 }
 
 type Door_Side {
@@ -2483,8 +2517,48 @@ type Door_Side {
   PASSENGERSIDE: Door
 }
 
-type Door {
-  isLocked: Boolean
+type Door_Row {
+  ROW1: Door_Side!
+  ROW2: Door_Side!
+}
+
+type Mirror_Position {
+  LEFT: Mirror
+  CENTER: Mirror
+  RIGHT: Mirror
+}
+```
+
+#### Key Changes
+
+- **Field names**: Plural list fields (`doors`, `mirrors`) are renamed to singular (`Door`, `Mirror`)
+- **Field types**: List types (`[Door]`) become intermediate types (`Door_Row`)
+- **Intermediate types**: New types are created representing the cartesian product of instance tag enums (`Door_Row`, `Door_Side`); an enum-backed tag is a single dimension, so it produces one intermediate type (`Mirror_Position`)
+- **Instance tag removal**: The instance-tag fields (`doorPosition`, `position`) are removed from the base types (`Door`, `Mirror`)
+- **Type removal**: Object types with the `@instanceTag` directive (`DoorPosition`) and enums marked with `@instanceTag` (`MirrorPosition`) are removed from the schema
+- **Enum preservation**: Enums used as fields inside an `@instanceTag` object (`RowEnum`, `SideEnum`) remain in the schema
+
+#### Excluding Instance Combinations
+
+The `@instanceTag` directive accepts an optional `exclude` argument — a list of instance combinations that should be pruned from the expansion. Each entry is the dot-joined path of enum values for a single combination (for example `"ROW1.MIDDLE"`), in the same order as the fields of the `@instanceTag` type.
+
+Use it when a particular combination does not exist in the modeled entity (for example, a vehicle whose front row has no middle seat):
+
+```graphql
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+type Cabin {
+  seats: [Seat]
+}
+
+type Seat {
+  isOccupied: Boolean
+  seatPosition: SeatPosition @instanceTag(exclude: ["ROW1.MIDDLE"])
+}
+
+type SeatPosition @instanceTag {
+  row: RowEnum
+  position: PositionEnum
 }
 
 enum RowEnum {
@@ -2492,17 +2566,66 @@ enum RowEnum {
   ROW2
 }
 
-enum SideEnum {
-  DRIVERSIDE
-  PASSENGERSIDE
+enum PositionEnum {
+  LEFT
+  MIDDLE
+  RIGHT
+}
+
+type Query {
+  cabin: Cabin
 }
 ```
 
-#### Key Changes
+Running the expansion:
 
-- **Field names**: Plural list fields (`doors`) are renamed to singular (`Door`)
-- **Field types**: List types (`[Door]`) become intermediate types (`Door_Row`)
-- **Intermediate types**: New types are created representing the cartesian product of instance tag enums (`Door_Row`, `Door_Side`)
-- **Instance tag removal**: The `doorPosition` field is removed from the base type (`Door`)
-- **Type removal**: Types with `@instanceTag` directive (`DoorPosition`) are removed from the schema
-- **Enum preservation**: Instance tag enums (`RowEnum`, `SideEnum`) remain in the schema
+```bash
+s2dm compose -s schema.graphql --expanded-instances -o expanded.graphql
+```
+
+produces the following schema. The excluded `ROW1.MIDDLE` combination is dropped, so the two rows no longer share a single position type — `ROW1` only expands to `LEFT` and `RIGHT`, while `ROW2` retains all three positions:
+
+```graphql
+directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+type Cabin {
+  Seat: Seat_Row!
+}
+
+type Seat {
+  isOccupied: Boolean
+}
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum PositionEnum {
+  LEFT
+  MIDDLE
+  RIGHT
+}
+
+type Query {
+  cabin: Cabin
+}
+
+type Seat_ROW1_Position {
+  LEFT: Seat
+  RIGHT: Seat
+}
+
+type Seat_ROW2_Position {
+  LEFT: Seat
+  MIDDLE: Seat
+  RIGHT: Seat
+}
+
+type Seat_Row {
+  ROW1: Seat_ROW1_Position!
+  ROW2: Seat_ROW2_Position!
+}
+```
+
+If an `exclude` entry matches no instance combination, the expansion fails with an error rather than silently ignoring it.
