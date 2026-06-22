@@ -58,17 +58,20 @@ def convert_name(name: str, target_case: CaseFormat) -> str:
     return str(CASE_CONVERTERS[target_case](name))
 
 
-def _collect_instance_tag_enum_names(schema: GraphQLSchema) -> set[str]:
-    """Collect names of enum types used as fields of @instanceTag object types."""
+def collect_instance_tag_enum_names(schema: GraphQLSchema) -> set[str]:
+    """Collect enum type names that should use instanceTag naming rules."""
     instance_tag_enum_names: set[str] = set()
     for type_obj in schema.type_map.values():
-        if not isinstance(type_obj, GraphQLObjectType) or not has_given_directive(type_obj, Directive.INSTANCE_TAG):
+        if isinstance(type_obj, GraphQLEnumType) and has_given_directive(type_obj, Directive.INSTANCE_TAG):
+            instance_tag_enum_names.add(type_obj.name)
             continue
-        for field in type_obj.fields.values():
-            field_base_type = get_named_type(field.type)
-            field_type_obj = schema.get_type(field_base_type.name)
-            if isinstance(field_type_obj, GraphQLEnumType):
-                instance_tag_enum_names.add(field_base_type.name)
+
+        if isinstance(type_obj, GraphQLObjectType) and has_given_directive(type_obj, Directive.INSTANCE_TAG):
+            for field in type_obj.fields.values():
+                field_base_type = get_named_type(field.type)
+                field_type_obj = schema.get_type(field_base_type.name)
+                if isinstance(field_type_obj, GraphQLEnumType):
+                    instance_tag_enum_names.add(field_base_type.name)
     return instance_tag_enum_names
 
 
@@ -79,7 +82,7 @@ def apply_naming_to_schema(schema: GraphQLSchema, naming_config: NamingConventio
         schema: The GraphQL schema to modify
         naming_config: Naming convention configuration
     """
-    instance_tag_enum_names = _collect_instance_tag_enum_names(schema)
+    instance_tag_enum_names = collect_instance_tag_enum_names(schema)
 
     types_to_rename = []
     for type_name, type_obj in schema.type_map.items():

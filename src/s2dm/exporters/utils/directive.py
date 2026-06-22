@@ -16,6 +16,7 @@ from graphql import (
     GraphQLType,
     GraphQLUnionType,
     IntValueNode,
+    ListValueNode,
 )
 from graphql.language.printer import print_ast
 
@@ -66,18 +67,25 @@ def get_directive_arguments(element: DirectiveElement, directive_name: str) -> d
     directive = next(d for d in element.ast_node.directives if d.name.value == directive_name)
     args: dict[str, Any] = {}
 
+    def convert_value(value_node: Any) -> Any:
+        if isinstance(value_node, IntValueNode):
+            return int(value_node.value)
+
+        if isinstance(value_node, FloatValueNode):
+            return float(value_node.value)
+
+        if isinstance(value_node, ListValueNode):
+            return [convert_value(item) for item in value_node.values]
+
+        raw_value = getattr(value_node, "value", None)
+        if raw_value is not None:
+            return raw_value
+
+        return value_node
+
     for arg in directive.arguments:
         arg_name = arg.name.value
-        value_node: Any = arg.value
-        raw_value = getattr(value_node, "value", None)
-        if isinstance(value_node, IntValueNode):
-            args[arg_name] = int(value_node.value)
-        elif isinstance(value_node, FloatValueNode):
-            args[arg_name] = float(value_node.value)
-        elif raw_value is not None:
-            args[arg_name] = raw_value
-        else:
-            args[arg_name] = value_node
+        args[arg_name] = convert_value(arg.value)
 
     return args
 

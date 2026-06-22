@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Any, cast
+from typing import Any, NamedTuple, cast
 
 from graphql import (
     GraphQLEnumType,
@@ -13,57 +13,62 @@ from graphql import (
 )
 
 from s2dm import log
-from s2dm.constants.directive import Directive
+from s2dm.constants.directive import Directive, DirectiveArgument
 from s2dm.exporters.utils.annotated_schema import FieldMetadata, TypeMetadata
-from s2dm.exporters.utils.directive import get_field_with_applied_directive, has_given_directive
-from s2dm.exporters.utils.extraction import get_all_object_types, get_all_objects_with_directive
-from s2dm.exporters.utils.naming import apply_naming_to_instance_values, convert_name
-from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingConventionConfig, get_case_for_element
+from s2dm.exporters.utils.directive import (
+    get_argument_content,
+    has_given_directive,
+)
+from s2dm.exporters.utils.extraction import get_all_object_types
+from s2dm.exporters.utils.naming import convert_name
+from s2dm.exporters.utils.naming_config import (
+    CaseFormat,
+    ContextType,
+    ElementType,
+    NamingConventionConfig,
+    get_case_for_element,
+)
+
+InstanceTagSource = GraphQLObjectType | GraphQLEnumType
+
+class _ExpandableField(NamedTuple):
+    """Everything discovered for one expandable field, captured before any schema mutation."""
+
+    parent_type: GraphQLObjectType
+    field_name: str
+    base_type: GraphQLObjectType
+    tag_field_name: str
+    source_type_name: str
+    instance_tag_dict: dict[str, list[str]]
+    leaf_nullable: bool
+    is_list: bool
+    original_field: GraphQLField
+    exclude: list[str]
+
+class _ResolvedInstanceTag(NamedTuple):
+    """The valid @instanceTag field of an object type, resolved in a single pass."""
+
+    field_name: str
+    source_type: InstanceTagSource
 
 
 def is_instance_tag_field(field: GraphQLField) -> bool:
     return has_given_directive(field, Directive.INSTANCE_TAG)
 
 
-def get_all_expanded_instance_tags(
-    schema: GraphQLSchema,
-    naming_config: NamingConventionConfig | None = None,
-) -> dict[GraphQLObjectType, list[str]]:
-    all_expanded_instance_tags: dict[GraphQLObjectType, list[str]] = {}
-    for object in get_all_objects_with_directive(get_all_object_types(schema), Directive.INSTANCE_TAG):
-        all_expanded_instance_tags[object] = expand_instance_tag(object, naming_config)
+def get_instance_tag_type(field: GraphQLField, schema: GraphQLSchema) -> InstanceTagSource | None:
+    if not is_instance_tag_field(field):
+        return None
 
-    log.debug(f"All expanded tags in the spec: {all_expanded_instance_tags}")
+    named_type = get_named_type(field.type)
+    output_type = schema.get_type(named_type.name)
+    if not isinstance(output_type, GraphQLObjectType | GraphQLEnumType):
+        return None
 
-    return all_expanded_instance_tags
+    if not has_given_directive(output_type, Directive.INSTANCE_TAG):
+        return None
 
-
-def expand_instance_tag(object: GraphQLObjectType, naming_config: NamingConventionConfig | None = None) -> list[str]:
-    log.debug(f"Expanding instanceTag for object: {object.name}")
-    expanded_tags = []
-    if not has_given_directive(object, Directive.INSTANCE_TAG):
-        raise ValueError(f"Object '{object.name}' does not have an instance tag directive.")
-    else:
-        tags_per_enum_field = []
-        for field_name, field in object.fields.items():
-            field_type = field.type
-            if isinstance(field.type, GraphQLNonNull):
-                field_type = get_named_type(field.type)
-            if not isinstance(field_type, GraphQLEnumType):
-                # TODO: Move this check to a validation function for the @instanceTag directive
-                raise TypeError(f"Field '{field_name}' in object '{object.name}' is not an enum.")
-
-            enum_values = apply_naming_to_instance_values(list(field_type.values.keys()), naming_config)
-            tags_per_enum_field.append(enum_values)
-        log.debug(f"Tags per field: {tags_per_enum_field}")
-
-        # Combine tags from different enum fields
-        for combination in product(*tags_per_enum_field):
-            expanded_tags.append(".".join(combination))  # <-- Character separator can be changed HERE
-
-        log.debug(f"Expanded tags: {expanded_tags}")
-
-        return expanded_tags
+    return output_type
 
 
 def is_valid_instance_tag_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
@@ -79,65 +84,47 @@ def is_valid_instance_tag_field(field: GraphQLField, schema: GraphQLSchema) -> b
     Returns:
         bool: True if the field's output type is a valid instanceTag, False otherwise.
     """
-    if not is_instance_tag_field(field):
-        return False
-
-    output_type = schema.get_type(get_named_type(field.type).name)
-    return isinstance(output_type, GraphQLObjectType) and has_given_directive(output_type, Directive.INSTANCE_TAG)
+    return get_instance_tag_type(field, schema) is not None
 
 
-def has_valid_instance_tag_field(object_type: GraphQLObjectType, schema: GraphQLSchema) -> bool:
+def _resolve_instance_tag(object_type: GraphQLObjectType, schema: GraphQLSchema) -> _ResolvedInstanceTag | None:
     """
-    Check if a given object type has a valid instanceTag field.
+    Resolve the single valid @instanceTag field of an object type.
 
-    Args:
-        object_type (GraphQLObjectType): The object type to check.
-        schema (GraphQLSchema): The GraphQL schema to validate against.
-
-    Returns:
-        bool: True if the object type has a valid instanceTag field, False otherwise.
-    """
-    return get_instance_tag_field_name(object_type, schema) is not None
-
-
-def get_instance_tag_field_name(object_type: GraphQLObjectType, schema: GraphQLSchema) -> str | None:
-    """
-    Get the name of the field annotated with a valid @instanceTag directive.
+    This is the shared lookup behind the public instanceTag helpers: it locates the valid
+    instanceTag field (if any) and the type it references, so callers stop re-walking the fields.
 
     Args:
         object_type (GraphQLObjectType): The object type to inspect.
         schema (GraphQLSchema): The GraphQL schema to validate against.
 
     Returns:
-        str | None: The name of the valid instanceTag field if found, None otherwise.
+        _ResolvedInstanceTag | None: The resolved instanceTag, or None if the object has none.
     """
-    instance_tag_fields = get_field_with_applied_directive(object_type, Directive.INSTANCE_TAG)
-    for field_name, field in instance_tag_fields.items():
-        if is_valid_instance_tag_field(field, schema):
-            return field_name
+    for field_name, field in object_type.fields.items():
+        source_type = get_instance_tag_type(field, schema)
+        if source_type is not None:
+            return _ResolvedInstanceTag(field_name, source_type)
     return None
 
 
-def get_instance_tag_object(object_type: GraphQLObjectType, schema: GraphQLSchema) -> GraphQLObjectType | None:
+def _tag_dimensions_from_source(tag_field_name: str, source_type: InstanceTagSource) -> dict[str, list[str]]:
     """
-    Get the valid instance tag object type used in a valid instance tag field.
+    Return the instanceTag dimensions of a source type as an ordered mapping.
+
+    Both object- and enum-backed sources are normalized to one ordered mapping of dimension name to
+    its enum values, so type construction and name expansion share a single representation.
 
     Args:
-        object_type (GraphQLObjectType): The object type to check.
-        schema (GraphQLSchema): The GraphQL schema to validate against.
+        tag_field_name (str): The name of the field that references the source type.
+        source_type (InstanceTagSource): The resolved instanceTag source type.
 
     Returns:
-        GraphQLObjectType | None: The valid instance tag object type if found, None otherwise.
+        dict[str, list[str]]: Ordered mapping of dimension name to enum values.
     """
-    field_name = get_instance_tag_field_name(object_type, schema)
-    if field_name is None:
-        return None
-
-    field = object_type.fields[field_name]
-    instance_tag_type = schema.get_type(get_named_type(field.type).name)
-    if isinstance(instance_tag_type, GraphQLObjectType):
-        return instance_tag_type
-    return None
+    if isinstance(source_type, GraphQLObjectType):
+        return get_instance_tag_dict(source_type)
+    return {tag_field_name: list(source_type.values.keys())}
 
 
 def get_instance_tag_dict(
@@ -167,91 +154,213 @@ def get_instance_tag_dict(
     return instance_tag_dict
 
 
-def is_expandable_field(field: GraphQLField, schema: GraphQLSchema) -> bool:
-    """
-    Check if a field is expandable (has a base type that has instanceTag).
-
-    Args:
-        field: The GraphQL field to check
-        schema: The GraphQL schema to validate against
-
-    Returns:
-        True if the field is expandable, False otherwise
-    """
-    base_type = get_named_type(field.type)
-    if isinstance(base_type, GraphQLObjectType):
-        return has_valid_instance_tag_field(base_type, schema)
-
-    return False
-
-
-def _collect_expandable_fields(
-    schema: GraphQLSchema,
-) -> list[tuple[GraphQLObjectType, str]]:
-    """
-    Collect all fields in the schema that need instance expansion.
-
-    Args:
-        schema: The GraphQL schema to scan
-
-    Returns:
-        List of tuples: (parent_type, field_name)
-    """
+def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
+    """Find every field whose base type carries a valid instanceTag, without touching the schema."""
     expandable_fields = []
-    all_object_types = get_all_object_types(schema)
+    for parent_type in get_all_object_types(schema):
+        for field_name, field in parent_type.fields.items():
+            base_type = get_named_type(field.type)
+            if not isinstance(base_type, GraphQLObjectType):
+                continue
+            resolved = _resolve_instance_tag(base_type, schema)
+            if resolved is None:
+                continue
 
-    for object_type in all_object_types:
-        for field_name, field in object_type.fields.items():
-            if is_expandable_field(field, schema):
-                expandable_fields.append((object_type, field_name))
+            unwrapped = field.type
+            if is_non_null_type(unwrapped):
+                unwrapped = unwrapped.of_type
+            is_list = is_list_type(unwrapped)
+            item_type = unwrapped.of_type if is_list else unwrapped
 
+            tag_field = base_type.fields[resolved.field_name]
+            exclude = get_argument_content(tag_field, Directive.INSTANCE_TAG, DirectiveArgument.EXCLUDE) or []
+
+            expandable_fields.append(
+                _ExpandableField(
+                    parent_type=parent_type,
+                    field_name=field_name,
+                    base_type=base_type,
+                    tag_field_name=resolved.field_name,
+                    source_type_name=resolved.source_type.name,
+                    instance_tag_dict=_tag_dimensions_from_source(resolved.field_name, resolved.source_type),
+                    leaf_nullable=not is_non_null_type(item_type),
+                    is_list=is_list,
+                    original_field=field,
+                    exclude=list(exclude),
+                )
+            )
     return expandable_fields
 
 
-def _create_intermediate_types(
-    base_type: GraphQLObjectType,
-    instance_tag_dict: dict[str, list[str]],
-    list_item_nullable: bool,
-) -> list[GraphQLObjectType]:
+def _included_instances(
+    expandable: _ExpandableField,
+    instance_tag_case: CaseFormat | None,
+) -> list[tuple[str, ...]]:
     """
-    Create intermediate GraphQL types for instance expansion.
+    Return the instances the field expands into after applying its exclude list.
+
+    Exclude entries are authored against the schema's literal enum values; when a naming
+    convention has renamed those values, each dotted segment is cased the same way before
+    matching. An entry that matches no instance is a configuration error.
 
     Args:
-        base_type: The base type (e.g., Door)
-        instance_tag_dict: Dict of enum field names to their values
-        list_item_nullable: Whether the original list items were nullable
+        expandable: The field being expanded, carrying its dimensions and exclude list.
+        instance_tag_case: The case applied to instanceTag values, or None when unconfigured.
 
     Returns:
-        List of intermediate types, with first intermediate type at the end
+        list[tuple[str, ...]]: The included instances in cartesian-product order.
+
+    Raises:
+        ValueError: If any exclude entry matches no instance.
     """
-    enum_fields = list(instance_tag_dict.keys())
-    intermediate_types: list[GraphQLObjectType] = []
+    instances = list(product(*expandable.instance_tag_dict.values()))
+    if not expandable.exclude:
+        return instances
 
-    for i in range(len(enum_fields) - 1, -1, -1):
-        enum_field_name = enum_fields[i]
-        enum_values = instance_tag_dict[enum_field_name]
+    def normalize(entry: str) -> tuple[str, ...]:
+        segments = entry.split(".")
+        if instance_tag_case:
+            segments = [convert_name(segment, instance_tag_case) for segment in segments]
+        return tuple(segments)
 
-        intermediate_type_name = f"{base_type.name}_{enum_field_name.capitalize()}"
+    unmatched = {normalize(entry): entry for entry in expandable.exclude}
+    included: list[tuple[str, ...]] = []
+    for instance in instances:
+        if unmatched.pop(instance, None) is None:
+            included.append(instance)
 
-        is_leaf_level = i == len(enum_fields) - 1
-        target_type = base_type if is_leaf_level else intermediate_types[-1]
-
-        intermediate_fields = {}
-        for enum_value in enum_values:
-            field_type: GraphQLObjectType | GraphQLNonNull[GraphQLObjectType] = (
-                target_type if is_leaf_level and list_item_nullable else GraphQLNonNull(target_type)
-            )
-            intermediate_fields[enum_value] = GraphQLField(field_type)
-
-        intermediate_type = GraphQLObjectType(
-            name=intermediate_type_name,
-            fields=intermediate_fields,
+    if unmatched:
+        raise ValueError(
+            f"@instanceTag exclude entries {sorted(unmatched.values())} on "
+            f"'{expandable.parent_type.name}.{expandable.field_name}' match no instance; "
+            f"supported instances are {sorted('.'.join(instance) for instance in instances)}"
         )
 
-        intermediate_types.append(intermediate_type)
-        log.debug(f"Created intermediate type '{intermediate_type_name}' with fields: {list(enum_values)}")
+    return included
 
-    return intermediate_types
+
+def _build_instance_types(
+    base_type: GraphQLObjectType,
+    dimensions: list[str],
+    instances: list[tuple[str, ...]],
+    leaf_nullable: bool,
+) -> tuple[GraphQLObjectType, list[GraphQLObjectType]]:
+    """
+    Build the intermediate type tree spanning the given instances.
+
+    The instances form a trie keyed by dimension: sibling branches with an identical set of
+    remaining instances share one type, while branches left asymmetric by an exclusion split
+    into their own types named after the path that reaches them.
+
+    Example:
+        dimensions=["a", "b"] over A1/A2 x B1/B2, with leaves pointing at the base type Base.
+
+        Nothing excluded - both A branches expand identically, so the b level is built once and shared:
+            Base_A -> { A1: Base_B, A2: Base_B }
+            Base_B -> { B1: Base, B2: Base }
+
+        Excluding A1.B1 - the A branches now differ, so each gets its own b type:
+            Base_A    -> { A1: Base_A1_B, A2: Base_A2_B }
+            Base_A1_B -> { B2: Base }
+            Base_A2_B -> { B1: Base, B2: Base }
+
+    Args:
+        base_type: The base type the leaves point at (e.g., Base).
+        dimensions: The instanceTag dimension names, outermost first.
+        instances: The included instances, each aligned with ``dimensions``.
+        leaf_nullable: Whether the field's leaf type (list item, or the base type for a non-list field) was nullable.
+
+    Returns:
+        tuple: The top intermediate type and every type created while building the tree.
+    """
+    created: list[GraphQLObjectType] = []
+
+    def build(level: int, remaining: list[tuple[str, ...]], name_prefix: str) -> GraphQLObjectType:
+        dimension = dimensions[level]
+        groups: dict[str, list[tuple[str, ...]]] = {}
+        for suffix in remaining:
+            groups.setdefault(suffix[0], []).append(suffix[1:])
+
+        fields: dict[str, GraphQLField] = {}
+        if level == len(dimensions) - 1:
+            leaf_type = base_type if leaf_nullable else GraphQLNonNull(base_type)
+            fields = {value: GraphQLField(leaf_type) for value in groups}
+        else:
+            siblings_share_subtree = len({frozenset(subsuffixes) for subsuffixes in groups.values()}) == 1
+            if siblings_share_subtree:
+                shared = build(level + 1, next(iter(groups.values())), name_prefix)
+                fields = {value: GraphQLField(GraphQLNonNull(shared)) for value in groups}
+            else:
+                for value, subsuffixes in groups.items():
+                    child = build(level + 1, subsuffixes, f"{name_prefix}{value}_")
+                    fields[value] = GraphQLField(GraphQLNonNull(child))
+
+        instance_type = GraphQLObjectType(
+            name=f"{base_type.name}_{name_prefix}{dimension.capitalize()}", fields=fields
+        )
+        created.append(instance_type)
+        log.debug(f"Created intermediate type '{instance_type.name}' with fields: {list(fields)}")
+        return instance_type
+
+    top_type = build(0, instances, "")
+    return top_type, created
+
+
+def _apply_expansion(
+    expandable: _ExpandableField,
+    top_type: GraphQLObjectType,
+    intermediate_types: list[GraphQLObjectType],
+    instances: list[tuple[str, ...]],
+    type_case: CaseFormat | None,
+    field_case: CaseFormat | None,
+    new_types: dict[str, GraphQLObjectType],
+    field_metadata: dict[tuple[str, str], FieldMetadata],
+) -> None:
+    """Apply naming to the built types and replace the parent field with its expanded form."""
+    for intermediate_type in intermediate_types:
+        if type_case:
+            intermediate_type.name = convert_name(intermediate_type.name, type_case)
+        new_types[intermediate_type.name] = intermediate_type
+
+    base_name = expandable.base_type.name if expandable.is_list else expandable.field_name
+    new_field_name = convert_name(base_name, field_case) if field_case else base_name
+
+    field_metadata[(expandable.parent_type.name, new_field_name)] = FieldMetadata(
+        resolved_names=[f"{new_field_name}.{'.'.join(instance)}" for instance in instances],
+        resolved_type=expandable.base_type.name,
+        is_expanded=True,
+        original_field=expandable.original_field,
+        instances=list(expandable.instance_tag_dict.values()),
+    )
+
+    new_field = GraphQLField(type_=GraphQLNonNull(top_type), description=expandable.original_field.description)
+    del expandable.parent_type.fields[expandable.field_name]
+    expandable.parent_type.fields[new_field_name] = new_field
+    log.debug(
+        f"Replaced field '{expandable.field_name}' with '{new_field_name}' in type '{expandable.parent_type.name}'"
+    )
+
+
+def _cleanup_instance_tag_artifacts(schema: GraphQLSchema, expandable_fields: list[_ExpandableField]) -> None:
+    """Remove the instanceTag source types and the now-redundant instanceTag fields on base types."""
+    types_to_remove = {
+        type_obj.name
+        for type_obj in schema.type_map.values()
+        if isinstance(type_obj, GraphQLObjectType | GraphQLEnumType)
+        and has_given_directive(type_obj, Directive.INSTANCE_TAG)
+    }
+
+    for base_type, tag_field_name in {
+        expandable.base_type: expandable.tag_field_name for expandable in expandable_fields
+    }.items():
+        if tag_field_name in base_type.fields:
+            del base_type.fields[tag_field_name]
+            log.debug(f"Removed '{tag_field_name}' instanceTag field from type '{base_type.name}'")
+
+    for type_name in types_to_remove:
+        if type_name in schema.type_map:
+            del schema.type_map[type_name]
+            log.debug(f"Removed type '{type_name}' with @instanceTag directive from schema")
 
 
 def expand_instances_in_schema(
@@ -277,97 +386,36 @@ def expand_instances_in_schema(
     expandable_fields = _collect_expandable_fields(schema)
     log.info(f"Found {len(expandable_fields)} expandable fields")
 
-    base_types_to_clean: set[GraphQLObjectType] = set()
-    instance_tag_types_to_remove: set[str] = set()
+    def case_for(element: ElementType, context: ContextType | None) -> CaseFormat | None:
+        return get_case_for_element(element, context, naming_config) if naming_config else None
+
+    type_case = case_for(ElementType.TYPE, ContextType.OBJECT)
+    field_case = case_for(ElementType.FIELD, ContextType.OBJECT)
+    instance_tag_case = case_for(ElementType.INSTANCE_TAG, None)
+
+    # TODO: Optimization - Cache the built type tree to avoid rebuilding it for every referencing field.
+    # When multiple fields reference the same base type (e.g., Cabin.doors and Vehicle.doors both reference
+    # [Door]), we build the Door_* intermediate types once per field. The instances are base-type determined
+    # (the exclude list lives on the base type's instanceTag field), so the trees are identical and the
+    # later-built one currently just overwrites the earlier in new_types.
+    # A cache cannot key on base_type.name alone: leaf_nullable is per-field (e.g. [Door] vs [Door!]), so two
+    # fields can need different leaf types under the same intermediate names. Key on (base_type.name,
+    # leaf_nullable) and disambiguate the generated names accordingly before reusing the built tree.
     new_types: dict[str, GraphQLObjectType] = {}
-    type_metadata: dict[str, TypeMetadata] = {}
     field_metadata: dict[tuple[str, str], FieldMetadata] = {}
-
-    # TODO: Optimization - Cache expanded types to avoid creating duplicate intermediate types
-    # When multiple fields reference the same base type (e.g., Cabin.doors and Vehicle.doors both reference [Door]),
-    # we currently create intermediate types twice. Instead, maintain a cache:
-    # expanded_types_cache: dict[str, GraphQLObjectType] = {}  # Maps base_type.name -> first_intermediate_type
-    # Check cache before creating, reuse if exists, otherwise create once and cache.
-
-    for parent_type, field_name in expandable_fields:
-        original_field = parent_type.fields[field_name]
-        base_type = cast(GraphQLObjectType, get_named_type(original_field.type))
-
-        log.debug(f"Processing field '{field_name}' in type '{parent_type.name}' with base type '{base_type.name}'")
-
-        unwrapped_type = original_field.type
-        if is_non_null_type(unwrapped_type):
-            unwrapped_type = unwrapped_type.of_type
-
-        target_type = unwrapped_type.of_type if is_list_type(unwrapped_type) else unwrapped_type
-        list_item_nullable = not is_non_null_type(target_type)
-
-        instance_tag_object = cast(GraphQLObjectType, get_instance_tag_object(base_type, schema))
-        instance_tag_dict = get_instance_tag_dict(instance_tag_object)
-        instance_tag_types_to_remove.add(instance_tag_object.name)
-
-        intermediate_types = _create_intermediate_types(base_type, instance_tag_dict, list_item_nullable)
-        first_intermediate_type = intermediate_types[-1]
-
-        type_case = get_case_for_element(ElementType.TYPE, ContextType.OBJECT, naming_config) if naming_config else None
-        field_case = (
-            get_case_for_element(ElementType.FIELD, ContextType.OBJECT, naming_config) if naming_config else None
+    for expandable in expandable_fields:
+        instances = _included_instances(expandable, instance_tag_case)
+        top_type, intermediate_types = _build_instance_types(
+            expandable.base_type, list(expandable.instance_tag_dict), instances, expandable.leaf_nullable
+        )
+        _apply_expansion(
+            expandable, top_type, intermediate_types, instances, type_case, field_case, new_types, field_metadata
         )
 
-        for intermediate_type in intermediate_types:
-            type_name = convert_name(intermediate_type.name, type_case) if type_case else intermediate_type.name
-            intermediate_type.name = type_name
-            new_types[type_name] = intermediate_type
-            type_metadata[type_name] = TypeMetadata(source=None, is_intermediate_type=True)
+    _cleanup_instance_tag_artifacts(schema, expandable_fields)
+    schema.type_map.update(new_types)
 
-        base_name = base_type.name if is_list_type(unwrapped_type) else field_name
-        new_field_name = convert_name(base_name, field_case) if field_case else base_name
-
-        resolved_names = [
-            f"{new_field_name}.{'.'.join(instance_product)}"
-            for instance_product in product(*instance_tag_dict.values())
-        ]
-
-        instances = list(instance_tag_dict.values())
-
-        new_field = GraphQLField(
-            type_=GraphQLNonNull(first_intermediate_type),
-            description=original_field.description,
-        )
-
-        field_metadata[(parent_type.name, new_field_name)] = FieldMetadata(
-            resolved_names=resolved_names,
-            resolved_type=base_type.name,
-            is_expanded=True,
-            original_field=original_field,
-            instances=instances,
-        )
-
-        del parent_type.fields[field_name]
-        parent_type.fields[new_field_name] = new_field
-
-        log.debug(f"Replaced field '{field_name}' with '{new_field_name}' in type '{parent_type.name}'")
-
-        base_types_to_clean.add(base_type)
-
-    all_types_to_remove = set(instance_tag_types_to_remove)
-    all_instance_tag_types = get_all_objects_with_directive(get_all_object_types(schema), Directive.INSTANCE_TAG)
-    all_types_to_remove.update(t.name for t in all_instance_tag_types)
-
-    for base_type in base_types_to_clean:
-        tag_field_name = get_instance_tag_field_name(base_type, schema)
-        if tag_field_name is not None:
-            del base_type.fields[tag_field_name]
-            log.debug(f"Removed '{tag_field_name}' instanceTag field from type '{base_type.name}'")
-
-    for type_name in all_types_to_remove:
-        if type_name in schema.type_map:
-            del schema.type_map[type_name]
-            log.debug(f"Removed type '{type_name}' with @instanceTag directive from schema")
-
-    for type_name, new_type in new_types.items():
-        schema.type_map[type_name] = new_type
-
+    type_metadata = {name: TypeMetadata(source=None, is_intermediate_type=True) for name in new_types}
     log.info(f"Instance expansion complete. Created {len(new_types)} intermediate types")
 
     return schema, type_metadata, field_metadata

@@ -1,7 +1,7 @@
 from typing import cast
 
 from graphql import GraphQLNamedType, GraphQLObjectType, is_named_type
-from graphql.language.ast import ListValueNode, ObjectValueNode, StringValueNode
+from graphql.language.ast import ObjectValueNode, StringValueNode
 
 from s2dm import log
 from s2dm.constants.directive import Directive, DirectiveArgument
@@ -19,10 +19,10 @@ def get_namespace_from_metadata(object_type: GraphQLObjectType, global_namespace
     """Extract namespace from @vspec metadata key-value pairs, fallback to global."""
     metadata = get_argument_content(object_type, Directive.VSPEC, DirectiveArgument.METADATA)
 
-    if not metadata or not isinstance(metadata, ListValueNode):
+    if not metadata or not isinstance(metadata, list):
         return global_namespace
 
-    for item in metadata.values:
+    for item in metadata:
         if not isinstance(item, ObjectValueNode):
             continue
 

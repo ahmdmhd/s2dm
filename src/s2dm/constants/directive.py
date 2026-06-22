@@ -25,6 +25,7 @@ class BuiltInDirective(str, Enum):
 class DirectiveArgument(str, Enum):
     """Names of the arguments accepted by the directives the tool reads."""
 
+    EXCLUDE = "exclude"
     MIN = "min"
     MAX = "max"
     COMMENT = "comment"

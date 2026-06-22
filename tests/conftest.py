@@ -45,6 +45,7 @@ class TestSchemaData:
     NESTED_ENUM_SCHEMA = TESTS_DATA_DIR / "nested_enum_schema.graphql"
     NESTED_INPUT_TYPE_SCHEMA = TESTS_DATA_DIR / "nested_input_type_schema.graphql"
     INSTANCE_TAG_DIRECTIVE_SCHEMA = TESTS_DATA_DIR / "instance_tag_directive_schema.graphql"
+    ENUM_INSTANCE_TAG_SCHEMA = TESTS_DATA_DIR / "enum_instance_tag_schema.graphql"
 
     # Version bump test schemas
     BASE_SCHEMA = TESTS_DATA_DIR / "base.graphql"
@@ -69,6 +70,11 @@ def parsed_console_output() -> str:
 def instance_tag_directive_schema_path() -> Path:
     """Path to a schema exercising the @instanceTag directive: Seat has two tag fields, Door has one."""
     return TestSchemaData.INSTANCE_TAG_DIRECTIVE_SCHEMA
+
+
+@pytest.fixture
+def enum_instance_tag_schema_path() -> Path:
+    return TestSchemaData.ENUM_INSTANCE_TAG_SCHEMA
 
 
 @pytest.fixture(scope="module")

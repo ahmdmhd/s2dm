@@ -6,7 +6,7 @@ from s2dm.exporters.utils.directive import (
     get_objects_with_multiple_fields_with_directive,
     has_given_directive,
 )
-from s2dm.exporters.utils.instance_tag import is_instance_tag_field
+from s2dm.exporters.utils.instance_tag import get_instance_tag_type, is_instance_tag_field
 from s2dm.exporters.utils.naming_config import NamingConventionConfig
 from s2dm.exporters.utils.violations import ConstraintCode, ConstraintViolation
 from s2dm.tools.naming_checker import check_naming_conventions
@@ -50,15 +50,12 @@ class ConstraintChecker:
                 if not is_instance_tag_field(field):
                     continue
 
-                output_type = self.schema.get_type(get_named_type(field.type).name)
-                if not (
-                    isinstance(output_type, GraphQLObjectType)
-                    and has_given_directive(output_type, Directive.INSTANCE_TAG)
-                ):
+                output_type = get_instance_tag_type(field, self.schema)
+                if output_type is None:
                     violations.append(
                         ConstraintViolation(
                             ConstraintCode.INSTANCE_TAG_INVALID_REFERENCE,
-                            f"[instanceTag] {obj.name}.{fname} must reference an object type with @instanceTag",
+                            f"[instanceTag] {obj.name}.{fname} must reference an object or enum type with @instanceTag",
                         )
                     )
 
@@ -76,7 +73,8 @@ class ConstraintChecker:
         for obj in objects:
             if has_given_directive(obj, Directive.INSTANCE_TAG):
                 for fname, field in obj.fields.items():
-                    if not isinstance(field.type, GraphQLEnumType):
+                    field_type = get_named_type(field.type)
+                    if not isinstance(field_type, GraphQLEnumType):
                         violations.append(
                             ConstraintViolation(
                                 ConstraintCode.INSTANCE_TAG_NON_ENUM_FIELD,

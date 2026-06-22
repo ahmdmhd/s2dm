@@ -114,6 +114,46 @@ def test_instance_tag_single_field_is_allowed() -> None:
     assert not violations
 
 
+def test_instance_tag_field_may_reference_instance_tag_enum() -> None:
+    sdl = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+
+    enum TagEnum @instanceTag {
+      A
+      B
+    }
+
+    type Foo {
+      tag: TagEnum @instanceTag
+    }
+    """
+    schema = make_schema(sdl)
+    objects = get_objects(schema)
+    checker = ConstraintChecker(schema)
+    violations = checker.run(objects)
+    assert not violations
+
+
+def test_instance_tag_field_referencing_plain_enum_is_invalid() -> None:
+    sdl = """
+    directive @instanceTag on OBJECT | FIELD_DEFINITION | ENUM
+
+    enum TagEnum {
+      A
+      B
+    }
+
+    type Foo {
+      tag: TagEnum @instanceTag
+    }
+    """
+    schema = make_schema(sdl)
+    objects = get_objects(schema)
+    checker = ConstraintChecker(schema)
+    violations = checker.run(objects)
+    assert any(violation.code == ConstraintCode.INSTANCE_TAG_INVALID_REFERENCE for violation in violations)
+
+
 def test_range_min_leq_max() -> None:
     sdl = """
     directive @range(min: Float, max: Float) on FIELD_DEFINITION
