@@ -575,24 +575,11 @@ def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> Non
     try:
         dependency_config = load_dependency_config(resolved_config_path)
         validate_cached_dependency_workspace(dependency_config, working_directory)
-        selected_schema_contents, dependency_schema_inputs = load_vendored_dependency_schema_inputs(
+        dependency_schema_inputs = load_vendored_dependency_schema_inputs(
             dependency_config,
             vendor_root,
         )
-        schema_paths, type_name_conflicts = prepare_dependency_schemas_for_composition(
-            dependency_schema_inputs,
-            selected_schema_contents,
-            auto_prefix,
-        )
-        if type_name_conflicts:
-            log_conflict = log.info if auto_prefix else log.error
-            for conflict in type_name_conflicts:
-                dependency_labels = ", ".join(
-                    f"{dependency.name}@{dependency.version}" for dependency in conflict.dependencies_metadata
-                )
-                log_conflict(f"Multiple `{conflict.type_name}` types found in [{dependency_labels}]")
-            if not auto_prefix:
-                sys.exit(1)
+        schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_inputs, auto_prefix)
 
         composed_schema_str = compose_schemas_to_string(
             schemas=schema_paths,

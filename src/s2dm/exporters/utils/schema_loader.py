@@ -36,6 +36,7 @@ from graphql.language.ast import (
 
 from s2dm import log
 from s2dm.constants.directive import Directive, DirectiveArgument
+from s2dm.deps.compose import SchemaDefinition, SharedDefinitionResolver
 from s2dm.exporters.utils.annotated_schema import (
     AnnotatedSchema,
     FieldMetadata,
@@ -124,7 +125,7 @@ def build_schema_str_with_optional_source_map(
     schema_selection_resolver: SchemaSelectionResolver | None = None,
 ) -> tuple[str, dict[str, str]]:
     """Build a GraphQL schema from a file or folder, returning also a source map."""
-    schema_str = ""
+    schema_definitions: list[SchemaDefinition] = []
     source_map: dict[str, str] = {}
 
     type_case = get_case_for_element(ElementType.TYPE, ContextType.OBJECT, naming_config) if naming_config else None
@@ -135,14 +136,43 @@ def build_schema_str_with_optional_source_map(
             selection_document = schema_selection_resolver(graphql_file)
             if selection_document is not None:
                 content = select_schema_content(content, selection_document)
-        schema_str += content + "\n"
+
+        schema_definition = SchemaDefinition(content=content, source_label=graphql_file.name)
+        schema_definitions.append(schema_definition)
+
         if source_map_value_resolver is not None:
             type_names = _extract_type_names_from_content(content)
             for type_name in type_names:
                 transformed_name = convert_name(type_name, type_case) if type_case else type_name
                 source_map[transformed_name] = source_map_value_resolver(graphql_file, type_name)
 
+    resolved_schema_definitions = _resolve_shared_schema_definitions(schema_definitions)
+    schema_str = "\n".join(schema_definition.content for schema_definition in resolved_schema_definitions)
+    if schema_str:
+        schema_str += "\n"
+
     return schema_str, source_map
+
+
+def _resolve_shared_schema_definitions(schema_definitions: list[SchemaDefinition]) -> list[SchemaDefinition]:
+    if len(schema_definitions) < 2:
+        return schema_definitions
+
+    resolver = SharedDefinitionResolver(schema_definitions)
+    conflict_messages = resolver.conflict_messages()
+    if conflict_messages:
+        raise ValueError("\n".join(conflict_messages))
+
+    resolved_schema_definitions: list[SchemaDefinition] = []
+    resolved_definitions_sdl = resolver.resolved_definitions_sdl()
+    if resolved_definitions_sdl:
+        resolved_schema_definitions.append(
+            SchemaDefinition(content=resolved_definitions_sdl, source_label="shared definitions")
+        )
+
+    type_only_schema_definitions = resolver.schema_definitions_without_shared_definitions()
+    resolved_schema_definitions.extend(type_only_schema_definitions)
+    return resolved_schema_definitions
 
 
 def build_schema_str(graphql_schema_paths: list[Path]) -> str:

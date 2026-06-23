@@ -5,6 +5,7 @@ from graphql import DocumentNode, GraphQLObjectType, build_schema, parse
 
 from s2dm.exporters.utils.schema_loader import (
     check_correct_schema,
+    compose_schemas_to_string,
     load_schema_with_source_map,
     print_schema_with_directives_preserved,
 )
@@ -307,6 +308,92 @@ def test_compose_preserves_directive_with_various_scalar_types() -> None:
     assert "enabled: true" in result
     # Ensure enums are not quoted
     assert "status: ACTIVE" in result
+
+
+def test_compose_merges_identical_shared_directives_and_scalars(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        scalar DateTime
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          manufacturedAt: DateTime @metadata(comment: "built")
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        scalar DateTime
+
+        type ServiceRecord {
+          servicedAt: DateTime @metadata(comment: "serviced")
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    assert composed_schema.count("directive @metadata") == 1
+    assert composed_schema.count("scalar DateTime") == 1
+    assert "type Vehicle" in composed_schema
+    assert "type ServiceRecord" in composed_schema
+
+
+def test_compose_rejects_incompatible_shared_directives_and_scalars(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        directive @format(value: String) on SCALAR
+        scalar DateTime @format(value: "iso")
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          manufacturedAt: DateTime @metadata(comment: "built")
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        directive @metadata(label: String) on OBJECT
+        directive @format(value: String) on SCALAR
+        scalar DateTime @format(value: "epoch")
+
+        type ServiceRecord {
+          servicedAt: DateTime
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        compose_schemas_to_string(
+            schemas=[first_schema_path, second_schema_path],
+            root_type=None,
+            selection_query=None,
+            naming_config=None,
+            expanded_instances=False,
+        )
 
 
 def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:

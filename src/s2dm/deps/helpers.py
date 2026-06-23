@@ -7,7 +7,14 @@ from graphql import DocumentNode, parse
 from pydantic import ValidationError
 
 from s2dm.deps import DEPENDENCY_LOCK_FILENAME, clean_resolved_dependencies, resolve_dependencies
-from s2dm.deps.compose import DependencySchemaBuilder, DependencySchemaInput, DependencyTypeNameConflict
+from s2dm.deps.compose import (
+    DependencyCompositionError,
+    DependencySchemaBuilder,
+    DependencySchemaInput,
+    DependencyTypeNameConflict,
+    SchemaDefinition,
+    SharedDefinitionResolver,
+)
 from s2dm.deps.models import DependencyConfig, DependencyLockFile, DependencyMetadata, RemoteIdentityConfig
 from s2dm.deps.resolve.common import (
     DEFAULT_DEPS_CONFIG_FILENAME,
@@ -22,7 +29,7 @@ from s2dm.deps.resolve.providers import RemoteIdentityProvider
 from s2dm.deps.resolve.resolve import validate_cached_dependency
 from s2dm.deps.resolve.warnings import WarningCollector
 from s2dm.exporters.utils.schema_loader import build_schema_str_with_optional_source_map
-from s2dm.utils.file import temp_files_from_contents
+from s2dm.utils.file import temp_file_from_content, temp_files_from_contents
 
 DependencyStatus = Literal["not_configured", "unresolved", "resolved", "invalid"]
 
@@ -89,9 +96,8 @@ def resolve_dependency_config_to_lock_path(
 def load_vendored_dependency_schema_inputs(
     dependency_config: DependencyConfig,
     vendor_root: Path,
-) -> tuple[list[str], list[DependencySchemaInput]]:
+) -> list[DependencySchemaInput]:
     """Load vendored dependency schemas and metadata, applying per-dependency selections when present."""
-    selected_schema_contents: list[str] = []
     dependency_schema_inputs: list[DependencySchemaInput] = []
     selection_by_schema_path: dict[Path, DocumentNode] = {}
 
@@ -121,7 +127,6 @@ def load_vendored_dependency_schema_inputs(
             raise ValueError(
                 f"Failed to build dependency '{dependency.name}@{dependency.version}':\n{error}"
             ) from error
-        selected_schema_contents.append(schema_content)
         dependency_schema_inputs.append(
             DependencySchemaInput(
                 schema_content=schema_content,
@@ -129,26 +134,81 @@ def load_vendored_dependency_schema_inputs(
             )
         )
 
-    if not selected_schema_contents:
+    if not dependency_schema_inputs:
         raise ValueError(f"No vendored dependency schemas found under {vendor_root}")
 
-    return selected_schema_contents, dependency_schema_inputs
+    return dependency_schema_inputs
 
 
 def prepare_dependency_schemas_for_composition(
     dependency_schema_inputs: list[DependencySchemaInput],
-    selected_schema_contents: list[str],
     auto_prefix: bool,
-) -> tuple[list[Path], tuple[DependencyTypeNameConflict, ...]]:
-    """Build schema files for composition and return any detected cross-dependency type conflicts."""
-    dependency_schema_builder = DependencySchemaBuilder(dependency_schema_inputs)
-    type_name_conflicts = dependency_schema_builder.find_conflicts()
+) -> list[Path]:
+    """Build the per-dependency schema files to compose, reconciling cross-dependency conflicts.
 
-    if type_name_conflicts and not auto_prefix:
-        return [], type_name_conflicts
+    Definitions collide differently depending on their kind:
+
+    - Directives and scalars are shared and cannot be prefixed. The resolver merges identical
+      redeclarations into one shared block and hands the builder each dependency's types only.
+    - Type names are namespaced: clashing types are prefixed, but only when ``auto_prefix`` is set.
+
+    A conflict blocks the build when it cannot be reconciled: incompatible directive/scalar
+    redeclarations always block, and type-name clashes block only without ``auto_prefix``.
+
+    Raises:
+        DependencyCompositionError: Lists every blocking conflict.
+    """
+    schema_definitions = [
+        SchemaDefinition(
+            content=dependency_schema_input.schema_content,
+            source_label=dependency_schema_input.metadata.label,
+        )
+        for dependency_schema_input in dependency_schema_inputs
+    ]
+    resolver = SharedDefinitionResolver(schema_definitions)
+    type_only_schema_definitions = resolver.schema_definitions_without_shared_definitions()
+    type_only_inputs: list[DependencySchemaInput] = []
+
+    schema_input_pairs = zip(dependency_schema_inputs, type_only_schema_definitions, strict=True)
+    for dependency_schema_input, type_only_schema_definition in schema_input_pairs:
+        type_only_input = DependencySchemaInput(
+            schema_content=type_only_schema_definition.content,
+            metadata=dependency_schema_input.metadata,
+        )
+        type_only_inputs.append(type_only_input)
+
+    builder = DependencySchemaBuilder(type_only_inputs)
+
+    blocking_type_conflicts = () if auto_prefix else builder.find_conflicts()
+    conflict_messages = _type_conflict_messages(blocking_type_conflicts)
+    shared_conflict_messages = resolver.conflict_messages()
+    conflict_messages.extend(shared_conflict_messages)
+    if conflict_messages:
+        raise DependencyCompositionError(conflict_messages)
+
     if auto_prefix:
-        return dependency_schema_builder.write_auto_prefixed_schema_files(), type_name_conflicts
-    return temp_files_from_contents(selected_schema_contents), type_name_conflicts
+        type_schema_files = builder.write_auto_prefixed_schema_files()
+    else:
+        type_schema_contents = [type_only_input.schema_content for type_only_input in type_only_inputs]
+        type_schema_files = temp_files_from_contents(type_schema_contents)
+
+    resolved_definitions_sdl = resolver.resolved_definitions_sdl()
+    if not resolved_definitions_sdl:
+        return type_schema_files
+    resolved_definitions_file = temp_file_from_content(resolved_definitions_sdl)
+    return [resolved_definitions_file, *type_schema_files]
+
+
+def _type_conflict_messages(type_name_conflicts: tuple[DependencyTypeNameConflict, ...]) -> list[str]:
+    return [
+        f"Multiple definitions of type `{conflict.type_name}` found in "
+        f"[{dependency_labels(conflict.dependencies_metadata)}]"
+        for conflict in type_name_conflicts
+    ]
+
+
+def dependency_labels(dependencies_metadata: tuple[DependencyMetadata, ...]) -> str:
+    return ", ".join(metadata.label for metadata in dependencies_metadata)
 
 
 def validate_cached_dependency_workspace(

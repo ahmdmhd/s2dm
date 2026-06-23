@@ -15,6 +15,11 @@ class DependencyMetadata(BaseModel):
     version: DependencyVersion
     preferred_prefix: str | None = None
 
+    @property
+    def label(self) -> str:
+        """Human-readable ``name@version`` identity used in conflict messages and assertions."""
+        return f"{self.name}@{self.version}"
+
     @field_validator("preferred_prefix")
     @classmethod
     def validate_preferred_prefix(cls, value: str | None) -> str | None:

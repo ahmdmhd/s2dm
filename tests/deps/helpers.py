@@ -6,7 +6,12 @@ from pathlib import Path
 
 import yaml
 
+from s2dm.deps.models import DependencyMetadata
 from s2dm.deps.resolve.common import METADATA_FILENAME, SCHEMA_FILENAME
+
+
+def dependency_identities(dependencies_metadata: tuple[DependencyMetadata, ...]) -> set[tuple[str, str]]:
+    return {(metadata.name, metadata.version) for metadata in dependencies_metadata}
 
 
 def write_metadata_file(

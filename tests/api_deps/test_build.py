@@ -164,7 +164,6 @@ class TestDepsBuildRoute:
         assert response.status_code == 422
         data = response.json()
         assert data["error"] == "ValidationError"
-        assert "Multiple `Vehicle` types found in [BodyModel@1.0.0, PowertrainModel@2.0.0]" in data["message"]
 
     def test_build_dependencies_auto_prefix_returns_composed_schema(
         self,

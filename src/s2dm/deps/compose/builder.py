@@ -14,8 +14,6 @@ from graphql.language.ast import (
     Node,
     ObjectTypeDefinitionNode,
     ObjectTypeExtensionNode,
-    ScalarTypeDefinitionNode,
-    ScalarTypeExtensionNode,
     TypeDefinitionNode,
     TypeExtensionNode,
     UnionTypeDefinitionNode,
@@ -37,7 +35,6 @@ TYPE_DEFINITION_NODE_TYPES = (
     InterfaceTypeDefinitionNode,
     InputObjectTypeDefinitionNode,
     EnumTypeDefinitionNode,
-    ScalarTypeDefinitionNode,
     UnionTypeDefinitionNode,
 )
 _TYPE_EXTENSION_NODE_TYPES = (
@@ -45,7 +42,6 @@ _TYPE_EXTENSION_NODE_TYPES = (
     InterfaceTypeExtensionNode,
     InputObjectTypeExtensionNode,
     EnumTypeExtensionNode,
-    ScalarTypeExtensionNode,
     UnionTypeExtensionNode,
 )
 _TYPE_NAMED_NODE_TYPES = TYPE_DEFINITION_NODE_TYPES + _TYPE_EXTENSION_NODE_TYPES
