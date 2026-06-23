@@ -16,6 +16,7 @@ from s2dm.api.models.deps import (
     GetDependenciesConfigResponse,
     SaveDependenciesConfigRequest,
 )
+from s2dm.deps.compose import DependencyCompositionError
 from s2dm.deps.helpers import (
     build_resolver_context,
     delete_dependency_identity_config,
@@ -138,25 +139,16 @@ def build_api_dependencies(auto_prefix: bool) -> str:
     validate_cached_dependency_workspace(dependency_config, api_workspace)
     vendor_root = api_workspace / VENDOR_DIRECTORY
 
-    selected_schema_contents, dependency_schema_inputs = load_vendored_dependency_schema_inputs(
+    dependency_schema_inputs = load_vendored_dependency_schema_inputs(
         dependency_config,
         vendor_root,
     )
-    schema_paths, type_name_conflicts = prepare_dependency_schemas_for_composition(
-        dependency_schema_inputs,
-        selected_schema_contents,
-        auto_prefix,
-    )
-    if type_name_conflicts and not auto_prefix:
-        conflict_messages = [
-            "Multiple "
-            f"`{conflict.type_name}` types found in "
-            f"[{', '.join(f'{dependency.name}@{dependency.version}' for dependency in conflict.dependencies_metadata)}]"
-            for conflict in type_name_conflicts
-        ]
+    try:
+        schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_inputs, auto_prefix)
+    except DependencyCompositionError as error:
         raise ResponseError(
-            format_error_list("Dependency build failed due to conflicting type definitions", conflict_messages)
-        )
+            format_error_list("Dependency build failed due to conflicting definitions", list(error.messages))
+        ) from error
     return compose_schemas_to_string(
         schemas=schema_paths,
         root_type=None,

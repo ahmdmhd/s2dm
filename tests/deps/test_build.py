@@ -1,10 +1,14 @@
 import pytest
 
 from s2dm.deps.compose import (
+    DependencyCompositionError,
     DependencySchemaBuilder,
     DependencySchemaInput,
 )
+from s2dm.deps.helpers import prepare_dependency_schemas_for_composition
 from s2dm.deps.models import DependencyMetadata
+from s2dm.exporters.utils.schema_loader import compose_schemas_to_string
+from tests.deps.helpers import dependency_identities
 
 
 def test_find_conflicts_reports_duplicate_type_with_dependency_metadata() -> None:
@@ -19,11 +23,13 @@ def test_find_conflicts_reports_duplicate_type_with_dependency_metadata() -> Non
         ),
     ]
 
-    conflicts = DependencySchemaBuilder(dependency_schema_contents).find_conflicts()
+    (conflict,) = DependencySchemaBuilder(dependency_schema_contents).find_conflicts()
 
-    assert len(conflicts) == 1
-    assert conflicts[0].type_name == "Vehicle"
-    assert _dependency_labels(conflicts[0].dependencies_metadata) == {"BodyModel@1.0.0", "PowertrainModel@2.0.0"}
+    assert conflict.type_name == "Vehicle"
+    assert dependency_identities(conflict.dependencies_metadata) == {
+        ("BodyModel", "1.0.0"),
+        ("PowertrainModel", "2.0.0"),
+    }
 
 
 def test_type_extensions_do_not_create_type_name_conflicts() -> None:
@@ -105,10 +111,78 @@ def test_auto_prefix_keeps_no_conflict_schema_unchanged() -> None:
     assert "powertrain_" not in schema_content
 
 
-def _dependency_labels(dependencies_metadata: tuple[DependencyMetadata, ...]) -> set[str]:
-    return {
-        f"{dependency_metadata.name}@{dependency_metadata.version}" for dependency_metadata in dependencies_metadata
-    }
+def test_identical_directives_and_scalars_across_dependencies_succeed() -> None:
+    body_schema = """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        scalar DateTime
+        type Query {
+            body: Body
+        }
+        type Body {
+            color: String @metadata(comment: "exterior paint")
+            manufacturedAt: DateTime
+        }
+    """
+    powertrain_schema = """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        scalar DateTime
+        type Powertrain {
+            horsepower: Int @metadata(comment: "peak output")
+            assembledAt: DateTime
+        }
+    """
+    dependency_schema_contents = [
+        DependencySchemaInput(
+            schema_content=body_schema,
+            metadata=DependencyMetadata(name="BodyModel", id="urn:test:body", version="1.0.0"),
+        ),
+        DependencySchemaInput(
+            schema_content=powertrain_schema,
+            metadata=DependencyMetadata(name="PowertrainModel", id="urn:test:powertrain", version="2.0.0"),
+        ),
+    ]
+
+    schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_contents, auto_prefix=False)
+
+    composed_schema = compose_schemas_to_string(
+        schemas=schema_paths,
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    assert composed_schema.count("scalar DateTime") == 1
+    assert composed_schema.count("directive @metadata") == 1
+
+
+def test_incompatible_directives_fails() -> None:
+    body_schema = """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        type Body {
+            color: String @metadata(comment: "exterior paint")
+            doorCount: Int
+        }
+    """
+    powertrain_schema = """
+        directive @metadata(comment: String) on OBJECT
+        type Powertrain @metadata(comment: "drivetrain") {
+            horsepower: Int
+        }
+    """
+    dependency_schema_contents = [
+        DependencySchemaInput(
+            schema_content=body_schema,
+            metadata=DependencyMetadata(name="BodyModel", id="urn:test:body", version="1.0.0"),
+        ),
+        DependencySchemaInput(
+            schema_content=powertrain_schema,
+            metadata=DependencyMetadata(name="PowertrainModel", id="urn:test:powertrain", version="2.0.0"),
+        ),
+    ]
+
+    with pytest.raises(DependencyCompositionError):
+        prepare_dependency_schemas_for_composition(dependency_schema_contents, auto_prefix=False)
 
 
 def _write_auto_prefixed_schema_content(dependency_schema_contents: list[DependencySchemaInput]) -> str:

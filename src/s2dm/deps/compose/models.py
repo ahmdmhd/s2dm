@@ -6,6 +6,14 @@ from s2dm.deps.models import DependencyMetadata
 
 
 @dataclass(frozen=True)
+class SchemaDefinition:
+    """Schema content paired with a source label for conflict reporting."""
+
+    content: str
+    source_label: str
+
+
+@dataclass(frozen=True)
 class DependencySchemaInput:
     """Loaded dependency schema content input for dependency build."""
 
@@ -19,6 +27,22 @@ class DependencyTypeNameConflict:
 
     type_name: str
     dependencies_metadata: tuple[DependencyMetadata, ...]
+
+
+@dataclass(frozen=True)
+class DirectiveDefinitionConflict:
+    """GraphQL directive defined with incompatible definitions across schemas."""
+
+    directive_name: str
+    schema_source_labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ScalarDefinitionConflict:
+    """GraphQL scalar defined with incompatible definitions across schemas."""
+
+    scalar_name: str
+    schema_source_labels: tuple[str, ...]
 
 
 @dataclass(frozen=True)
