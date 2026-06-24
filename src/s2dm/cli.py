@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -408,6 +409,20 @@ def diff() -> None:
 def deps() -> None:
     """Dependency commands."""
     pass
+
+
+def handle_export_errors(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Log expected export failures and exit non-zero, instead of leaking a traceback."""
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except (OSError, RuntimeError, TypeError, ValueError, GraphQLError, ValidationError, yaml.YAMLError) as error:
+            log.error(f"Export failed: {error}")
+            sys.exit(1)
+
+    return wrapper
 
 
 @click.group()
@@ -992,6 +1007,7 @@ def _compose_schemas(
     show_default=True,
 )
 @expanded_instances_option
+@handle_export_errors
 def shacl(
     schemas: list[Path],
     selection_query: Path | None,
@@ -1035,6 +1051,7 @@ def shacl(
 @root_type_option
 @naming_config_option
 @expanded_instances_option
+@handle_export_errors
 def vspec(
     schemas: list[Path],
     selection_query: Path | None,
@@ -1085,6 +1102,7 @@ def vspec(
     required=True,
     help="LinkML default prefix URL",
 )
+@handle_export_errors
 def linkml(
     schemas: list[Path],
     selection_query: Path | None,
@@ -1127,6 +1145,7 @@ def linkml(
 @naming_config_option
 @strict_option
 @expanded_instances_option
+@handle_export_errors
 def jsonschema(
     schemas: list[Path],
     selection_query: Path | None,
@@ -1166,6 +1185,7 @@ def avro() -> None:
 @naming_config_option
 @avro_namespace_option
 @expanded_instances_option
+@handle_export_errors
 def schema(
     schemas: list[Path],
     selection_query: Path,
@@ -1204,6 +1224,7 @@ def schema(
 @avro_namespace_option
 @expanded_instances_option
 @strict_option
+@handle_export_errors
 def protocol(
     schemas: list[Path],
     selection_query: Path | None,
@@ -1257,6 +1278,7 @@ def protocol(
     help="Protobuf package name",
 )
 @expanded_instances_option
+@handle_export_errors
 def protobuf(
     schemas: list[Path],
     selection_query: Path,
