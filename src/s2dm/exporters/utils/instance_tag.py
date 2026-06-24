@@ -175,7 +175,11 @@ def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
             item_type = unwrapped.of_type if is_list else unwrapped
 
             tag_field = base_type.fields[resolved.field_name]
-            exclude = get_argument_content(tag_field, Directive.INSTANCE_TAG, DirectiveArgument.EXCLUDE) or []
+            field_exclude = get_argument_content(tag_field, Directive.INSTANCE_TAG, DirectiveArgument.EXCLUDE) or []
+            source_exclude = (
+                get_argument_content(resolved.source_type, Directive.INSTANCE_TAG, DirectiveArgument.EXCLUDE) or []
+            )
+            exclude = list(dict.fromkeys([*field_exclude, *source_exclude]))
 
             expandable_fields.append(
                 _ExpandableField(
@@ -188,7 +192,7 @@ def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
                     leaf_nullable=not is_non_null_type(item_type),
                     is_list=is_list,
                     original_field=field,
-                    exclude=list(exclude),
+                    exclude=exclude,
                 )
             )
     return expandable_fields
