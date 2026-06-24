@@ -396,6 +396,127 @@ def test_compose_rejects_incompatible_shared_directives_and_scalars(tmp_path: Pa
         )
 
 
+def test_compose_rejects_directive_superset_without_merge_shared_definitions(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          vin: String @metadata(comment: "base")
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+
+        type ServiceRecord {
+          servicedAt: String
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        compose_schemas_to_string(
+            schemas=[first_schema_path, second_schema_path],
+            root_type=None,
+            selection_query=None,
+            naming_config=None,
+            expanded_instances=False,
+        )
+
+
+def test_compose_uses_directive_superset_with_merge_shared_definitions(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        directive @metadata(comment: String) on FIELD_DEFINITION
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          vin: String @metadata(comment: "base")
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+
+        type ServiceRecord {
+          servicedAt: String
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+        merge_shared_definitions=True,
+    )
+
+    assert "directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT" in composed_schema
+
+
+def test_compose_uses_scalar_applied_directive_superset_with_merge_shared_definitions(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        directive @format(value: String!) on SCALAR
+        scalar DateTime @format(value: "iso")
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          manufacturedAt: DateTime
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        directive @format(value: String!, source: String) on SCALAR
+        scalar DateTime @format(value: "iso", source: "system")
+
+        type ServiceRecord {
+          servicedAt: DateTime
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+        merge_shared_definitions=True,
+    )
+
+    assert "directive @format(value: String!, source: String) on SCALAR" in composed_schema
+    assert 'scalar DateTime @format(value: "iso", source: "system")' in composed_schema
+
+
 def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
     schema_str = """
     directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM

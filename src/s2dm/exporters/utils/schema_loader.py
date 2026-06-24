@@ -123,6 +123,7 @@ def build_schema_str_with_optional_source_map(
     naming_config: NamingConventionConfig | None = None,
     source_map_value_resolver: SourceMapValueResolver | None = None,
     schema_selection_resolver: SchemaSelectionResolver | None = None,
+    merge_shared_definitions: bool = False,
 ) -> tuple[str, dict[str, str]]:
     """Build a GraphQL schema from a file or folder, returning also a source map."""
     schema_definitions: list[SchemaDefinition] = []
@@ -146,7 +147,7 @@ def build_schema_str_with_optional_source_map(
                 transformed_name = convert_name(type_name, type_case) if type_case else type_name
                 source_map[transformed_name] = source_map_value_resolver(graphql_file, type_name)
 
-    resolved_schema_definitions = _resolve_shared_schema_definitions(schema_definitions)
+    resolved_schema_definitions = _resolve_shared_schema_definitions(schema_definitions, merge_shared_definitions)
     schema_str = "\n".join(schema_definition.content for schema_definition in resolved_schema_definitions)
     if schema_str:
         schema_str += "\n"
@@ -154,11 +155,14 @@ def build_schema_str_with_optional_source_map(
     return schema_str, source_map
 
 
-def _resolve_shared_schema_definitions(schema_definitions: list[SchemaDefinition]) -> list[SchemaDefinition]:
+def _resolve_shared_schema_definitions(
+    schema_definitions: list[SchemaDefinition],
+    merge_shared_definitions: bool,
+) -> list[SchemaDefinition]:
     if len(schema_definitions) < 2:
         return schema_definitions
 
-    resolver = SharedDefinitionResolver(schema_definitions)
+    resolver = SharedDefinitionResolver(schema_definitions, merge_shared_definitions=merge_shared_definitions)
     conflict_messages = resolver.conflict_messages()
     if conflict_messages:
         raise ValueError("\n".join(conflict_messages))
@@ -204,6 +208,7 @@ def load_schema_with_source_map(
     naming_config: NamingConventionConfig | None = None,
     source_map_value_resolver: SourceMapValueResolver | None = None,
     schema_selection_resolver: SchemaSelectionResolver | None = None,
+    merge_shared_definitions: bool = False,
 ) -> tuple[GraphQLSchema, dict[str, str]]:
     """Load and build a GraphQL schema from files or folders, returning schema and source map."""
     schema_str, source_map = build_schema_str_with_optional_source_map(
@@ -211,6 +216,7 @@ def load_schema_with_source_map(
         naming_config=naming_config,
         source_map_value_resolver=source_map_value_resolver or _default_source_map_value_resolver,
         schema_selection_resolver=schema_selection_resolver,
+        merge_shared_definitions=merge_shared_definitions,
     )
     schema = build_schema_with_query(schema_str)
     return schema, source_map
@@ -351,12 +357,14 @@ def compose_schemas_to_string(
     expanded_instances: bool,
     source_map_value_resolver: SourceMapValueResolver | None = None,
     schema_selection_resolver: SchemaSelectionResolver | None = None,
+    merge_shared_definitions: bool = False,
 ) -> str:
     """Compose schema files into a single GraphQL schema string with optional filtering and naming transforms."""
     graphql_schema, source_map = load_schema_with_source_map(
         schemas,
         source_map_value_resolver=source_map_value_resolver,
         schema_selection_resolver=schema_selection_resolver,
+        merge_shared_definitions=merge_shared_definitions,
     )
     schema_errors = check_correct_schema(graphql_schema)
     if schema_errors:

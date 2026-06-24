@@ -6,6 +6,10 @@ from s2dm.deps.compose.models import (
     ScalarDefinitionConflict,
     SchemaDefinition,
 )
+from s2dm.exporters.utils.directive import (
+    is_directive_definition_superset,
+    is_scalar_definition_superset,
+)
 
 
 class SharedDefinitionResolver:
@@ -16,7 +20,9 @@ class SharedDefinitionResolver:
     Each schema is left with its type definitions only for downstream composition.
     """
 
-    def __init__(self, schema_definitions: list[SchemaDefinition]) -> None:
+    def __init__(self, schema_definitions: list[SchemaDefinition], merge_shared_definitions: bool = False) -> None:
+        self.merge_shared_definitions = merge_shared_definitions
+        self.superset_definitions_by_key: dict[tuple[str, str], Node] = {}
         self.schema_documents = [
             (schema_definition.source_label, parse(schema_definition.content))
             for schema_definition in schema_definitions
@@ -51,6 +57,10 @@ class SharedDefinitionResolver:
                 if key in seen_keys:
                     continue
                 seen_keys.add(key)
+                superset_definition = self.superset_definitions_by_key.get(key)
+                if superset_definition is not None:
+                    shared_definitions.append(superset_definition)
+                    continue
                 shared_definitions.append(definition)
         if not shared_definitions:
             return ""
@@ -92,6 +102,7 @@ class SharedDefinitionResolver:
     def _incompatible_definitions(self) -> dict[tuple[str, str], tuple[str, ...]]:
         source_labels_by_key: dict[tuple[str, str], list[str]] = {}
         identities_by_key: dict[tuple[str, str], set[tuple[object, ...]]] = {}
+        definitions_by_key: dict[tuple[str, str], list[Node]] = {}
         for source_label, document in self.schema_documents:
             for definition in document.definitions:
                 shared_definition = self._as_shared_definition(definition)
@@ -100,11 +111,49 @@ class SharedDefinitionResolver:
                 key, identity = shared_definition
                 source_labels_by_key.setdefault(key, []).append(source_label)
                 identities_by_key.setdefault(key, set()).add(identity)
-        return {
-            key: tuple(schema_source_labels)
-            for key, schema_source_labels in source_labels_by_key.items()
-            if len(schema_source_labels) > 1 and len(identities_by_key[key]) > 1
-        }
+                definitions_by_key.setdefault(key, []).append(definition)
+
+        incompatible_definitions: dict[tuple[str, str], tuple[str, ...]] = {}
+        for key, schema_source_labels in source_labels_by_key.items():
+            has_multiple_sources = len(schema_source_labels) > 1
+            has_different_identities = len(identities_by_key[key]) > 1
+            if not has_multiple_sources or not has_different_identities:
+                continue
+
+            if self.merge_shared_definitions:
+                definitions = definitions_by_key[key]
+                superset_definition = self._select_superset_definition(key, definitions)
+                if superset_definition is not None:
+                    self.superset_definitions_by_key[key] = superset_definition
+                    continue
+
+            incompatible_definitions[key] = tuple(schema_source_labels)
+
+        return incompatible_definitions
+
+    def _select_superset_definition(self, key: tuple[str, str], definitions: list[Node]) -> Node | None:
+        kind, _ = key
+        for candidate in definitions:
+            candidate_is_superset = True
+            for definition in definitions:
+                if kind == "directive":
+                    is_superset = (
+                        isinstance(candidate, DirectiveDefinitionNode)
+                        and isinstance(definition, DirectiveDefinitionNode)
+                        and is_directive_definition_superset(candidate, definition)
+                    )
+                else:
+                    is_superset = (
+                        isinstance(candidate, ScalarTypeDefinitionNode)
+                        and isinstance(definition, ScalarTypeDefinitionNode)
+                        and is_scalar_definition_superset(candidate, definition)
+                    )
+                if not is_superset:
+                    candidate_is_superset = False
+                    break
+            if candidate_is_superset:
+                return candidate
+        return None
 
     @staticmethod
     def _as_shared_definition(definition: Node) -> tuple[tuple[str, str], tuple[object, ...]] | None:

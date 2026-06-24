@@ -236,6 +236,14 @@ output_option = click.option(
 )
 
 
+merge_shared_definitions_option = click.option(
+    "--merge-shared-definitions",
+    is_flag=True,
+    default=False,
+    help="Merge compatible directive and scalar shared definitions by selecting an existing superset.",
+)
+
+
 optional_output_option = click.option(
     "--output",
     "-o",
@@ -565,8 +573,9 @@ def deps_resolve(config_path: Path | None, identity_path: Path | None, clean: bo
     default=False,
     help="Prefix conflicting dependency types using preferred_prefix, falling back to metadata id.",
 )
+@merge_shared_definitions_option
 @output_option
-def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> None:
+def deps_build(config_path: Path | None, auto_prefix: bool, merge_shared_definitions: bool, output: Path) -> None:
     """Compose all vendored dependency schemas into a single output file."""
     working_directory = Path.cwd()
     resolved_config_path = config_path or get_dependency_config_path(working_directory)
@@ -579,7 +588,11 @@ def deps_build(config_path: Path | None, auto_prefix: bool, output: Path) -> Non
             dependency_config,
             vendor_root,
         )
-        schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_inputs, auto_prefix)
+        schema_paths = prepare_dependency_schemas_for_composition(
+            dependency_schema_inputs,
+            auto_prefix,
+            merge_shared_definitions=merge_shared_definitions,
+        )
 
         composed_schema_str = compose_schemas_to_string(
             schemas=schema_paths,
@@ -886,6 +899,7 @@ def playground_start() -> None:
 @naming_config_option
 @output_option
 @expanded_instances_option
+@merge_shared_definitions_option
 def compose(
     schemas: list[Path],
     root_type: str | None,
@@ -893,6 +907,7 @@ def compose(
     naming_config: Path | None,
     output: Path,
     expanded_instances: bool,
+    merge_shared_definitions: bool,
 ) -> None:
     """Compose GraphQL schema files into a single output file."""
     _compose_schemas(
@@ -902,6 +917,7 @@ def compose(
         naming_config=naming_config,
         output=output,
         expanded_instances=expanded_instances,
+        merge_shared_definitions=merge_shared_definitions,
     )
 
 
@@ -914,6 +930,7 @@ def _compose_schemas(
     expanded_instances: bool,
     source_map_value_resolver: Callable[[Path, str], str] | None = None,
     schema_selection_resolver: Callable[[Path], DocumentNode | None] | None = None,
+    merge_shared_definitions: bool = False,
 ) -> None:
     try:
         composed_schema_str = compose_schemas_to_string(
@@ -924,6 +941,7 @@ def _compose_schemas(
             expanded_instances,
             source_map_value_resolver=source_map_value_resolver,
             schema_selection_resolver=schema_selection_resolver,
+            merge_shared_definitions=merge_shared_definitions,
         )
 
         output.write_text(composed_schema_str)
