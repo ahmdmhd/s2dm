@@ -185,6 +185,56 @@ def test_incompatible_directives_fails() -> None:
         prepare_dependency_schemas_for_composition(dependency_schema_contents, auto_prefix=False)
 
 
+def test_merge_shared_definitions_uses_superset_directive_and_scalar_definitions() -> None:
+    body_schema = """
+        directive @format(value: String!) on SCALAR
+        directive @metadata(comment: String) on FIELD_DEFINITION
+        scalar DateTime @format(value: "iso")
+        type Query {
+            body: Body
+        }
+        type Body {
+            manufacturedAt: DateTime @metadata(comment: "base")
+        }
+    """
+    powertrain_schema = """
+        directive @format(value: String!, source: String) on SCALAR
+        directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+        scalar DateTime @format(value: "iso", source: "system")
+        type Powertrain {
+            assembledAt: DateTime
+        }
+    """
+    dependency_schema_contents = [
+        DependencySchemaInput(
+            schema_content=body_schema,
+            metadata=DependencyMetadata(name="BodyModel", id="urn:test:body", version="1.0.0"),
+        ),
+        DependencySchemaInput(
+            schema_content=powertrain_schema,
+            metadata=DependencyMetadata(name="PowertrainModel", id="urn:test:powertrain", version="2.0.0"),
+        ),
+    ]
+
+    schema_paths = prepare_dependency_schemas_for_composition(
+        dependency_schema_contents,
+        auto_prefix=False,
+        merge_shared_definitions=True,
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=schema_paths,
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    assert "directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT" in composed_schema
+    assert "directive @format(value: String!, source: String) on SCALAR" in composed_schema
+    assert 'scalar DateTime @format(value: "iso", source: "system")' in composed_schema
+
+
 def _write_auto_prefixed_schema_content(dependency_schema_contents: list[DependencySchemaInput]) -> str:
     schema_paths = DependencySchemaBuilder(dependency_schema_contents).write_auto_prefixed_schema_files()
     return "\n".join(schema_path.read_text(encoding="utf-8") for schema_path in schema_paths)

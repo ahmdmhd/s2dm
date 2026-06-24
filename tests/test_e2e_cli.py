@@ -2030,6 +2030,57 @@ def test_compose_with_selection_query_keeps_nested_enum_schema_enum(runner: CliR
         assert "directive @metadata(label: String) on ENUM" in composed_content
 
 
+def test_compose_merge_shared_definitions_selects_superset_directive_definition(runner: CliRunner) -> None:
+    with runner.isolated_filesystem():
+        working_directory = Path.cwd()
+        first_schema_path = working_directory / "first.graphql"
+        second_schema_path = working_directory / "second.graphql"
+        output_path = working_directory / "composed.graphql"
+
+        first_schema_path.write_text(
+            """
+            directive @metadata(comment: String) on FIELD_DEFINITION
+
+            type Query {
+              vehicle: Vehicle
+            }
+
+            type Vehicle {
+              vin: String @metadata(comment: "base")
+            }
+            """,
+            encoding="utf-8",
+        )
+        second_schema_path.write_text(
+            """
+            directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+
+            type ServiceRecord {
+              servicedAt: String
+            }
+            """,
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "compose",
+                "-s",
+                str(first_schema_path),
+                "-s",
+                str(second_schema_path),
+                "--merge-shared-definitions",
+                "-o",
+                str(output_path),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        composed_content = output_path.read_text(encoding="utf-8")
+        assert "directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT" in composed_content
+
+
 # ToDo(DA): needs refactoring after final decision how stats will work
 def test_stats_graphql(runner: CliRunner, spec_directory: Path, units_directory: Path) -> None:
     result = runner.invoke(

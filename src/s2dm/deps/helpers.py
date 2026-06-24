@@ -143,6 +143,7 @@ def load_vendored_dependency_schema_inputs(
 def prepare_dependency_schemas_for_composition(
     dependency_schema_inputs: list[DependencySchemaInput],
     auto_prefix: bool,
+    merge_shared_definitions: bool = False,
 ) -> list[Path]:
     """Build the per-dependency schema files to compose, reconciling cross-dependency conflicts.
 
@@ -165,7 +166,7 @@ def prepare_dependency_schemas_for_composition(
         )
         for dependency_schema_input in dependency_schema_inputs
     ]
-    resolver = SharedDefinitionResolver(schema_definitions)
+    resolver = SharedDefinitionResolver(schema_definitions, merge_shared_definitions=merge_shared_definitions)
     type_only_schema_definitions = resolver.schema_definitions_without_shared_definitions()
     type_only_inputs: list[DependencySchemaInput] = []
 
