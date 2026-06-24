@@ -513,6 +513,120 @@ def test_expand_instances_with_exclusion_on_flat_enum_instance() -> None:
     ]
 
 
+def test_expand_instances_honors_exclusion_on_source_types() -> None:
+    """An exclude on the source object or enum type is applied even when the field carries none."""
+    schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum RowEnum {
+            ROW1
+            ROW2
+        }
+
+        enum SideEnum {
+            LEFT
+            RIGHT
+        }
+
+        type DoorPosition @instanceTag(exclude: ["ROW1.LEFT"]) {
+            row: RowEnum!
+            side: SideEnum!
+        }
+
+        enum MirrorPosition @instanceTag(exclude: ["CENTER"]) {
+            LEFT
+            CENTER
+            RIGHT
+        }
+
+        type Door {
+            doorPosition: DoorPosition @instanceTag
+        }
+
+        type Mirror {
+            position: MirrorPosition @instanceTag
+        }
+
+        type Cabin {
+            doors: [Door]
+            mirrors: [Mirror]
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_Side"]).fields) == {"RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_Side"]).fields) == {"LEFT", "RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Mirror_Position"]).fields) == {"LEFT", "RIGHT"}
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.ROW1.RIGHT",
+        "Door.ROW2.LEFT",
+        "Door.ROW2.RIGHT",
+    ]
+    assert field_metadata[("Cabin", "Mirror")].resolved_names == [
+        "Mirror.LEFT",
+        "Mirror.RIGHT",
+    ]
+
+
+def test_expand_instances_merges_field_and_source_type_exclusions() -> None:
+    """Excludes on the field and on the source object/enum type are merged before expansion."""
+    schema = build_schema("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum RowEnum {
+            ROW1
+            ROW2
+        }
+
+        enum SideEnum {
+            LEFT
+            RIGHT
+        }
+
+        type DoorPosition @instanceTag(exclude: ["ROW1.LEFT"]) {
+            row: RowEnum!
+            side: SideEnum!
+        }
+
+        enum MirrorPosition @instanceTag(exclude: ["CENTER"]) {
+            LEFT
+            CENTER
+            RIGHT
+        }
+
+        type Door {
+            doorPosition: DoorPosition @instanceTag(exclude: ["ROW2.RIGHT"])
+        }
+
+        type Mirror {
+            position: MirrorPosition @instanceTag(exclude: ["LEFT"])
+        }
+
+        type Cabin {
+            doors: [Door]
+            mirrors: [Mirror]
+        }
+    """)
+
+    expanded_schema, _, field_metadata = instance_tag_utils.expand_instances_in_schema(schema)
+    type_map = expanded_schema.type_map
+
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW1_Side"]).fields) == {"RIGHT"}
+    assert set(cast(GraphQLObjectType, type_map["Door_ROW2_Side"]).fields) == {"LEFT"}
+    assert set(cast(GraphQLObjectType, type_map["Mirror_Position"]).fields) == {"RIGHT"}
+
+    assert field_metadata[("Cabin", "Door")].resolved_names == [
+        "Door.ROW1.RIGHT",
+        "Door.ROW2.LEFT",
+    ]
+    assert field_metadata[("Cabin", "Mirror")].resolved_names == [
+        "Mirror.RIGHT",
+    ]
+
+
 # #########################################################
 # Directive utils
 # #########################################################
