@@ -21,6 +21,7 @@ from s2dm.exporters.utils import field as field_utils
 from s2dm.exporters.utils import instance_tag as instance_tag_utils
 from s2dm.exporters.utils import schema as schema_utils
 from s2dm.exporters.utils import schema_loader as schema_loader_utils
+from s2dm.exporters.utils.graphql_type import is_introspection_type
 from s2dm.utils import url as url_utils
 from tests.conftest import TestSchemaData as TSD
 
@@ -324,6 +325,43 @@ def test_get_all_objects_with_directive(schema_path: list[Path]) -> None:
     object_types = extraction_utils.get_all_object_types(schema)
     result: list[Any] = extraction_utils.get_all_objects_with_directive(object_types, "instanceTag")
     assert isinstance(result, list)
+
+
+def test_select_types_yields_name_type_pairs_and_skips_introspection(schema_path: list[Path]) -> None:
+    schema = schema_loader_utils.load_schema(schema_path)
+    selected = dict(extraction_utils.select_types(schema, exclude_by_name=is_introspection_type))
+    assert "Query" in selected
+    assert all(not name.startswith("__") for name in selected)
+    assert all(name == type_obj.name for name, type_obj in selected.items())
+
+
+def test_select_types_filters_by_single_kind(schema_path: list[Path]) -> None:
+    schema = schema_loader_utils.load_schema(schema_path)
+    object_pairs = list(extraction_utils.select_types(schema, GraphQLObjectType, exclude_by_name=is_introspection_type))
+    object_names = {name for name, _ in object_pairs}
+    all_names = {name for name, _ in extraction_utils.select_types(schema, exclude_by_name=is_introspection_type)}
+    assert all(isinstance(type_obj, GraphQLObjectType) for _, type_obj in object_pairs)
+    assert "Query" in object_names
+    assert object_names < all_names
+
+
+def test_select_types_filters_by_multiple_kinds(schema_path: list[Path]) -> None:
+    schema = schema_loader_utils.load_schema(schema_path)
+    pairs = list(
+        extraction_utils.select_types(schema, GraphQLObjectType, GraphQLEnumType, exclude_by_name=is_introspection_type)
+    )
+    object_names = {
+        name
+        for name, _ in extraction_utils.select_types(schema, GraphQLObjectType, exclude_by_name=is_introspection_type)
+    }
+    assert all(isinstance(type_obj, GraphQLObjectType | GraphQLEnumType) for _, type_obj in pairs)
+    assert object_names < {name for name, _ in pairs}
+
+
+def test_select_types_honors_skip_predicate(schema_path: list[Path]) -> None:
+    schema = schema_loader_utils.load_schema(schema_path)
+    names = {name for name, _ in extraction_utils.select_types(schema, exclude_by_name=lambda name: name == "Query")}
+    assert "Query" not in names
 
 
 # #########################################################

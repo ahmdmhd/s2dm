@@ -13,6 +13,7 @@ class Directive(str, Enum):
     METADATA = "metadata"
     REFERENCE = "reference"
     VSPEC = "vspec"
+    MODL = "modl"
 
 
 class BuiltInDirective(str, Enum):
@@ -34,3 +35,5 @@ class DirectiveArgument(str, Enum):
     SOURCE = "source"
     ELEMENT = "element"
     METADATA = "metadata"
+    CONCEPT = "concept"
+    CONTRACT = "contract"

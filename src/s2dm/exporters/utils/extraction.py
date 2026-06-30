@@ -1,3 +1,6 @@
+from collections.abc import Callable, Iterator
+from typing import TypeVar, overload
+
 from graphql import (
     DocumentNode,
     FieldNode,
@@ -14,6 +17,54 @@ from graphql import (
 from s2dm.exporters.utils.directive import has_given_directive
 from s2dm.exporters.utils.graphql_type import is_introspection_type
 
+_T = TypeVar("_T", bound=GraphQLNamedType)
+_R = TypeVar("_R")
+
+
+@overload
+def select_types(
+    schema: GraphQLSchema, include_kind: type[_T], /, *, exclude_by_name: Callable[[str], bool]
+) -> Iterator[tuple[str, _T]]: ...
+
+
+@overload
+def select_types(
+    schema: GraphQLSchema, *include_kinds: type[GraphQLNamedType], exclude_by_name: Callable[[str], bool]
+) -> Iterator[tuple[str, GraphQLNamedType]]: ...
+
+
+def select_types(
+    schema: GraphQLSchema,
+    *include_kinds: type[GraphQLNamedType],
+    exclude_by_name: Callable[[str], bool],
+) -> Iterator[tuple[str, GraphQLNamedType]]:
+    """Yield ``(name, type)`` pairs from the schema's type map.
+
+    Args:
+        schema: The GraphQL schema to iterate.
+        include_kinds: When given, only types that are instances of one of these classes are yielded.
+        exclude_by_name: Predicate on the type name; matching types are excluded.
+    """
+    for type_name, type_object in schema.type_map.items():
+        if exclude_by_name(type_name):
+            continue
+        if include_kinds and not isinstance(type_object, include_kinds):
+            continue
+        yield type_name, type_object
+
+
+def map_types(
+    selected: Iterator[tuple[str, _T]],
+    transform: Callable[[str, _T], _R],
+) -> Iterator[_R]:
+    """Apply ``transform`` to each ``(name, type)`` pair yielded by :func:`select_types`.
+
+    Args:
+        selected: ``(name, type)`` pairs, typically from :func:`select_types`.
+        transform: Maps a name and its type to the value the caller wants.
+    """
+    return (transform(name, type_) for name, type_ in selected)
+
 
 def get_all_named_types(schema: GraphQLSchema) -> list[GraphQLNamedType]:
     """
@@ -25,7 +76,9 @@ def get_all_named_types(schema: GraphQLSchema) -> list[GraphQLNamedType]:
     Returns:
         list[GraphQLNamedType]: A list of all named types in the schema.
     """
-    return [type_ for type_ in schema.type_map.values() if not is_introspection_type(type_.name)]
+    selected = select_types(schema, GraphQLNamedType, exclude_by_name=is_introspection_type)
+    named_types = map_types(selected, lambda _, type_: type_)
+    return list(named_types)
 
 
 def get_all_object_types(
@@ -38,8 +91,9 @@ def get_all_object_types(
     Returns:
         list[GraphQLObjectType]: A list of all object types in the schema.
     """
-    named_types = get_all_named_types(schema)
-    return [type_ for type_ in named_types if isinstance(type_, GraphQLObjectType)]
+    selected = select_types(schema, GraphQLObjectType, exclude_by_name=is_introspection_type)
+    object_types = map_types(selected, lambda _, type_: type_)
+    return list(object_types)
 
 
 def get_all_objects_with_directive(objects: list[GraphQLObjectType], directive_name: str) -> list[GraphQLObjectType]:
