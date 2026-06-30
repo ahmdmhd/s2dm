@@ -8,7 +8,7 @@ import pytest
 import yaml
 from click.exceptions import MissingParameter
 from click.testing import CliRunner
-from graphql import GraphQLObjectType, build_schema
+from graphql import GraphQLObjectType, build_schema, parse
 from linkml_runtime.loaders import yaml_loader
 
 from s2dm.cli import cli
@@ -17,6 +17,7 @@ from s2dm.deps.resolve.common import METADATA_FILENAME, SCHEMA_FILENAME, VENDOR_
 from s2dm.tools.string import normalize_whitespace
 from tests.conftest import TestSchemaData as TSD
 from tests.deps.helpers import file_sha256, write_dependency_lock, write_metadata_file
+from tests.ledger_common import FULL_BINDINGS, FULL_CONCEPTS, FULL_CONTRACTS, FULL_REVISIONS, modl_args
 
 LINKML_SCHEMA_ID = "https://covesa.global/s2dm"
 LINKML_SCHEMA_NAME = "TestSchema"
@@ -1666,6 +1667,71 @@ def test_compose_graphql_accepts_gql_schema_file(runner: CliRunner) -> None:
 
         assert result.exit_code == 0, result.output
         assert output_path.exists()
+
+
+def test_compose_graphql_with_ledger(runner: CliRunner) -> None:
+    with runner.isolated_filesystem():
+        schema_path = Path("schema.graphql")
+        schema_path.write_text(
+            """
+type Car {
+  id: ID!
+  owner: Person!
+}
+
+type Person {
+  id: ID!
+  name: String!
+}
+
+enum DriveType {
+  FWD
+  RWD
+  AWD
+}
+""",
+            encoding="utf-8",
+        )
+        ledger_dir = Path("ledger")
+        ledger_dir.mkdir()
+        (ledger_dir / "concepts.csv").write_text(FULL_CONCEPTS, encoding="utf-8")
+        (ledger_dir / "contracts.csv").write_text(FULL_CONTRACTS, encoding="utf-8")
+        (ledger_dir / "revisions.csv").write_text(FULL_REVISIONS, encoding="utf-8")
+        (ledger_dir / "bindings.csv").write_text(FULL_BINDINGS, encoding="utf-8")
+        output_path = Path("composed.graphql")
+
+        result = runner.invoke(
+            cli,
+            [
+                "compose",
+                "-s",
+                str(schema_path),
+                "-o",
+                str(output_path),
+                "--ledger",
+                str(ledger_dir),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        annotated = parse(output_path.read_text())
+        assert modl_args(annotated, "Car") == {
+            "concept": "http://ex/concepts/0",
+            "contract": "http://ex/contracts/0",
+        }
+        assert modl_args(annotated, "Person", "name") == {
+            "concept": "http://ex/concepts/5",
+            "contract": "http://ex/contracts/5",
+        }
+        assert modl_args(annotated, "DriveType") == {
+            "concept": "http://ex/concepts/6",
+            "contract": "http://ex/contracts/6",
+        }
+        assert modl_args(annotated, "DriveType", "FWD") == {
+            "concept": "http://ex/concepts/7",
+            "contract": "http://ex/contracts/7",
+        }
+        assert modl_args(annotated, "Query", "ping") is None
 
 
 def test_compose_graphql_with_root_type(

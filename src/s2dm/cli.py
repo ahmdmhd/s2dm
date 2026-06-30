@@ -76,6 +76,7 @@ from s2dm.exporters.utils.schema_loader import (
 )
 from s2dm.exporters.utils.violations import Severity
 from s2dm.exporters.vspec import translate_to_vspec
+from s2dm.ledger import Ledger
 from s2dm.registry.concept_uris import create_concept_uri_model
 from s2dm.registry.search import NO_LIMIT_KEYWORDS, SearchResult, SKOSSearchService
 from s2dm.tools.constraint_checker import ConstraintChecker
@@ -336,6 +337,14 @@ naming_config_option = click.option(
     "-n",
     type=click.Path(exists=True, path_type=Path),
     help="YAML file containing naming configuration",
+)
+
+ledger_option = click.option(
+    "--ledger",
+    "ledger_dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    help="Ledger directory (concepts.csv, contracts.csv) used to annotate types, fields, and enum values "
+    "with @modl directives.",
 )
 
 node_modules_path_option = click.option(
@@ -897,6 +906,7 @@ def playground_start() -> None:
 @selection_query_option()
 @root_type_option
 @naming_config_option
+@ledger_option
 @output_option
 @expanded_instances_option
 @merge_shared_definitions_option
@@ -905,6 +915,7 @@ def compose(
     root_type: str | None,
     selection_query: Path | None,
     naming_config: Path | None,
+    ledger_dir: Path | None,
     output: Path,
     expanded_instances: bool,
     merge_shared_definitions: bool,
@@ -915,6 +926,7 @@ def compose(
         root_type=root_type,
         selection_query=selection_query,
         naming_config=naming_config,
+        ledger_dir=ledger_dir,
         output=output,
         expanded_instances=expanded_instances,
         merge_shared_definitions=merge_shared_definitions,
@@ -928,11 +940,13 @@ def _compose_schemas(
     naming_config: Path | None,
     output: Path,
     expanded_instances: bool,
+    ledger_dir: Path | None = None,
     source_map_value_resolver: Callable[[Path, str], str] | None = None,
     schema_selection_resolver: Callable[[Path], DocumentNode | None] | None = None,
     merge_shared_definitions: bool = False,
 ) -> None:
     try:
+        ledger = Ledger.from_directory(ledger_dir) if ledger_dir is not None else None
         composed_schema_str = compose_schemas_to_string(
             schemas,
             root_type,
@@ -942,6 +956,7 @@ def _compose_schemas(
             source_map_value_resolver=source_map_value_resolver,
             schema_selection_resolver=schema_selection_resolver,
             merge_shared_definitions=merge_shared_definitions,
+            ledger=ledger,
         )
 
         output.write_text(composed_schema_str)

@@ -55,6 +55,7 @@ from s2dm.exporters.utils.instance_tag import expand_instances_in_schema, is_val
 from s2dm.exporters.utils.naming import apply_naming_to_schema, convert_name, load_naming_config
 from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingConventionConfig, get_case_for_element
 from s2dm.exporters.utils.violations import ConstraintViolation, Severity
+from s2dm.ledger import Ledger, annotate_schema_with_ledger
 from s2dm.tools.constraint_checker import ConstraintChecker
 from s2dm.utils.download import download_url_to_temp
 
@@ -358,6 +359,7 @@ def compose_schemas_to_string(
     source_map_value_resolver: SourceMapValueResolver | None = None,
     schema_selection_resolver: SchemaSelectionResolver | None = None,
     merge_shared_definitions: bool = False,
+    ledger: Ledger | None = None,
 ) -> str:
     """Compose schema files into a single GraphQL schema string with optional filtering and naming transforms."""
     graphql_schema, source_map = load_schema_with_source_map(
@@ -383,6 +385,8 @@ def compose_schemas_to_string(
         root_type=root_type,
         expanded_instances=expanded_instances,
     )
+    if ledger is not None:
+        annotate_schema_with_ledger(annotated_schema.schema, ledger)
     return print_schema_with_directives_preserved(annotated_schema.schema, source_map)
 
 
