@@ -281,6 +281,8 @@ s2dm compose -s <schema1> -s <schema2> -o <output_file>
 - `-q, --selection-query PATH`: GraphQL query file for filtering schema based on selected fields (optional)
 - `-n, --naming-config PATH`: YAML file with naming configuration for transforming type and field names (optional)
 - `-e, --expanded-instances`: Transform instance tag arrays into nested structures (optional)
+- `--merge-shared-definitions`: Automatically reconcile compatible shared directive and scalar definitions across schemas (optional)
+- `--ledger PATH`: Ledger directory used to annotate the schema with `@modl` directives (optional)
 - `-o, --output FILE`: Output file path (required)
 
 ### Examples
@@ -359,6 +361,72 @@ See [Expanded Instances](#expanded-instances) for details.
 ```bash
 s2dm compose -s schema.graphql --expanded-instances -o output.graphql
 ```
+
+### Shared Definitions
+
+Composing multiple schemas reconciles their shared directives and scalars into a single set, declared once. Identical declarations merge; conflicting ones stop the build with a message naming the definition and its source schemas. Add `--merge-shared-definitions` to also reconcile compatible differences (such as one schema adding an optional argument) by keeping the most complete declaration.
+
+```bash
+s2dm compose -s schema1.graphql -s schema2.graphql --merge-shared-definitions -o composed.graphql
+```
+
+For example, two schemas declare the same directive — one with an extra optional argument and location:
+
+```graphql
+# schema1.graphql
+directive @metadata(comment: String) on FIELD_DEFINITION
+
+# schema2.graphql
+directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+```
+
+With `--merge-shared-definitions`, the composed output keeps the most complete declaration:
+
+```graphql
+directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
+```
+
+### Ledger Annotation
+
+Annotate the composed schema with `@modl` directives that link each object type, field, enum type, and enum value to its concept and contract in a [modl](https://github.com/COVESA/modl) ledger, matched by name.
+
+```bash
+s2dm compose -s schema.graphql --ledger ./ledger -o composed.graphql
+```
+
+Given a schema:
+
+```graphql
+type Car {
+  id: ID!
+}
+```
+
+and a ledger recording those elements:
+
+```csv
+# concepts.csv
+serial,concept_uri,current_label,previous_labels,kind,status,parent_uri,instances
+0,http://example/concepts/0,Car,,ENTITY,ACTIVE,,
+1,http://example/concepts/1,Car.id,,PROPERTY,ACTIVE,http://example/concepts/0,
+```
+
+```csv
+# contracts.csv
+serial,concept_uri,contract_uri,revision_uri,status
+0,http://example/concepts/0,http://example/contracts/0,http://example/revisions/0,ACTIVE
+1,http://example/concepts/1,http://example/contracts/1,http://example/revisions/1,ACTIVE
+```
+
+compose produces:
+
+```graphql
+type Car @modl(concept: "http://example/concepts/0", contract: "http://example/contracts/0") {
+  id: ID! @modl(concept: "http://example/concepts/1", contract: "http://example/contracts/1")
+}
+```
+
+**Note:** The ledger directory must contain the modl `concepts.csv`, `contracts.csv`, `revisions.csv`, and `bindings.csv` files. If the schema and ledger do not describe the same set of elements, the schema is composed without `@modl` annotations.
 
 ## Export Commands
 
