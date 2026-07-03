@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { CliCommandDisplay } from "@/components/CliCommandDisplay";
+import { DetailsPane } from "@/components/DetailsPane";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { ExportConfig } from "@/components/ExportConfig";
-import { Pane } from "@/components/Pane";
 import { TextEditor } from "@/components/TextEditor";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,7 +23,6 @@ import {
 	selectSelectedExporterEndpoint,
 	setSelectedExporterEndpoint,
 } from "@/store/capabilities/capabilitiesSlice";
-import { selectExploringDependencyId } from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
 import {
 	clearExportResult,
 	clearExportResultForEndpoint,
@@ -35,10 +34,6 @@ import {
 } from "@/store/export/exportSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectFilteredSchema } from "@/store/schema/schemaSlice";
-import {
-	selectResultPaneCollapsed,
-	toggleResultPane,
-} from "@/store/ui/uiSlice";
 
 type ResultPaneProps = {
 	position?: "none" | "left" | "center" | "right";
@@ -52,14 +47,7 @@ export function ResultPane({
 	className = "bg-card",
 }: ResultPaneProps) {
 	const dispatch = useAppDispatch();
-	const isCollapsed = useAppSelector(selectResultPaneCollapsed);
-	const exploringDependencyId = useAppSelector(selectExploringDependencyId);
 	const filteredSchema = useAppSelector(selectFilteredSchema);
-	const hasFilteredSchema = filteredSchema.trim().length > 0;
-	const canCollapsePane = Boolean(
-		collapsible && hasFilteredSchema && !exploringDependencyId,
-	);
-	const shouldCollapsePane = !hasFilteredSchema || isCollapsed;
 	const exporters = useAppSelector(selectExporters);
 	const selectedExporterEndpoint = useAppSelector(
 		selectSelectedExporterEndpoint,
@@ -150,14 +138,10 @@ export function ResultPane({
 	};
 
 	return (
-		<Pane
+		<DetailsPane
 			className={className}
 			position={position}
-			collapsible={canCollapsePane}
-			isCollapsed={shouldCollapsePane}
-			onToggleCollapse={
-				canCollapsePane ? () => dispatch(toggleResultPane()) : undefined
-			}
+			collapsible={collapsible}
 		>
 			<div className="flex gap-2 p-4 items-center justify-center">
 				<Select
@@ -206,6 +190,6 @@ export function ResultPane({
 			{exportResult && <Separator />}
 
 			{renderContent()}
-		</Pane>
+		</DetailsPane>
 	);
 }
