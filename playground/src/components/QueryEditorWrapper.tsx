@@ -72,5 +72,9 @@ export function QueryEditorWrapper({
 		};
 	}, [queryEditor, onSelectionQueryChange, onValidationChange, schema]);
 
-	return <QueryEditor />;
+	return (
+		<div className="relative flex-1 min-h-0 overflow-hidden">
+			<QueryEditor />
+		</div>
+	);
 }
