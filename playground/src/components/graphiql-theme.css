@@ -89,18 +89,8 @@ body.graphiql-dark [data-radix-popper-content-wrapper] {
 	padding-bottom: 1rem !important;
 	border-bottom: 1px solid hsl(var(--border)) !important;
 	margin-bottom: 1.5rem !important;
-	visibility: hidden !important;
 	font-size: 1.5rem !important;
 }
-
-.graphiql-doc-explorer-title::before {
-	content: "Explorer" !important;
-	visibility: visible !important;
-}
-
-/* .graphiql-doc-explorer-title * {
-  visibility: visible !important;
-} */
 
 .graphiql-doc-explorer-section-title {
 	color: hsl(var(--foreground)) !important;

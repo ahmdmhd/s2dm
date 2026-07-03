@@ -47,6 +47,8 @@ export const {
 } = schemaSlice.actions;
 
 export const selectOriginalSchema = (state: RootState) => state.schema.original;
+export const selectHasSchema = (state: RootState) =>
+	state.schema.original.trim().length > 0;
 export const selectFilteredSchema = (state: RootState) => state.schema.filtered;
 export const selectSourceFiles = (state: RootState) => state.schema.sourceFiles;
 export const selectIncludeBuiltDependencies = (state: RootState) =>
