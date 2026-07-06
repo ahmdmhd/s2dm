@@ -1,6 +1,6 @@
 from graphql import build_schema
 
-from s2dm.exporters.utils.schema_loader import check_enum_defaults
+from s2dm.tools.constraint_checker import get_enum_default_errors as check_enum_defaults
 
 
 class TestEnumDefaultValidation:

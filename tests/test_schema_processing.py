@@ -178,6 +178,46 @@ class TestLoadAndProcessSchema:
         with pytest.raises(ValueError):
             load_and_process_schema([schema_path], None, None, None, expanded_instances=True)
 
+    def test_load_with_expanded_instances_does_not_expand_non_list_field(self, tmp_path: Path) -> None:
+        schema_path = tmp_path / "non_list_instance_tag.graphql"
+        schema_path.write_text("""
+        directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+        enum RowEnum { ROW1 ROW2 }
+        enum SideEnum { LEFT RIGHT }
+
+        type DoorPosition @instanceTag {
+          row: RowEnum!
+          side: SideEnum!
+        }
+
+        type Door {
+          isLocked: Boolean
+          doorPosition: DoorPosition @instanceTag
+        }
+
+        type Cabin {
+          door: Door
+        }
+
+        type Query {
+          cabin: Cabin
+        }
+        """)
+
+        annotated_schema, _, _ = load_and_process_schema([schema_path], None, None, None, expanded_instances=True)
+
+        assert "Door_Row" not in annotated_schema.schema.type_map
+        assert "Door_Side" not in annotated_schema.schema.type_map
+
+        cabin_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Cabin"])
+        assert "door" in cabin_type.fields
+        assert "Door" not in cabin_type.fields
+
+        door_type = cast(GraphQLObjectType, annotated_schema.schema.type_map["Door"])
+        assert "doorPosition" in door_type.fields
+        assert "DoorPosition" in annotated_schema.schema.type_map
+
     def test_load_with_naming_config(self, schema_path: list[Path], naming_config_path: Path) -> None:
         annotated_schema, naming_config, query_document = load_and_process_schema(
             schema_path, naming_config_path, None, None, False

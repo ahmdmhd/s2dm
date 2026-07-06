@@ -8,6 +8,7 @@ from graphql import (
     GraphQLObjectType,
     GraphQLSchema,
     get_named_type,
+    get_nullable_type,
     is_list_type,
     is_non_null_type,
 )
@@ -42,7 +43,6 @@ class _ExpandableField(NamedTuple):
     source_type_name: str
     instance_tag_dict: dict[str, list[str]]
     leaf_nullable: bool
-    is_list: bool
     original_field: GraphQLField
     exclude: list[str]
 
@@ -89,7 +89,7 @@ def is_valid_instance_tag_field(field: GraphQLField, schema: GraphQLSchema) -> b
     return get_instance_tag_type(field, schema) is not None
 
 
-def _resolve_instance_tag(object_type: GraphQLObjectType, schema: GraphQLSchema) -> _ResolvedInstanceTag | None:
+def resolve_instance_tag(object_type: GraphQLObjectType, schema: GraphQLSchema) -> _ResolvedInstanceTag | None:
     """
     Resolve the single valid @instanceTag field of an object type.
 
@@ -156,23 +156,29 @@ def get_instance_tag_dict(
     return instance_tag_dict
 
 
-def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
-    """Find every field whose base type carries a valid instanceTag, without touching the schema."""
+def get_instance_tag_case(naming_config: NamingConventionConfig | None) -> CaseFormat | None:
+    """Return the configured case for instanceTag values, or None when unconfigured."""
+    if naming_config is None:
+        return None
+    return get_case_for_element(ElementType.INSTANCE_TAG, None, naming_config)
+
+
+def collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
+    """Find every list field whose item type carries a valid instanceTag, without touching the schema."""
     expandable_fields = []
     for parent_type in get_all_object_types(schema):
         for field_name, field in parent_type.fields.items():
             base_type = get_named_type(field.type)
             if not isinstance(base_type, GraphQLObjectType):
                 continue
-            resolved = _resolve_instance_tag(base_type, schema)
+            resolved = resolve_instance_tag(base_type, schema)
             if resolved is None:
                 continue
 
-            unwrapped = field.type
-            if is_non_null_type(unwrapped):
-                unwrapped = unwrapped.of_type
-            is_list = is_list_type(unwrapped)
-            item_type = unwrapped.of_type if is_list else unwrapped
+            unwrapped = get_nullable_type(field.type)
+            if not is_list_type(unwrapped):
+                continue
+            item_type = unwrapped.of_type
 
             tag_field = base_type.fields[resolved.field_name]
             field_exclude = get_argument_content(tag_field, Directive.INSTANCE_TAG, DirectiveArgument.EXCLUDE) or []
@@ -190,7 +196,6 @@ def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
                     source_type_name=resolved.source_type.name,
                     instance_tag_dict=_tag_dimensions_from_source(resolved.field_name, resolved.source_type),
                     leaf_nullable=not is_non_null_type(item_type),
-                    is_list=is_list,
                     original_field=field,
                     exclude=exclude,
                 )
@@ -198,7 +203,7 @@ def _collect_expandable_fields(schema: GraphQLSchema) -> list[_ExpandableField]:
     return expandable_fields
 
 
-def _included_instances(
+def included_instances(
     expandable: _ExpandableField,
     instance_tag_case: CaseFormat | None,
 ) -> list[tuple[str, ...]]:
@@ -326,8 +331,7 @@ def _apply_expansion(
             intermediate_type.name = convert_name(intermediate_type.name, type_case)
         new_types[intermediate_type.name] = intermediate_type
 
-    base_name = expandable.base_type.name if expandable.is_list else expandable.field_name
-    new_field_name = convert_name(base_name, field_case) if field_case else base_name
+    new_field_name = convert_name(expandable.base_type.name, field_case) if field_case else expandable.base_type.name
 
     field_metadata[(expandable.parent_type.name, new_field_name)] = FieldMetadata(
         resolved_names=[f"{new_field_name}.{'.'.join(instance)}" for instance in instances],
@@ -346,13 +350,11 @@ def _apply_expansion(
 
 
 def _cleanup_instance_tag_artifacts(schema: GraphQLSchema, expandable_fields: list[_ExpandableField]) -> None:
-    """Remove the instanceTag source types and the now-redundant instanceTag fields on base types."""
-    types_to_remove = {
-        type_obj.name
-        for type_obj in schema.type_map.values()
-        if isinstance(type_obj, GraphQLObjectType | GraphQLEnumType)
-        and has_given_directive(type_obj, Directive.INSTANCE_TAG)
-    }
+    """Remove the instanceTag source types and the now-redundant instanceTag fields on base types.
+
+    Scoped to expandable_fields so a source type still referenced by an un-expanded field survives.
+    """
+    types_to_remove = {expandable.source_type_name for expandable in expandable_fields}
 
     for base_type, tag_field_name in {
         expandable.base_type: expandable.tag_field_name for expandable in expandable_fields
@@ -387,7 +389,7 @@ def expand_instances_in_schema(
     """
     log.info("Starting instance expansion in schema")
 
-    expandable_fields = _collect_expandable_fields(schema)
+    expandable_fields = collect_expandable_fields(schema)
     log.info(f"Found {len(expandable_fields)} expandable fields")
 
     def case_for(element: ElementType, context: ContextType | None) -> CaseFormat | None:
@@ -395,7 +397,7 @@ def expand_instances_in_schema(
 
     type_case = case_for(ElementType.TYPE, ContextType.OBJECT)
     field_case = case_for(ElementType.FIELD, ContextType.OBJECT)
-    instance_tag_case = case_for(ElementType.INSTANCE_TAG, None)
+    instance_tag_case = get_instance_tag_case(naming_config)
 
     # TODO: Optimization - Cache the built type tree to avoid rebuilding it for every referencing field.
     # When multiple fields reference the same base type (e.g., Cabin.doors and Vehicle.doors both reference
@@ -408,7 +410,7 @@ def expand_instances_in_schema(
     new_types: dict[str, GraphQLObjectType] = {}
     field_metadata: dict[tuple[str, str], FieldMetadata] = {}
     for expandable in expandable_fields:
-        instances = _included_instances(expandable, instance_tag_case)
+        instances = included_instances(expandable, instance_tag_case)
         top_type, intermediate_types = _build_instance_types(
             expandable.base_type, list(expandable.instance_tag_dict), instances, expandable.leaf_nullable
         )

@@ -8,7 +8,7 @@ from s2dm.exporters.utils.schema_loader import (
     load_schema_with_source_map,
     print_schema_with_directives_preserved,
 )
-from s2dm.exporters.utils.violations import ConstraintCode
+from s2dm.exporters.utils.violations import ConstraintCode, Severity
 
 
 @pytest.fixture
@@ -313,17 +313,17 @@ def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
     schema_str = """
     directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
-    type TagObj @instanceTag {
-      level: TagEnum
+    type SeatPosition @instanceTag {
+      level: HeightLevel
     }
-    enum TagEnum { A B }
+    enum HeightLevel { LOW HIGH }
 
-    type Foo {
-      tag1: TagObj @instanceTag
-      tag2: TagObj @instanceTag
+    type Vehicle {
+      position: SeatPosition @instanceTag
+      trim: SeatPosition @instanceTag
     }
 
-    type Query { foo: Foo }
+    type Query { vehicle: Vehicle }
     """
     schema = build_schema(schema_str)
     codes = [violation.code for violation in check_correct_schema(schema)]
@@ -334,17 +334,61 @@ def test_check_correct_schema_allows_single_instance_tag_field() -> None:
     schema_str = """
     directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
 
-    type TagObj @instanceTag {
-      level: TagEnum
+    type SeatPosition @instanceTag {
+      level: HeightLevel
     }
-    enum TagEnum { A B }
+    enum HeightLevel { LOW HIGH }
 
-    type Foo {
-      tag: TagObj @instanceTag
+    type Vehicle {
+      position: SeatPosition @instanceTag
     }
 
-    type Query { foo: Foo }
+    type Query { vehicle: Vehicle }
     """
     schema = build_schema(schema_str)
     codes = [violation.code for violation in check_correct_schema(schema)]
     assert ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS not in codes
+
+
+def test_check_correct_schema_includes_instance_tag_rule_violations() -> None:
+    schema_str = """
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type EngineSpecs {
+      power: String
+    }
+
+    type Vehicle {
+      engine: EngineSpecs @instanceTag
+    }
+
+    type Query { vehicle: Vehicle }
+    """
+    schema = build_schema(schema_str)
+    codes = [violation.code for violation in check_correct_schema(schema)]
+    assert ConstraintCode.INSTANCE_TAG_INVALID_REFERENCE in codes
+
+
+def test_check_correct_schema_excludes_warning_severity_violations() -> None:
+    schema_str = """
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type SeatPosition @instanceTag {
+      level: HeightLevel
+    }
+    enum HeightLevel { LOW HIGH }
+
+    type Door {
+      position: SeatPosition @instanceTag
+      isLocked: Boolean
+    }
+
+    type Cabin {
+      door: Door
+    }
+
+    type Query { cabin: Cabin }
+    """
+    schema = build_schema(schema_str)
+    violations = check_correct_schema(schema)
+    assert all(violation.severity == Severity.ERROR for violation in violations)

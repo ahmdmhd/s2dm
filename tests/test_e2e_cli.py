@@ -1057,6 +1057,108 @@ def test_check_constraints(
     assert result.exit_code in (0, 1)
 
 
+def test_check_constraints_instance_tag_warning_succeeds(runner: CliRunner, tmp_path: Path) -> None:
+    schema_path = tmp_path / "non_list_instance_tag.graphql"
+    schema_path.write_text("""
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type SeatPosition @instanceTag {
+      level: HeightLevel
+    }
+    enum HeightLevel { LOW HIGH }
+
+    type Door {
+      position: SeatPosition @instanceTag
+    }
+
+    type Cabin {
+      door: Door
+    }
+    """)
+
+    result = runner.invoke(cli, ["check", "constraints", "-s", str(schema_path)])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_check_constraints_instance_tag_error_fails(runner: CliRunner, tmp_path: Path) -> None:
+    schema_path = tmp_path / "non_list_instance_tag_with_error.graphql"
+    schema_path.write_text("""
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type SeatPosition @instanceTag {
+      level: HeightLevel
+    }
+    enum HeightLevel { LOW HIGH }
+
+    type Door {
+      position: SeatPosition @instanceTag
+    }
+
+    type Cabin {
+      door: Door
+    }
+
+    type EngineSpecs {
+      power: String
+    }
+
+    type Vehicle {
+      engine: EngineSpecs @instanceTag
+    }
+    """)
+
+    result = runner.invoke(cli, ["check", "constraints", "-s", str(schema_path)])
+
+    assert result.exit_code == 1
+
+
+def test_compose_instance_tag_warning_succeeds(runner: CliRunner, tmp_path: Path) -> None:
+    schema_path = tmp_path / "non_list_instance_tag.graphql"
+    schema_path.write_text("""
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type SeatPosition @instanceTag {
+      level: HeightLevel
+    }
+    enum HeightLevel { LOW HIGH }
+
+    type Door {
+      position: SeatPosition @instanceTag
+    }
+
+    type Cabin {
+      door: Door
+    }
+    """)
+    output_path = tmp_path / "output.graphql"
+
+    result = runner.invoke(cli, ["compose", "-s", str(schema_path), "-o", str(output_path)])
+
+    assert result.exit_code == 0, result.output
+    assert output_path.exists()
+
+
+def test_compose_instance_tag_error_fails(runner: CliRunner, tmp_path: Path) -> None:
+    schema_path = tmp_path / "instance_tag_with_error.graphql"
+    schema_path.write_text("""
+    directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM
+
+    type EngineSpecs {
+      power: String
+    }
+
+    type Vehicle {
+      engine: EngineSpecs @instanceTag
+    }
+    """)
+    output_path = tmp_path / "output.graphql"
+
+    result = runner.invoke(cli, ["compose", "-s", str(schema_path), "-o", str(output_path)])
+
+    assert result.exit_code == 1
+
+
 def test_validate_graphql(runner: CliRunner, tmp_outputs: Path, spec_directory: Path, units_directory: Path) -> None:
     out = tmp_outputs / "validate.json"
     result = runner.invoke(
@@ -1747,6 +1849,8 @@ def test_compose_reference_directive_placement_after_other_directives(
 
     schema_file = test_schema_dir / "test.graphql"
     schema_file.write_text("""
+directive @tag on OBJECT
+
 scalar DateTime
 
 interface Node {
@@ -1763,7 +1867,7 @@ type User implements Node {
   name: String
 }
 
-type Admin implements Node & Timestamped @instanceTag {
+type Admin implements Node & Timestamped @tag {
   id: ID!
   role: String
   createdAt: String
@@ -1780,9 +1884,7 @@ union Person = User | Admin
     composed_content = out.read_text()
 
     assert 'type User implements Node @reference(source: "test.graphql")' in composed_content
-    assert (
-        'type Admin implements Node & Timestamped @instanceTag @reference(source: "test.graphql")' in composed_content
-    )
+    assert 'type Admin implements Node & Timestamped @tag @reference(source: "test.graphql")' in composed_content
 
     assert 'scalar DateTime @reference(source: "test.graphql")' in composed_content
     assert 'union Person @reference(source: "test.graphql")' in composed_content
