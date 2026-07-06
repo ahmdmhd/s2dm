@@ -74,6 +74,7 @@ from s2dm.exporters.utils.schema_loader import (
     load_schema,
     resolve_files_by_extensions,
 )
+from s2dm.exporters.utils.violations import Severity
 from s2dm.exporters.vspec import translate_to_vspec
 from s2dm.registry.concept_uris import create_concept_uri_model
 from s2dm.registry.search import NO_LIMIT_KEYWORDS, SearchResult, SKOSSearchService
@@ -1478,13 +1479,21 @@ def check_constraints(schemas: list[Path], naming_config: Path | None) -> None:
 
     constraint_checker = ConstraintChecker(gql_schema, naming_convention_config)
     violations = constraint_checker.run(objects)
+    warnings = [violation for violation in violations if violation.severity == Severity.WARNING]
+    errors = [violation for violation in violations if violation.severity == Severity.ERROR]
 
-    if violations:
+    if warnings:
+        log.rule("Constraint Warnings", style="bold yellow")
+        for warning in warnings:
+            log.warning(f"- {warning.message}")
+
+    if errors:
         log.rule("Constraint Violations", style="bold red")
-        for violation in violations:
-            log.error(f"- {violation.message}")
+        for error in errors:
+            log.error(f"- {error.message}")
         raise sys.exit(1)
-    else:
+
+    if not warnings:
         log.success("All constraints passed!")
 
 

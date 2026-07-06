@@ -17,7 +17,6 @@ from graphql import (
     GraphQLString,
     GraphQLType,
     GraphQLUnionType,
-    Undefined,
     build_schema,
     get_named_type,
     is_input_object_type,
@@ -26,12 +25,9 @@ from graphql import (
     is_union_type,
     parse,
     print_schema,
-    validate_schema,
 )
 from graphql import validate as graphql_validate
 from graphql.language.ast import (
-    DirectiveNode,
-    EnumValueNode,
     FieldNode,
     InlineFragmentNode,
     OperationDefinitionNode,
@@ -49,7 +45,6 @@ from s2dm.exporters.utils.directive import (
     GRAPHQL_TYPE_DEFINITION_PATTERN,
     add_directives_to_schema,
     build_directive_map,
-    get_objects_with_multiple_fields_with_directive,
     get_type_directive_location,
     has_given_directive,
 )
@@ -58,7 +53,8 @@ from s2dm.exporters.utils.graphql_type import is_introspection_or_root_type, is_
 from s2dm.exporters.utils.instance_tag import expand_instances_in_schema, is_valid_instance_tag_field
 from s2dm.exporters.utils.naming import apply_naming_to_schema, convert_name, load_naming_config
 from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingConventionConfig, get_case_for_element
-from s2dm.exporters.utils.violations import ConstraintCode, ConstraintViolation
+from s2dm.exporters.utils.violations import ConstraintViolation, Severity
+from s2dm.tools.constraint_checker import ConstraintChecker
 from s2dm.utils.download import download_url_to_temp
 
 SourceMapValueResolver = Callable[[Path, str], str]
@@ -373,122 +369,6 @@ def create_tempfile_to_composed_schema(graphql_schema_paths: list[Path]) -> Path
     return Path(temp_path)
 
 
-def _check_directive_usage_on_node(schema: GraphQLSchema, directive_node: DirectiveNode, context: str) -> list[str]:
-    """Check enum values in directive usage on a specific node."""
-    errors: list[str] = []
-
-    directive_def = schema.get_directive(directive_node.name.value)
-    if not directive_def:
-        return errors
-
-    for arg_node in directive_node.arguments:
-        arg_name = arg_node.name.value
-        arg_def = directive_def.args[arg_name]
-        named_type = get_named_type(arg_def.type)
-
-        if not isinstance(named_type, GraphQLEnumType):
-            continue
-
-        if not isinstance(arg_node.value, EnumValueNode):
-            continue
-
-        enum_value = arg_node.value.value
-        if enum_value not in named_type.values:
-            errors.append(
-                f"{context} uses directive '@{directive_node.name.value}({arg_name})' "
-                f"with invalid enum value '{enum_value}'. Valid values are: {list(named_type.values.keys())}"
-            )
-
-    return errors
-
-
-def check_enum_defaults(schema: GraphQLSchema) -> list[str]:
-    """Check that all enum default values exist in their enum definitions.
-
-    Args:
-        schema: The GraphQL schema to validate
-
-    Returns:
-        List of error messages for invalid enum defaults
-    """
-    errors = []
-
-    for type_name, type_obj in schema.type_map.items():
-        # Validate directive usage on types
-        if type_obj.ast_node and type_obj.ast_node.directives:
-            for directive_node in type_obj.ast_node.directives:
-                errors.extend(_check_directive_usage_on_node(schema, directive_node, f"Type '{type_name}'"))
-
-        # Validate input object field defaults
-        if isinstance(type_obj, GraphQLInputObjectType):
-            for field_name, field in type_obj.fields.items():
-                named_type = get_named_type(field.type)
-                if not isinstance(named_type, GraphQLEnumType):
-                    continue
-
-                has_default_in_ast = field.ast_node and field.ast_node.default_value is not None
-                if not (has_default_in_ast and field.default_value is Undefined):
-                    continue
-
-                invalid_value = field.ast_node.default_value.value
-                errors.append(
-                    f"Input type '{type_name}.{field_name}' has invalid enum default value '{invalid_value}'. "
-                    f"Valid values are: {list(named_type.values.keys())}"
-                )
-
-        # Validate field argument defaults and directive usage on fields
-        if isinstance(type_obj, GraphQLObjectType | GraphQLInterfaceType | GraphQLInputObjectType):
-            for field_name, field in type_obj.fields.items():
-                # Validate directive usage on fields
-                if field.ast_node and field.ast_node.directives:
-                    for directive_node in field.ast_node.directives:
-                        errors.extend(
-                            _check_directive_usage_on_node(schema, directive_node, f"Field '{type_name}.{field_name}'")
-                        )
-
-                # Validate field argument defaults
-                if isinstance(type_obj, GraphQLObjectType | GraphQLInterfaceType):
-                    for arg_name, arg in field.args.items():
-                        named_type = get_named_type(arg.type)
-                        if not isinstance(named_type, GraphQLEnumType):
-                            continue
-
-                        has_default_in_ast = arg.ast_node and arg.ast_node.default_value is not None
-                        if not (has_default_in_ast and arg.default_value is Undefined):
-                            continue
-
-                        invalid_value = arg.ast_node.default_value.value
-                        errors.append(
-                            f"Field argument '{type_name}.{field_name}({arg_name})' "
-                            f"has invalid enum default value '{invalid_value}'. "
-                            f"Valid values are: {list(named_type.values.keys())}"
-                        )
-
-    # Validate directive definition defaults
-    for directive in schema.directives:
-        for arg_name, arg in directive.args.items():
-            named_type = get_named_type(arg.type)
-            if not isinstance(named_type, GraphQLEnumType):
-                continue
-
-            if not arg.ast_node or not arg.ast_node.default_value:
-                continue
-
-            if arg.default_value is not Undefined:
-                continue
-
-            if not isinstance(arg.ast_node.default_value, EnumValueNode):
-                continue
-
-            invalid_value = arg.ast_node.default_value.value
-            errors.append(
-                f"Directive definition '@{directive.name}({arg_name})' "
-                f"has invalid enum default value '{invalid_value}'. Valid values are: {list(named_type.values.keys())}"
-            )
-
-    return errors
-
-
 @overload
 def check_correct_schema(schema: GraphQLSchema) -> list[ConstraintViolation]: ...
 
@@ -498,37 +378,24 @@ def check_correct_schema(schema: Path) -> list[ConstraintViolation]: ...
 
 
 def check_correct_schema(schema: GraphQLSchema | Path) -> list[ConstraintViolation]:
-    """Validate that the schema conforms to the GraphQL spec, has valid enum defaults, and valid instance tags.
+    """Validate the schema spec, enum defaults, and directive constraints, logging warnings and returning only errors.
 
     Args:
         schema: The GraphQL schema or schema file path to validate
 
     Returns:
-        list[ConstraintViolation]: Structured violations found, empty if the schema is valid.
+        list[ConstraintViolation]: Error-severity violations found, empty if the schema is valid.
     """
     if isinstance(schema, Path):
         schema = build_schema(schema.read_text(encoding="utf-8"))
 
-    spec_errors = validate_schema(schema)
-    enum_errors = check_enum_defaults(schema)
-    objects_with_multiple_instance_tags = get_objects_with_multiple_fields_with_directive(
-        get_all_object_types(schema), Directive.INSTANCE_TAG
-    )
+    objects = get_all_object_types(schema)
+    violations = ConstraintChecker(schema).run(objects)
+    for violation in violations:
+        if violation.severity == Severity.WARNING:
+            log.warning(violation.message)
 
-    violations: list[ConstraintViolation] = []
-
-    for spec_error in spec_errors:
-        violations.append(ConstraintViolation(ConstraintCode.SCHEMA_SPEC, spec_error.message))
-
-    for enum_error in enum_errors:
-        violations.append(ConstraintViolation(ConstraintCode.ENUM_DEFAULT, str(enum_error)))
-
-    for obj_name, field_names in objects_with_multiple_instance_tags.items():
-        joined = ", ".join(field_names)
-        message = f"[instanceTag] {obj_name} must have at most one @instanceTag field (found: {joined})"
-        violations.append(ConstraintViolation(ConstraintCode.INSTANCE_TAG_MULTIPLE_FIELDS, message))
-
-    return violations
+    return [violation for violation in violations if violation.severity == Severity.ERROR]
 
 
 def ensure_query(schema: GraphQLSchema) -> GraphQLSchema:
