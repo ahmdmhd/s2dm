@@ -7,6 +7,7 @@ import { DeepestPathsDetail } from "@/components/explore/insights/DeepestPathsDe
 import { EnumsDetail } from "@/components/explore/insights/EnumsDetail";
 import { FieldsByKindDetail } from "@/components/explore/insights/FieldsByKindDetail";
 import { FieldsByTypeDetail } from "@/components/explore/insights/FieldsByTypeDetail";
+import { FieldsByTypeListDetail } from "@/components/explore/insights/FieldsByTypeListDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -45,7 +46,9 @@ function detailTitle(detail: InsightDetail): string {
 		case "allIssues":
 			return "All issues";
 		case "fieldsByType":
-			return "Fields by type";
+			return "Container types by fields";
+		case "fieldsByTypeList":
+			return "All container types";
 		case "deepestPaths":
 			return "Deepest paths";
 		case "undocumented":
@@ -67,6 +70,8 @@ function renderDetail(detail: InsightDetail) {
 			return <AllIssuesDetail />;
 		case "fieldsByType":
 			return <FieldsByTypeDetail />;
+		case "fieldsByTypeList":
+			return <FieldsByTypeListDetail />;
 		case "deepestPaths":
 			return <DeepestPathsDetail />;
 		case "undocumented":
