@@ -12,6 +12,7 @@ export type InsightDetail =
 	| { kind: "enumsList" }
 	| { kind: "allIssues" }
 	| { kind: "fieldsByType" }
+	| { kind: "fieldsByTypeList" }
 	| { kind: "deepestPaths" }
 	| { kind: "undocumented" };
 
