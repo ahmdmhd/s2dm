@@ -87,6 +87,72 @@ export const RELATIONSHIP_FIELDS: FieldWithType[] = [
 	{ field: "Vehicle.chargingHistory", target: "[ChargingSession!]" },
 ];
 
+export type ContainerKind = "object" | "interface" | "input";
+
+export type ContainerTypeFieldCount = {
+	type: string;
+	fieldCount: number;
+	kind: ContainerKind;
+};
+
+export const CONTAINER_KIND_DOT_CLASSES: Record<ContainerKind, string> = {
+	object: "bg-sky-500",
+	interface: "bg-purple-500",
+	input: "bg-emerald-500",
+};
+
+const INPUT_CONTAINER_TYPES = new Set([
+	"InCabinArea2x2Input",
+	"InCabinArea2x3Input",
+]);
+
+function containerKind(type: string): ContainerKind {
+	if (INPUT_CONTAINER_TYPES.has(type)) {
+		return "input";
+	}
+	return "object";
+}
+
+function computeContainerTypeFieldCounts(): ContainerTypeFieldCount[] {
+	const countsByType = new Map<string, number>();
+	for (const { field } of [...LEAF_FIELDS, ...RELATIONSHIP_FIELDS]) {
+		const [type] = field.split(".");
+		countsByType.set(type, (countsByType.get(type) ?? 0) + 1);
+	}
+	const counts = Array.from(countsByType, ([type, fieldCount]) => ({
+		type,
+		fieldCount,
+		kind: containerKind(type),
+	}));
+	counts.sort((a, b) => b.fieldCount - a.fieldCount);
+	return counts;
+}
+
+export const CONTAINER_TYPE_FIELD_COUNTS = computeContainerTypeFieldCounts();
+
+function computeContainerTypeFieldStats(counts: ContainerTypeFieldCount[]) {
+	const fieldCounts = counts.map((entry) => entry.fieldCount);
+	const total = fieldCounts.reduce((sum, count) => sum + count, 0);
+	const sortedAscending = [...fieldCounts].sort((a, b) => a - b);
+	const middle = Math.floor(sortedAscending.length / 2);
+	let median = sortedAscending[middle];
+	if (sortedAscending.length % 2 === 0) {
+		median = (sortedAscending[middle - 1] + sortedAscending[middle]) / 2;
+	}
+	return {
+		typeCount: counts.length,
+		total,
+		average: total / counts.length,
+		median,
+		max: Math.max(...fieldCounts),
+		min: Math.min(...fieldCounts),
+	};
+}
+
+export const CONTAINER_TYPE_FIELD_STATS = computeContainerTypeFieldStats(
+	CONTAINER_TYPE_FIELD_COUNTS,
+);
+
 export function FieldTypeRow({ field, target }: FieldWithType) {
 	return (
 		<div className="flex items-center gap-2">
