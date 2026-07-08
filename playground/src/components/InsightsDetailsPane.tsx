@@ -1,15 +1,21 @@
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { DetailsPane } from "@/components/DetailsPane";
 import { AllIssuesDetail } from "@/components/explore/insights/AllIssuesDetail";
+import { ConceptsBreakdownDetail } from "@/components/explore/insights/ConceptsBreakdownDetail";
 import { ConceptTypesDetail } from "@/components/explore/insights/ConceptTypesDetail";
 import { DeepestPathsDetail } from "@/components/explore/insights/DeepestPathsDetail";
+import { EnumsDetail } from "@/components/explore/insights/EnumsDetail";
+import { FieldsByKindDetail } from "@/components/explore/insights/FieldsByKindDetail";
 import { FieldsByTypeDetail } from "@/components/explore/insights/FieldsByTypeDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	closeInsightDetail,
+	collapseResultPane,
 	type InsightDetail,
+	popInsightDetail,
+	selectCanGoBackInsightDetail,
 	selectInsightDetail,
 } from "@/store/ui/uiSlice";
 
@@ -26,8 +32,16 @@ const CONCEPT_TITLES: Record<GraphQLConcept, string> = {
 
 function detailTitle(detail: InsightDetail): string {
 	switch (detail.kind) {
+		case "conceptsBreakdown":
+			return "Elements breakdown";
 		case "conceptDetails":
 			return CONCEPT_TITLES[detail.concept];
+		case "fieldsByKind":
+			return detail.fieldKind === "leaf"
+				? "Leaf fields"
+				: "Relationship fields";
+		case "enumsList":
+			return "Enums";
 		case "allIssues":
 			return "All issues";
 		case "fieldsByType":
@@ -41,8 +55,14 @@ function detailTitle(detail: InsightDetail): string {
 
 function renderDetail(detail: InsightDetail) {
 	switch (detail.kind) {
+		case "conceptsBreakdown":
+			return <ConceptsBreakdownDetail />;
 		case "conceptDetails":
 			return <ConceptTypesDetail concept={detail.concept} />;
+		case "fieldsByKind":
+			return <FieldsByKindDetail fieldKind={detail.fieldKind} />;
+		case "enumsList":
+			return <EnumsDetail />;
 		case "allIssues":
 			return <AllIssuesDetail />;
 		case "fieldsByType":
@@ -52,6 +72,16 @@ function renderDetail(detail: InsightDetail) {
 		case "undocumented":
 			return <UndocumentedDetail />;
 	}
+}
+
+function detailKey(detail: InsightDetail): string {
+	if (detail.kind === "conceptDetails") {
+		return `conceptDetails:${detail.concept}`;
+	}
+	if (detail.kind === "fieldsByKind") {
+		return `fieldsByKind:${detail.fieldKind}`;
+	}
+	return detail.kind;
 }
 
 type InsightsDetailsPaneProps = {
@@ -67,6 +97,7 @@ export function InsightsDetailsPane({
 }: InsightsDetailsPaneProps) {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
+	const canGoBack = useAppSelector(selectCanGoBackInsightDetail);
 
 	let content: React.ReactNode;
 	if (!detail) {
@@ -79,19 +110,37 @@ export function InsightsDetailsPane({
 		content = (
 			<div className="flex h-full flex-col">
 				<div className="flex items-center justify-between border-b px-5 py-4">
-					<span className="text-lg font-semibold text-card-foreground">
-						{detailTitle(detail)}
-					</span>
+					<div className="flex items-center gap-2">
+						{canGoBack && (
+							<button
+								type="button"
+								onClick={() => dispatch(popInsightDetail())}
+								className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
+								aria-label="Back"
+							>
+								<ArrowLeft className="h-4 w-4" />
+							</button>
+						)}
+						<span className="text-lg font-semibold text-card-foreground">
+							{detailTitle(detail)}
+						</span>
+					</div>
 					<button
 						type="button"
-						onClick={() => dispatch(closeInsightDetail())}
+						onClick={() => {
+							dispatch(closeInsightDetail());
+							dispatch(collapseResultPane());
+						}}
 						className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
 						aria-label="Close details"
 					>
 						<X className="h-4 w-4" />
 					</button>
 				</div>
-				<div className="flex-1 overflow-y-auto px-5 pt-5 pb-14">
+				<div
+					key={detailKey(detail)}
+					className="flex-1 animate-in overflow-y-auto px-5 pt-5 pb-14 fade-in slide-in-from-right-4 duration-200"
+				>
 					{renderDetail(detail)}
 				</div>
 			</div>
