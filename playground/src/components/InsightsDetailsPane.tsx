@@ -10,6 +10,7 @@ import { FieldsByTypeDetail } from "@/components/explore/insights/FieldsByTypeDe
 import { FieldsByTypeListDetail } from "@/components/explore/insights/FieldsByTypeListDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
+import { UndocumentedListDetail } from "@/components/explore/insights/UndocumentedListDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	closeInsightDetail,
@@ -53,6 +54,8 @@ function detailTitle(detail: InsightDetail): string {
 			return "Deepest paths";
 		case "undocumented":
 			return "Undocumented";
+		case "undocumentedList":
+			return "All undocumented";
 	}
 }
 
@@ -76,6 +79,8 @@ function renderDetail(detail: InsightDetail) {
 			return <DeepestPathsDetail />;
 		case "undocumented":
 			return <UndocumentedDetail />;
+		case "undocumentedList":
+			return <UndocumentedListDetail />;
 	}
 }
 
