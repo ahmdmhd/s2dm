@@ -14,7 +14,8 @@ export type InsightDetail =
 	| { kind: "fieldsByType" }
 	| { kind: "fieldsByTypeList" }
 	| { kind: "deepestPaths" }
-	| { kind: "undocumented" };
+	| { kind: "undocumented" }
+	| { kind: "undocumentedList" };
 
 export interface UIState {
 	panes: {

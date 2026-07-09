@@ -4,14 +4,29 @@ import { HighlightableCard } from "@/components/explore/insights/HighlightableCa
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 
-const overallCoverage = 25;
+type CoverageCategory = {
+	label: string;
+	documented: number;
+	total: number;
+};
 
-const coverageBreakdown: { label: string; percent: number }[] = [
-	{ label: "Types", percent: 47 },
-	{ label: "Fields", percent: 61 },
-	{ label: "Enums", percent: 0 },
-	{ label: "Enum Values", percent: 0 },
+const coverageBreakdown: CoverageCategory[] = [
+	{ label: "Container Types", documented: 8, total: 18 },
+	{ label: "Fields", documented: 44, total: 72 },
+	{ label: "Enums", documented: 0, total: 35 },
+	{ label: "Enum Values", documented: 0, total: 84 },
 ];
+
+const totalElements = coverageBreakdown.reduce(
+	(sum, category) => sum + category.total,
+	0,
+);
+const documentedElements = coverageBreakdown.reduce(
+	(sum, category) => sum + category.documented,
+	0,
+);
+const undocumentedElements = totalElements - documentedElements;
+const overallCoverage = Math.round((documentedElements / totalElements) * 100);
 
 export function DocumentationCoverageCard() {
 	const dispatch = useAppDispatch();
@@ -33,21 +48,28 @@ export function DocumentationCoverageCard() {
 					</span>
 				</div>
 				<div className="flex flex-1 flex-col gap-3">
-					{coverageBreakdown.map((coverage) => (
+					{coverageBreakdown.map((category) => (
 						<DocumentationCoverageBar
-							key={coverage.label}
-							label={coverage.label}
-							percent={coverage.percent}
+							key={category.label}
+							label={category.label}
+							documented={category.documented}
+							total={category.total}
 						/>
 					))}
 				</div>
 			</div>
+			<p className="text-sm text-muted-foreground">
+				<span className="font-semibold text-card-foreground">
+					{undocumentedElements}
+				</span>
+				/{totalElements} undocumented elements
+			</p>
 			<button
 				type="button"
 				onClick={() => dispatch(openInsightDetail({ kind: "undocumented" }))}
 				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
 			>
-				View undocumented
+				View details
 				<ArrowRight className="h-4 w-4" />
 			</button>
 		</HighlightableCard>
