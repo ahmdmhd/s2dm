@@ -617,9 +617,6 @@ def deps_build(config_path: Path | None, auto_prefix: bool, merge_shared_definit
         sys.exit(1)
 
 
-deps.add_command(deps_build, name="compose")
-
-
 @click.group()
 def search() -> None:
     """Search commands e.g. search graphql for one specific type."""

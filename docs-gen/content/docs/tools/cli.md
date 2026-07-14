@@ -152,7 +152,6 @@ dependencies:
 ### Build
 
 The `deps build` command composes vendored dependency schemas into a single GraphQL SDL output file.
-The same command is also available through the `deps compose` alias.
 
 #### Usage
 
@@ -205,14 +204,6 @@ Use an explicit dependency manifest path:
 
 ```bash
 s2dm deps build --config path/to/s2dm.deps.yaml --output composed.graphql
-```
-
-##### Alias Form
-
-Run the same command through its alias:
-
-```bash
-s2dm deps compose --output composed.-graphql
 ```
 
 ## Check Commands

@@ -2603,34 +2603,3 @@ def test_deps_build_auto_prefix_writes_composed_schema_for_conflicts(runner: Cli
         assert "type powertrain_Vehicle" in composed_schema
         assert "vehicle: body_Vehicle" in composed_schema
         assert "vehicle: powertrain_Vehicle" in composed_schema
-
-
-def test_deps_compose_alias_writes_composed_schema(runner: CliRunner) -> None:
-    with runner.isolated_filesystem():
-        working_directory = Path.cwd()
-        source_directory = working_directory / "source"
-        source_directory.mkdir()
-        (source_directory / "schema.graphql").write_text(
-            "type Query { vehicle: Vehicle }\ntype Vehicle { vin: String }\n",
-            encoding="utf-8",
-        )
-        (source_directory / "metadata.yaml").write_text(
-            "name: DemoDependency\nid: urn:test:demo\nversion: 1.0.0\n",
-            encoding="utf-8",
-        )
-        (working_directory / "s2dm.deps.yaml").write_text(
-            "dependencies:\n"
-            "  - name: DemoDependency\n"
-            '    version: "1.0.0"\n'
-            f'    source: "{source_directory.resolve()}"\n'
-            '    artifact: "schema.graphql"\n',
-            encoding="utf-8",
-        )
-
-        resolve_result = runner.invoke(cli, ["deps", "resolve"])
-        output_path = working_directory / "composed.graphql"
-        compose_result = runner.invoke(cli, ["deps", "compose", "-o", str(output_path)])
-
-        assert resolve_result.exit_code == 0, resolve_result.output
-        assert compose_result.exit_code == 0, compose_result.output
-        assert "type Vehicle" in output_path.read_text(encoding="utf-8")
