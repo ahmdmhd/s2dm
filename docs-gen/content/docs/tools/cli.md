@@ -47,6 +47,7 @@ dependencies:
     version: "1.0.0"
     source: "/absolute/path/to/dependency"
     artifact: "schema.graphql"
+    selection: "/path/to/selection/file"
 ```
 
 Each dependency entry contains:
@@ -55,6 +56,7 @@ Each dependency entry contains:
 - `version`: Dependency version, which must match `metadata.yaml`
 - `source`: Absolute local source directory or repository URL
 - `artifact`: Dependency artifact name, such as `schema.graphql`, `bundle.zip`, `bundle.tar`, `bundle.tar.gz`, or `bundle.tgz`
+- `selection` (optional): Path to a `.graphql` or `.gql` selection query file used to filter the dependency schema during `deps build`. Relative paths are resolved against the manifest directory, and the file must exist.
 
 For direct GraphQL dependencies, the artifact must be named `schema.graphql` and `metadata.yaml` must exist next to it. For archive dependencies, the archive must contain `metadata.yaml` at its root and exactly one file named `schema.graphql` anywhere in the archive.
 
