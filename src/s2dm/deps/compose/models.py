@@ -46,6 +46,14 @@ class ScalarDefinitionConflict:
 
 
 @dataclass(frozen=True)
+class EnumDefinitionConflict:
+    """GraphQL enum defined with incompatible values or directives across schemas."""
+
+    enum_name: str
+    schema_source_labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class DependencySchemaDocument:
     """Parsed dependency schema document with metadata needed for auto-prefixing."""
 
