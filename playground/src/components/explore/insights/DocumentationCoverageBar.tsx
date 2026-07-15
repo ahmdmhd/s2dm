@@ -1,3 +1,6 @@
+const SPECTRUM_GRADIENT =
+	"linear-gradient(to right, hsl(0, 80%, 45%) 0%, hsl(30, 80%, 45%) 25%, hsl(60, 80%, 45%) 50%, hsl(90, 80%, 45%) 75%, hsl(120, 80%, 45%) 100%)";
+
 type DocumentationCoverageBarProps = {
 	label: string;
 	documented: number;
@@ -10,6 +13,10 @@ export function DocumentationCoverageBar({
 	total,
 }: DocumentationCoverageBarProps) {
 	const percent = total === 0 ? 0 : Math.round((documented / total) * 100);
+	let fillBackgroundSize = "100% 100%";
+	if (percent > 0) {
+		fillBackgroundSize = `${(100 / percent) * 100}% 100%`;
+	}
 
 	return (
 		<div className="flex items-center gap-3">
@@ -18,8 +25,12 @@ export function DocumentationCoverageBar({
 			</span>
 			<div className="h-2 flex-1 rounded-full bg-muted">
 				<div
-					className="h-full rounded-full bg-green-500"
-					style={{ width: `${percent}%` }}
+					className="h-full rounded-full"
+					style={{
+						width: `${percent}%`,
+						backgroundImage: SPECTRUM_GRADIENT,
+						backgroundSize: fillBackgroundSize,
+					}}
 				/>
 			</div>
 			<span className="w-14 text-right text-sm text-muted-foreground">

@@ -38,32 +38,26 @@ export function DocumentationCoverageCard() {
 			<span className="text-lg font-semibold text-card-foreground">
 				Documentation Coverage
 			</span>
-			<div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-				<div className="flex flex-col">
-					<span className="text-4xl font-bold text-green-600 dark:text-green-400">
-						{overallCoverage}%
-					</span>
-					<span className="text-sm text-muted-foreground">
-						overall coverage
-					</span>
-				</div>
-				<div className="flex flex-1 flex-col gap-3">
-					{coverageBreakdown.map((category) => (
-						<DocumentationCoverageBar
-							key={category.label}
-							label={category.label}
-							documented={category.documented}
-							total={category.total}
-						/>
-					))}
-				</div>
+			<div className="flex flex-col gap-1">
+				<p className="text-sm text-card-foreground">
+					<span className="font-semibold">{overallCoverage}%</span> overall
+					coverage
+				</p>
+				<p className="text-sm text-muted-foreground">
+					<span className="font-semibold">{undocumentedElements}</span> of{" "}
+					{totalElements} elements lack descriptions
+				</p>
 			</div>
-			<p className="text-sm text-muted-foreground">
-				<span className="font-semibold text-card-foreground">
-					{undocumentedElements}
-				</span>
-				/{totalElements} undocumented elements
-			</p>
+			<div className="flex flex-col gap-3">
+				{coverageBreakdown.map((category) => (
+					<DocumentationCoverageBar
+						key={category.label}
+						label={category.label}
+						documented={category.documented}
+						total={category.total}
+					/>
+				))}
+			</div>
 			<button
 				type="button"
 				onClick={() => dispatch(openInsightDetail({ kind: "undocumented" }))}

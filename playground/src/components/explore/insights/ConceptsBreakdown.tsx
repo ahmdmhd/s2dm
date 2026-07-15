@@ -54,6 +54,18 @@ const ELEMENT_GROUPS: BreakdownGroup[] = [
 	},
 ];
 
+const totalElements = ELEMENT_GROUPS.reduce(
+	(sum, group) => sum + group.total,
+	0,
+);
+
+let largestGroup = ELEMENT_GROUPS[0];
+for (const group of ELEMENT_GROUPS) {
+	if (group.total > largestGroup.total) {
+		largestGroup = group;
+	}
+}
+
 function MiniStackedBar({ segments }: { segments: BreakdownSegment[] }) {
 	const total = segments.reduce((sum, segment) => sum + segment.value, 0);
 
@@ -80,6 +92,16 @@ export function ConceptsBreakdown() {
 			<span className="text-lg font-semibold text-card-foreground">
 				Elements breakdown
 			</span>
+			<div className="flex flex-col gap-1">
+				<p className="text-sm text-card-foreground">
+					The composed model has{" "}
+					<span className="font-semibold">{totalElements}</span> elements
+				</p>
+				<p className="text-sm text-muted-foreground">
+					<span className="font-semibold">{largestGroup.title}</span> are the most
+					common, with <span className="font-semibold">{largestGroup.total}</span>
+				</p>
+			</div>
 			<div className="grid grid-cols-1 gap-8 md:grid-cols-3">
 				{ELEMENT_GROUPS.map((group, index) => (
 					<div

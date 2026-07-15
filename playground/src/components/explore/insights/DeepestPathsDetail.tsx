@@ -2,7 +2,6 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 import {
 	DEPTH_GROUPS,
-	PATH_DEPTH_STATS,
 	type TypePath,
 } from "@/components/explore/insights/deepestPathsData";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
@@ -84,7 +83,7 @@ export function DeepestPathsDetail() {
 					<CollapsibleSection
 						key={group.depth}
 						title={`Depth ${group.depth}`}
-						defaultCollapsed={group.depth !== PATH_DEPTH_STATS.max}
+						defaultCollapsed
 					>
 						<div className="flex flex-col gap-2 py-3">
 							<ul className="flex flex-col gap-2">

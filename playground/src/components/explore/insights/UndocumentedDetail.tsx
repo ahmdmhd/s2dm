@@ -50,11 +50,11 @@ export function UndocumentedDetail() {
 				<Heading level="h3">Evidence</Heading>
 				<div className="flex flex-col gap-3">
 					<Heading level="h4">Undocumented elements</Heading>
-					{UNDOCUMENTED_BY_KIND.map((group, index) => (
+					{UNDOCUMENTED_BY_KIND.map((group) => (
 						<CollapsibleSection
 							key={group.kind}
 							title={`${group.kind} (${group.elements.length})`}
-							defaultCollapsed={index > 0}
+							defaultCollapsed
 						>
 							<ul className="flex flex-col gap-2 py-3">
 								{group.elements.slice(0, ELEMENTS_PER_KIND).map((element) => (

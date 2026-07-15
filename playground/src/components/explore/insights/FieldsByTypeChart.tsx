@@ -55,7 +55,7 @@ export function FieldsByTypeChart() {
 						<YAxis
 							type="category"
 							dataKey="type"
-							width={140}
+							width={"auto"}
 							axisLine={false}
 							tickLine={false}
 							tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
