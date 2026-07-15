@@ -146,7 +146,7 @@ export function ConceptsBreakdownDetail() {
 			<section className="flex flex-col gap-3">
 				<Heading level="h3">Evidence</Heading>
 
-				<CollapsibleSection title="Field Container Types">
+				<CollapsibleSection title="Field Container Types" defaultCollapsed>
 					<div className="flex flex-col gap-4 py-3">
 						<EvidenceSubsection title="Object types">
 							<div className="flex flex-wrap gap-2">
@@ -198,7 +198,7 @@ export function ConceptsBreakdownDetail() {
 					</div>
 				</CollapsibleSection>
 
-				<CollapsibleSection title="Fields">
+				<CollapsibleSection title="Fields" defaultCollapsed>
 					<div className="flex flex-col gap-4 py-3">
 						<EvidenceSubsection title="Leaf fields">
 							<div className="flex flex-col gap-2">
@@ -244,7 +244,7 @@ export function ConceptsBreakdownDetail() {
 					</div>
 				</CollapsibleSection>
 
-				<CollapsibleSection title="Enums">
+				<CollapsibleSection title="Enums" defaultCollapsed>
 					<div className="flex flex-col gap-2 py-3">
 						{ENUM_SAMPLE.map((entry) => (
 							<EnumRow key={entry.name} {...entry} />

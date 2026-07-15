@@ -54,7 +54,7 @@ export function DeepestPathsChart() {
 						<YAxis
 							type="category"
 							dataKey="depth"
-							width={72}
+							width={"auto"}
 							reversed
 							axisLine={false}
 							tickLine={false}
