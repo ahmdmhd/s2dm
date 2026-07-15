@@ -1,28 +1,41 @@
+from typing import Literal
+
 from graphql import DocumentNode, parse, print_ast
-from graphql.language.ast import DirectiveDefinitionNode, Node, ScalarTypeDefinitionNode
+from graphql.language.ast import (
+    DirectiveDefinitionNode,
+    EnumTypeDefinitionNode,
+    Node,
+    ScalarTypeDefinitionNode,
+)
 
 from s2dm.deps.compose.models import (
     DirectiveDefinitionConflict,
+    EnumDefinitionConflict,
     ScalarDefinitionConflict,
     SchemaDefinition,
 )
-from s2dm.exporters.utils.directive import (
+from s2dm.utils.schema_definitions import (
     is_directive_definition_superset,
+    is_enum_definition_superset,
     is_scalar_definition_superset,
 )
 
+DefinitionKind = Literal["directive", "scalar", "enum"]
+
 
 class SharedDefinitionResolver:
-    """Reconcile shared directive and scalar definitions across schema sources.
+    """Reconcile shared directive, scalar, and enum definitions across schema sources.
 
-    Directives and scalars cannot be prefixed, so the resolver extracts them out of every schema,
-    reports incompatible redeclarations as conflicts, and emits the reconciled set as a single block.
-    Each schema is left with its type definitions only for downstream composition.
+    The resolver extracts these definitions out of every schema, reports incompatible redeclarations
+    as conflicts, and emits the reconciled set as a single block. Identical redeclarations collapse to
+    one; differing ones are a conflict, unless ``merge_shared_definitions`` lets a directive or scalar
+    superset absorb the others. Each schema is left with its remaining type definitions only for
+    downstream composition.
     """
 
     def __init__(self, schema_definitions: list[SchemaDefinition], merge_shared_definitions: bool = False) -> None:
         self.merge_shared_definitions = merge_shared_definitions
-        self.superset_definitions_by_key: dict[tuple[str, str], Node] = {}
+        self.superset_definitions_by_key: dict[tuple[DefinitionKind, str], Node] = {}
         self.schema_documents = [
             (schema_definition.source_label, parse(schema_definition.content))
             for schema_definition in schema_definitions
@@ -38,15 +51,20 @@ class SharedDefinitionResolver:
             for (kind, name), schema_source_labels in incompatible_definitions_items
             if kind == "scalar"
         )
+        self.enum_conflicts = tuple(
+            EnumDefinitionConflict(enum_name=name, schema_source_labels=schema_source_labels)
+            for (kind, name), schema_source_labels in incompatible_definitions_items
+            if kind == "enum"
+        )
 
     def resolved_definitions_sdl(self) -> str:
-        """Return the reconciled directives and scalars as a single SDL block, each declared once.
+        """Return the reconciled directives, scalars, and enums as a single SDL block, each declared once.
 
         Keeps the first declaration of every ``(kind, name)`` in dependency order. Identical
         redeclarations collapse to that copy; incompatible ones are reported via ``directive_conflicts`` /
-        ``scalar_conflicts`` and must block the build before this is written.
+        ``scalar_conflicts`` / ``enum_conflicts`` and must block the build before this is written.
         """
-        seen_keys: set[tuple[str, str]] = set()
+        seen_keys: set[tuple[DefinitionKind, str]] = set()
         shared_definitions: list[Node] = []
         for _, document in self.schema_documents:
             for definition in document.definitions:
@@ -67,7 +85,7 @@ class SharedDefinitionResolver:
         return print_ast(DocumentNode(definitions=tuple(shared_definitions)))
 
     def schema_definitions_without_shared_definitions(self) -> list[SchemaDefinition]:
-        """Return each schema definition with its directive and scalar declarations removed."""
+        """Return each schema definition with its directive, scalar, and enum declarations removed."""
         type_only_schema_definitions: list[SchemaDefinition] = []
         for source_label, document in self.schema_documents:
             type_definitions = tuple(
@@ -97,12 +115,16 @@ class SharedDefinitionResolver:
                 f"Multiple definitions of scalar `{scalar_conflict.scalar_name}` found in [{source_labels}]"
             )
 
+        for enum_conflict in self.enum_conflicts:
+            source_labels = ", ".join(enum_conflict.schema_source_labels)
+            messages.append(f"Multiple definitions of enum `{enum_conflict.enum_name}` found in [{source_labels}]")
+
         return messages
 
-    def _incompatible_definitions(self) -> dict[tuple[str, str], tuple[str, ...]]:
-        source_labels_by_key: dict[tuple[str, str], list[str]] = {}
-        identities_by_key: dict[tuple[str, str], set[tuple[object, ...]]] = {}
-        definitions_by_key: dict[tuple[str, str], list[Node]] = {}
+    def _incompatible_definitions(self) -> dict[tuple[DefinitionKind, str], tuple[str, ...]]:
+        source_labels_by_key: dict[tuple[DefinitionKind, str], list[str]] = {}
+        identities_by_key: dict[tuple[DefinitionKind, str], set[tuple[object, ...]]] = {}
+        definitions_by_key: dict[tuple[DefinitionKind, str], list[Node]] = {}
         for source_label, document in self.schema_documents:
             for definition in document.definitions:
                 shared_definition = self._as_shared_definition(definition)
@@ -113,7 +135,7 @@ class SharedDefinitionResolver:
                 identities_by_key.setdefault(key, set()).add(identity)
                 definitions_by_key.setdefault(key, []).append(definition)
 
-        incompatible_definitions: dict[tuple[str, str], tuple[str, ...]] = {}
+        incompatible_definitions: dict[tuple[DefinitionKind, str], tuple[str, ...]] = {}
         for key, schema_source_labels in source_labels_by_key.items():
             has_multiple_sources = len(schema_source_labels) > 1
             has_different_identities = len(identities_by_key[key]) > 1
@@ -131,7 +153,7 @@ class SharedDefinitionResolver:
 
         return incompatible_definitions
 
-    def _select_superset_definition(self, key: tuple[str, str], definitions: list[Node]) -> Node | None:
+    def _select_superset_definition(self, key: tuple[DefinitionKind, str], definitions: list[Node]) -> Node | None:
         kind, _ = key
         for candidate in definitions:
             candidate_is_superset = True
@@ -142,12 +164,20 @@ class SharedDefinitionResolver:
                         and isinstance(definition, DirectiveDefinitionNode)
                         and is_directive_definition_superset(candidate, definition)
                     )
-                else:
+                elif kind == "scalar":
                     is_superset = (
                         isinstance(candidate, ScalarTypeDefinitionNode)
                         and isinstance(definition, ScalarTypeDefinitionNode)
                         and is_scalar_definition_superset(candidate, definition)
                     )
+                elif kind == "enum":
+                    is_superset = (
+                        isinstance(candidate, EnumTypeDefinitionNode)
+                        and isinstance(definition, EnumTypeDefinitionNode)
+                        and is_enum_definition_superset(candidate, definition)
+                    )
+                else:
+                    return None
                 if not is_superset:
                     candidate_is_superset = False
                     break
@@ -156,8 +186,8 @@ class SharedDefinitionResolver:
         return None
 
     @staticmethod
-    def _as_shared_definition(definition: Node) -> tuple[tuple[str, str], tuple[object, ...]] | None:
-        """Map a directive/scalar definition to its ``((kind, name), identity)``; ``None`` for anything else.
+    def _as_shared_definition(definition: Node) -> tuple[tuple[DefinitionKind, str], tuple[object, ...]] | None:
+        """Map a directive/scalar/enum definition to its ``((kind, name), identity)``; ``None`` otherwise.
 
         Two schemas declaring the same ``(kind, name)`` must declare it identically: equal identity
         means the declarations are interchangeable and collapse to one; differing identity is a conflict.
@@ -166,6 +196,8 @@ class SharedDefinitionResolver:
             return ("directive", definition.name.value), SharedDefinitionResolver._directive_identity(definition)
         if isinstance(definition, ScalarTypeDefinitionNode):
             return ("scalar", definition.name.value), SharedDefinitionResolver._scalar_identity(definition)
+        if isinstance(definition, EnumTypeDefinitionNode):
+            return ("enum", definition.name.value), SharedDefinitionResolver._enum_identity(definition)
         return None
 
     @staticmethod
@@ -179,3 +211,15 @@ class SharedDefinitionResolver:
     def _scalar_identity(node: ScalarTypeDefinitionNode) -> tuple[object, ...]:
         """Scalar identity: the directives applied to it, compared order-insensitively."""
         return tuple(sorted(print_ast(directive) for directive in node.directives))
+
+    @staticmethod
+    def _enum_identity(node: EnumTypeDefinitionNode) -> tuple[object, ...]:
+        """Enum identity: its directives and each value's name and directives, compared order-insensitively."""
+        directives = tuple(sorted(print_ast(directive) for directive in node.directives))
+        values = tuple(
+            sorted(
+                (value.name.value, tuple(sorted(print_ast(directive) for directive in value.directives)))
+                for value in node.values
+            )
+        )
+        return (directives, values)

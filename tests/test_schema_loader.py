@@ -517,6 +517,126 @@ def test_compose_uses_scalar_applied_directive_superset_with_merge_shared_defini
     assert 'scalar DateTime @format(value: "iso", source: "system")' in composed_schema
 
 
+def test_compose_merges_identical_shared_enums(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        enum Drivetrain { FWD RWD AWD }
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        enum Drivetrain { FWD RWD AWD }
+
+        type ServiceRecord {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    assert composed_schema.count("enum Drivetrain") == 1
+    assert "type Vehicle" in composed_schema
+    assert "type ServiceRecord" in composed_schema
+
+
+def test_compose_rejects_incompatible_shared_enums(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        enum Drivetrain { FWD RWD }
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        enum Drivetrain { FWD AWD }
+
+        type ServiceRecord {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        compose_schemas_to_string(
+            schemas=[first_schema_path, second_schema_path],
+            root_type=None,
+            selection_query=None,
+            naming_config=None,
+            expanded_instances=False,
+        )
+
+
+def test_compose_uses_enum_value_superset_with_merge_shared_definitions(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        enum Drivetrain { FWD RWD }
+
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        enum Drivetrain { FWD RWD AWD }
+
+        type ServiceRecord {
+          drivetrain: Drivetrain
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+        merge_shared_definitions=True,
+    )
+
+    assert composed_schema.count("enum Drivetrain") == 1
+    assert "AWD" in composed_schema
+
+
 def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:
     schema_str = """
     directive @instanceTag(exclude: [String!]) on OBJECT | FIELD_DEFINITION | ENUM

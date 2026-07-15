@@ -4,6 +4,7 @@ from s2dm.deps.compose.models import (
     DependencySchemaInput,
     DependencyTypeNameConflict,
     DirectiveDefinitionConflict,
+    EnumDefinitionConflict,
     ScalarDefinitionConflict,
     SchemaDefinition,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "DependencySchemaInput",
     "DependencyTypeNameConflict",
     "DirectiveDefinitionConflict",
+    "EnumDefinitionConflict",
     "ScalarDefinitionConflict",
     "SchemaDefinition",
     "SharedDefinitionResolver",

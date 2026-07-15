@@ -1,3 +1,6 @@
+from graphql import parse
+from graphql.language.ast import EnumTypeDefinitionNode
+
 from s2dm.deps.compose import SchemaDefinition, SharedDefinitionResolver
 
 
@@ -128,6 +131,152 @@ def test_scalar_applied_directive_argument_value_mismatch_conflicts_with_merge_s
     (conflict,) = resolver.scalar_conflicts
 
     assert conflict.scalar_name == "DateTime"
+
+
+def test_identical_enums_are_not_a_conflict() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD AWD }\n",
+        "enum Drivetrain { FWD RWD AWD }\n",
+    )
+
+    assert resolver.enum_conflicts == ()
+
+
+def test_enum_values_are_compared_order_insensitively() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD AWD }\n",
+        "enum Drivetrain { AWD FWD RWD }\n",
+    )
+
+    assert resolver.enum_conflicts == ()
+
+
+def test_incompatible_enum_values_are_a_conflict() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD }\n",
+        "enum Drivetrain { FWD AWD }\n",
+    )
+
+    (conflict,) = resolver.enum_conflicts
+
+    assert conflict.enum_name == "Drivetrain"
+    assert set(conflict.schema_source_labels) == {"BodyModel@1.0.0", "PowertrainModel@2.0.0"}
+
+
+def test_enum_value_superset_conflicts_without_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD }\n",
+        "enum Drivetrain { FWD RWD AWD }\n",
+    )
+
+    (conflict,) = resolver.enum_conflicts
+
+    assert conflict.enum_name == "Drivetrain"
+
+
+def test_enum_value_superset_is_selected_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD }\n",
+        "enum Drivetrain { FWD RWD AWD }\n",
+        merge_shared_definitions=True,
+    )
+
+    document = parse(resolver.resolved_definitions_sdl())
+    (drivetrain,) = [
+        definition
+        for definition in document.definitions
+        if isinstance(definition, EnumTypeDefinitionNode) and definition.name.value == "Drivetrain"
+    ]
+
+    assert resolver.enum_conflicts == ()
+    assert {value.name.value for value in drivetrain.values} == {"FWD", "RWD", "AWD"}
+
+
+def test_enum_directive_superset_is_selected_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String, source: String) on ENUM
+        enum Drivetrain @meta(note: "x") { FWD RWD }
+        """,
+        """
+        directive @meta(note: String, source: String) on ENUM
+        enum Drivetrain @meta(note: "x", source: "y") { FWD RWD }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    resolved_definitions_sdl = resolver.resolved_definitions_sdl()
+
+    assert resolver.enum_conflicts == ()
+    assert '@meta(note: "x", source: "y")' in resolved_definitions_sdl
+
+
+def test_enum_value_directive_superset_is_selected_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "enum Drivetrain { FWD RWD }\n",
+        'enum Drivetrain { FWD RWD @deprecated(reason: "legacy") }\n',
+        merge_shared_definitions=True,
+    )
+
+    resolved_definitions_sdl = resolver.resolved_definitions_sdl()
+
+    assert resolver.enum_conflicts == ()
+    assert '@deprecated(reason: "legacy")' in resolved_definitions_sdl
+
+
+def test_enum_value_directive_argument_superset_is_selected_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String, source: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String, source: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(note: "x", source: "y") }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    resolved_definitions_sdl = resolver.resolved_definitions_sdl()
+
+    assert resolver.enum_conflicts == ()
+    assert '@meta(note: "x", source: "y")' in resolved_definitions_sdl
+
+
+def test_enum_value_directive_argument_value_mismatch_conflicts_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(note: "z") }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.enum_conflicts
+
+    assert conflict.enum_name == "Drivetrain"
+
+
+def test_enum_value_directive_disjoint_arguments_conflict_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String, source: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String, source: String) on ENUM_VALUE
+        enum Drivetrain { FWD RWD @meta(source: "y") }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.enum_conflicts
+
+    assert conflict.enum_name == "Drivetrain"
 
 
 def _resolver(

@@ -357,7 +357,7 @@ s2dm compose -s schema.graphql --expanded-instances -o output.graphql
 
 ### Shared Definitions
 
-Composing multiple schemas reconciles their shared directives and scalars into a single set, declared once. Identical declarations merge; conflicting ones stop the build with a message naming the definition and its source schemas. Add `--merge-shared-definitions` to also reconcile compatible differences (such as one schema adding an optional argument) by keeping the most complete declaration.
+Composing multiple schemas reconciles their shared directives, scalars, and enums into a single set, declared once. Identical declarations merge; conflicting ones stop the build with a message naming the definition and its source schemas. Add `--merge-shared-definitions` to also reconcile compatible differences — one schema adding an optional directive argument or location, or an enum declaring extra values or directives — by keeping the most complete declaration.
 
 ```bash
 s2dm compose -s schema1.graphql -s schema2.graphql --merge-shared-definitions -o composed.graphql
@@ -378,6 +378,36 @@ With `--merge-shared-definitions`, the composed output keeps the most complete d
 ```graphql
 directive @metadata(comment: String, source: String) on FIELD_DEFINITION | OBJECT
 ```
+
+#### Enums
+
+Enums are reconciled by name, following the same rule. Two declarations of the same enum are considered **identical** when they list the same value names and apply the same directives — both to the enum and to each value. Value order and descriptions are ignored, so those never cause a difference. Identical declarations collapse to one even without `--merge-shared-definitions`; the flag only affects declarations that differ.
+
+When declarations of the same enum differ, the build stops with a conflict naming the enum and its source schemas (e.g. ``Multiple definitions of enum `Drivetrain` found in [schema1.graphql, schema2.graphql]``) — unless `--merge-shared-definitions` is set. With the flag, the composer keeps whichever declaration is a **superset** of every other:
+
+- it declares every value the others declare, and may add more; and
+- its directives — on the enum and on each shared value — include all of theirs, with matching argument values.
+
+**Extra values.** Given `enum Drivetrain { FWD RWD }` and `enum Drivetrain { FWD RWD AWD }`, the flag keeps the declaration listing every value:
+
+```graphql
+enum Drivetrain {
+  FWD
+  RWD
+  AWD
+}
+```
+
+**Extra directives.** A directive added to the enum or to one of its values is a superset in the same way. Given `enum Drivetrain { FWD RWD }` and `enum Drivetrain { FWD RWD @deprecated(reason: "legacy") }`, the flag keeps the annotated declaration:
+
+```graphql
+enum Drivetrain {
+  FWD
+  RWD @deprecated(reason: "legacy")
+}
+```
+
+**Irreconcilable declarations.** The flag only *selects* the most complete declaration among the inputs; it never synthesizes a new one by combining features. So when each declaration has something the other lacks — a value the other omits (`{ FWD RWD }` vs `{ FWD AWD }`), a directive the other omits, or the same directive with a different argument value (`@meta(note: "a")` vs `@meta(note: "b")`) — no declaration is a superset of the rest, and the build reports a conflict even with `--merge-shared-definitions`. Resolve it by editing one schema so its declaration is a true superset of the other.
 
 ### Ledger Annotation
 
