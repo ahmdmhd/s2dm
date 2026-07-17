@@ -7,26 +7,39 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import {
-	CONTAINER_TYPE_FIELD_COUNTS,
-	CONTAINER_TYPE_FIELD_STATS,
-} from "@/components/explore/insights/FieldsByKindDetail";
+import { CategoryTick } from "@/components/explore/insights/CategoryTick";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+	selectContainerTypeFieldCounts,
+	selectContainerTypeFieldStats,
+} from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 
-const topContainerTypes = CONTAINER_TYPE_FIELD_COUNTS.slice(0, 5);
-const [largestType, secondLargestType] = CONTAINER_TYPE_FIELD_COUNTS;
-const timesMore = largestType.fieldCount / secondLargestType.fieldCount;
-let timesMoreLabel = `${timesMore}`;
-if (timesMore % 1 !== 0) {
-	timesMoreLabel = timesMore.toFixed(1);
-}
+const TYPE_AXIS_WIDTH = 140;
 
 export function FieldsByTypeChart() {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
+	const containerTypeFieldCounts = useAppSelector(
+		selectContainerTypeFieldCounts,
+	);
+	const stats = useAppSelector(selectContainerTypeFieldStats);
 	const selected = detail?.kind === "fieldsByType";
+
+	const largestType = containerTypeFieldCounts[0];
+	if (!largestType || !stats) {
+		return null;
+	}
+
+	const topContainerTypes = containerTypeFieldCounts.slice(0, 5);
+	const secondLargestType = containerTypeFieldCounts[1];
+	let timesMoreLabel: string | null = null;
+	if (secondLargestType) {
+		const timesMore = largestType.fieldCount / secondLargestType.fieldCount;
+		timesMoreLabel =
+			timesMore % 1 === 0 ? `${timesMore}` : timesMore.toFixed(1);
+	}
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -39,10 +52,12 @@ export function FieldsByTypeChart() {
 					fields:{" "}
 					<span className="font-semibold">{largestType.fieldCount}</span>
 				</p>
-				<p className="text-sm text-muted-foreground">
-					<span className="font-semibold">{timesMoreLabel}×</span> more than{" "}
-					{secondLargestType.type}, the second largest type
-				</p>
+				{secondLargestType && (
+					<p className="text-sm text-muted-foreground">
+						<span className="font-semibold">{timesMoreLabel}×</span> more than{" "}
+						{secondLargestType.type}, the second largest type
+					</p>
+				)}
 			</div>
 			<div className="h-[176px] w-full">
 				<ResponsiveContainer width="100%" height="100%">
@@ -55,10 +70,10 @@ export function FieldsByTypeChart() {
 						<YAxis
 							type="category"
 							dataKey="type"
-							width={"auto"}
+							width={TYPE_AXIS_WIDTH}
 							axisLine={false}
 							tickLine={false}
-							tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+							tick={<CategoryTick width={TYPE_AXIS_WIDTH} />}
 						/>
 						<Bar
 							dataKey="fieldCount"
@@ -80,13 +95,13 @@ export function FieldsByTypeChart() {
 				<span>
 					Average fields per type:{" "}
 					<span className="font-semibold text-card-foreground">
-						{CONTAINER_TYPE_FIELD_STATS.average.toFixed(1)}
+						{stats.average.toFixed(1)}
 					</span>
 				</span>
 				<span>
 					Median fields per type:{" "}
 					<span className="font-semibold text-card-foreground">
-						{CONTAINER_TYPE_FIELD_STATS.median}
+						{stats.median}
 					</span>
 				</span>
 			</div>

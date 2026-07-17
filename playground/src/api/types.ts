@@ -122,3 +122,105 @@ export type ExporterCapability = {
 	propertyValues: Record<string, unknown>;
 	cliCommandName: string;
 };
+
+export type ConceptCounts = {
+	object: number;
+	interface: number;
+	enum: number;
+	union: number;
+	scalar: number;
+	input: number;
+	field: number;
+	leaf_field: number;
+	relationship_field: number;
+	directive: number;
+};
+
+export type ConceptMembers = {
+	object: string[];
+	interface: string[];
+	enum: string[];
+	union: string[];
+	scalar: string[];
+	input: string[];
+	directive: string[];
+};
+
+export type ContainerKind = "object" | "interface" | "input";
+
+export type FieldInfo = {
+	name: string;
+	type: string;
+	is_relationship: boolean;
+};
+
+export type TypeFields = {
+	type: string;
+	kind: ContainerKind;
+	fields: FieldInfo[];
+};
+
+export type EnumValueCount = {
+	name: string;
+	values: number;
+};
+
+export type ConceptsResponse = {
+	counts: ConceptCounts;
+	members: ConceptMembers;
+	fields_by_type: TypeFields[];
+	enum_value_counts: EnumValueCount[];
+};
+
+export type RelationshipPath = {
+	segments: string[];
+	depth: number;
+};
+
+export type DepthCount = {
+	depth: number;
+	count: number;
+};
+
+export type RelationshipsResponse = {
+	paths: RelationshipPath[];
+	max_depth: RelationshipPath | null;
+	total_paths: number;
+	depth_distribution: DepthCount[];
+};
+
+export type CoverageCount = {
+	documented: number;
+	total: number;
+};
+
+export type CoverageBreakdown = {
+	types: CoverageCount;
+	fields: CoverageCount;
+	enums: CoverageCount;
+	enum_values: CoverageCount;
+	directives: CoverageCount;
+};
+
+export type UndocumentedEntity = {
+	name: string;
+	kind: string;
+};
+
+export type CoverageResponse = {
+	breakdown: CoverageBreakdown;
+	undocumented: UndocumentedEntity[];
+};
+
+export type QualitySeverity = "warning" | "info";
+
+export type QualityIssue = {
+	target: string;
+	problem: string;
+	severity: QualitySeverity;
+	category: string;
+};
+
+export type QualityResponse = {
+	issues: QualityIssue[];
+};

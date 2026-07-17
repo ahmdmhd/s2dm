@@ -1,57 +1,21 @@
-import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
-import { ENUMS, EnumRow } from "@/components/explore/insights/EnumsDetail";
-import {
-	FieldTypeRow,
-	LEAF_FIELDS,
-	RELATIONSHIP_FIELDS,
-} from "@/components/explore/insights/FieldsByKindDetail";
+import { EnumRow } from "@/components/explore/insights/EnumsDetail";
+import { FieldTypeRow } from "@/components/explore/insights/FieldsByKindDetail";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
+import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+	selectConceptMembers,
+	selectEnums,
+	selectLeafFields,
+	selectRelationshipFields,
+} from "@/store/insights/insightsSelectors";
 import { pushInsightDetail } from "@/store/ui/uiSlice";
-import { cn } from "@/utils/cn";
 
-const OBJECT_SAMPLE = ["Vehicle", "Cabin", "Seat"];
-const OBJECT_TOTAL = 16;
-const INPUT_SAMPLE = ["InCabinArea2x2Input", "InCabinArea2x3Input"];
-const INPUT_TOTAL = 2;
-const LEAF_SAMPLE = LEAF_FIELDS.slice(0, 3);
-const RELATIONSHIP_SAMPLE = RELATIONSHIP_FIELDS.slice(0, 3);
-const ENUM_SAMPLE = [
-	{ ...ENUMS[0], rank: "Largest" },
-	{ ...ENUMS[Math.floor(ENUMS.length / 2)], rank: "Median" },
-	{ ...ENUMS[ENUMS.length - 1], rank: "Smallest" },
-];
-
-function ViewAllButton({
-	label,
-	onClick,
-}: {
-	label: string;
-	onClick?: () => void;
-}) {
-	const disabled = !onClick;
-
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			onClick={onClick}
-			className={cn(
-				"mt-1 inline-flex items-center gap-1 self-start text-sm font-medium",
-				disabled
-					? "cursor-not-allowed text-muted-foreground"
-					: "cursor-pointer text-primary hover:underline",
-			)}
-		>
-			{label}
-			<ArrowRight className="h-4 w-4" />
-		</button>
-	);
-}
+const SAMPLE_SIZE = 3;
 
 function EvidenceSubsection({
 	title,
@@ -70,6 +34,28 @@ function EvidenceSubsection({
 
 export function ConceptsBreakdownDetail() {
 	const dispatch = useAppDispatch();
+	const members = useAppSelector(selectConceptMembers);
+	const leafFields = useAppSelector(selectLeafFields);
+	const relationshipFields = useAppSelector(selectRelationshipFields);
+	const enums = useAppSelector(selectEnums);
+
+	if (!members) {
+		return null;
+	}
+
+	const objectSample = members.object.slice(0, SAMPLE_SIZE);
+	const interfaceSample = members.interface.slice(0, SAMPLE_SIZE);
+	const inputSample = members.input.slice(0, SAMPLE_SIZE);
+	const leafSample = leafFields.slice(0, SAMPLE_SIZE);
+	const relationshipSample = relationshipFields.slice(0, SAMPLE_SIZE);
+	let enumSample: { name: string; values: number; rank: string }[] = [];
+	if (enums.length > 0) {
+		enumSample = [
+			{ ...enums[0], rank: "Largest" },
+			{ ...enums[Math.floor(enums.length / 2)], rank: "Median" },
+			{ ...enums[enums.length - 1], rank: "Smallest" },
+		];
+	}
 
 	return (
 		<div className="flex flex-col gap-6 text-sm text-card-foreground">
@@ -150,13 +136,17 @@ export function ConceptsBreakdownDetail() {
 					<div className="flex flex-col gap-4 py-3">
 						<EvidenceSubsection title="Object types">
 							<div className="flex flex-wrap gap-2">
-								{OBJECT_SAMPLE.map((name) => (
-									<TypePathBreadcrumb key={name} segments={[name]} />
+								{objectSample.map((name) => (
+									<TypePathBreadcrumb
+										key={name}
+										segments={[name]}
+										truncate={false}
+									/>
 								))}
 							</div>
-							{OBJECT_TOTAL > OBJECT_SAMPLE.length && (
+							{members.object.length > objectSample.length && (
 								<ViewAllButton
-									label={`View all ${OBJECT_TOTAL}`}
+									label={`View all ${members.object.length}`}
 									onClick={() =>
 										dispatch(
 											pushInsightDetail({
@@ -170,29 +160,68 @@ export function ConceptsBreakdownDetail() {
 						</EvidenceSubsection>
 
 						<EvidenceSubsection title="Interface types">
-							<p className="text-muted-foreground">
-								No interface types in this schema.
-							</p>
+							{interfaceSample.length === 0 ? (
+								<p className="text-muted-foreground">
+									No interface types in this schema.
+								</p>
+							) : (
+								<>
+									<div className="flex flex-wrap gap-2">
+										{interfaceSample.map((name) => (
+											<TypePathBreadcrumb
+												key={name}
+												segments={[name]}
+												truncate={false}
+											/>
+										))}
+									</div>
+									{members.interface.length > interfaceSample.length && (
+										<ViewAllButton
+											label={`View all ${members.interface.length}`}
+											onClick={() =>
+												dispatch(
+													pushInsightDetail({
+														kind: "conceptDetails",
+														concept: "interface",
+													}),
+												)
+											}
+										/>
+									)}
+								</>
+							)}
 						</EvidenceSubsection>
 
 						<EvidenceSubsection title="Input types">
-							<div className="flex flex-wrap gap-2">
-								{INPUT_SAMPLE.map((name) => (
-									<TypePathBreadcrumb key={name} segments={[name]} />
-								))}
-							</div>
-							{INPUT_TOTAL > INPUT_SAMPLE.length && (
-								<ViewAllButton
-									label={`View all ${INPUT_TOTAL}`}
-									onClick={() =>
-										dispatch(
-											pushInsightDetail({
-												kind: "conceptDetails",
-												concept: "input",
-											}),
-										)
-									}
-								/>
+							{inputSample.length === 0 ? (
+								<p className="text-muted-foreground">
+									No input types in this schema.
+								</p>
+							) : (
+								<>
+									<div className="flex flex-wrap gap-2">
+										{inputSample.map((name) => (
+											<TypePathBreadcrumb
+												key={name}
+												segments={[name]}
+												truncate={false}
+											/>
+										))}
+									</div>
+									{members.input.length > inputSample.length && (
+										<ViewAllButton
+											label={`View all ${members.input.length}`}
+											onClick={() =>
+												dispatch(
+													pushInsightDetail({
+														kind: "conceptDetails",
+														concept: "input",
+													}),
+												)
+											}
+										/>
+									)}
+								</>
 							)}
 						</EvidenceSubsection>
 					</div>
@@ -202,13 +231,13 @@ export function ConceptsBreakdownDetail() {
 					<div className="flex flex-col gap-4 py-3">
 						<EvidenceSubsection title="Leaf fields">
 							<div className="flex flex-col gap-2">
-								{LEAF_SAMPLE.map((entry) => (
+								{leafSample.map((entry) => (
 									<FieldTypeRow key={entry.field} {...entry} />
 								))}
 							</div>
-							{LEAF_FIELDS.length > LEAF_SAMPLE.length && (
+							{leafFields.length > leafSample.length && (
 								<ViewAllButton
-									label={`View all ${LEAF_FIELDS.length}`}
+									label={`View all ${leafFields.length}`}
 									onClick={() =>
 										dispatch(
 											pushInsightDetail({
@@ -223,13 +252,13 @@ export function ConceptsBreakdownDetail() {
 
 						<EvidenceSubsection title="Relationship fields">
 							<div className="flex flex-col gap-2">
-								{RELATIONSHIP_SAMPLE.map((entry) => (
+								{relationshipSample.map((entry) => (
 									<FieldTypeRow key={entry.field} {...entry} />
 								))}
 							</div>
-							{RELATIONSHIP_FIELDS.length > RELATIONSHIP_SAMPLE.length && (
+							{relationshipFields.length > relationshipSample.length && (
 								<ViewAllButton
-									label={`View all ${RELATIONSHIP_FIELDS.length}`}
+									label={`View all ${relationshipFields.length}`}
 									onClick={() =>
 										dispatch(
 											pushInsightDetail({
@@ -246,13 +275,17 @@ export function ConceptsBreakdownDetail() {
 
 				<CollapsibleSection title="Enums" defaultCollapsed>
 					<div className="flex flex-col gap-2 py-3">
-						{ENUM_SAMPLE.map((entry) => (
-							<EnumRow key={entry.name} {...entry} />
+						{enumSample.map((entry) => (
+							<EnumRow key={`${entry.name}:${entry.rank}`} {...entry} />
 						))}
-						<ViewAllButton
-							label={`View all ${ENUMS.length}`}
-							onClick={() => dispatch(pushInsightDetail({ kind: "enumsList" }))}
-						/>
+						{enums.length > 0 && (
+							<ViewAllButton
+								label={`View all ${enums.length}`}
+								onClick={() =>
+									dispatch(pushInsightDetail({ kind: "enumsList" }))
+								}
+							/>
+						)}
 					</div>
 				</CollapsibleSection>
 			</section>

@@ -2,36 +2,31 @@ import { ArrowRight } from "lucide-react";
 import { DocumentationCoverageBar } from "@/components/explore/insights/DocumentationCoverageBar";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectCoverageCategories } from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
-
-type CoverageCategory = {
-	label: string;
-	documented: number;
-	total: number;
-};
-
-const coverageBreakdown: CoverageCategory[] = [
-	{ label: "Container Types", documented: 8, total: 18 },
-	{ label: "Fields", documented: 44, total: 72 },
-	{ label: "Enums", documented: 0, total: 35 },
-	{ label: "Enum Values", documented: 0, total: 84 },
-];
-
-const totalElements = coverageBreakdown.reduce(
-	(sum, category) => sum + category.total,
-	0,
-);
-const documentedElements = coverageBreakdown.reduce(
-	(sum, category) => sum + category.documented,
-	0,
-);
-const undocumentedElements = totalElements - documentedElements;
-const overallCoverage = Math.round((documentedElements / totalElements) * 100);
 
 export function DocumentationCoverageCard() {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
+	const coverageCategories = useAppSelector(selectCoverageCategories);
 	const selected = detail?.kind === "undocumented";
+
+	if (coverageCategories.length === 0) {
+		return null;
+	}
+
+	const totalElements = coverageCategories.reduce(
+		(sum, category) => sum + category.total,
+		0,
+	);
+	const documentedElements = coverageCategories.reduce(
+		(sum, category) => sum + category.documented,
+		0,
+	);
+	const overallCoverage =
+		totalElements === 0
+			? 0
+			: Math.round((documentedElements / totalElements) * 100);
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -44,12 +39,12 @@ export function DocumentationCoverageCard() {
 					coverage
 				</p>
 				<p className="text-sm text-muted-foreground">
-					<span className="font-semibold">{undocumentedElements}</span> of{" "}
-					{totalElements} elements lack descriptions
+					<span className="font-semibold">{documentedElements}</span> of{" "}
+					{totalElements} elements documented
 				</p>
 			</div>
 			<div className="flex flex-col gap-3">
-				{coverageBreakdown.map((category) => (
+				{coverageCategories.map((category) => (
 					<DocumentationCoverageBar
 						key={category.label}
 						label={category.label}

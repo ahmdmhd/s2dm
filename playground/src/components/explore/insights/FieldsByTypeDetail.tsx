@@ -1,63 +1,14 @@
-import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-	CONTAINER_TYPE_FIELD_COUNTS,
-	CONTAINER_TYPE_FIELD_STATS,
-} from "@/components/explore/insights/FieldsByKindDetail";
 import { ContainerTypeRow } from "@/components/explore/insights/FieldsByTypeListDetail";
+import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { Heading } from "@/components/ui/heading";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+	selectContainerTypeFieldCounts,
+	selectContainerTypeFieldStats,
+} from "@/store/insights/insightsSelectors";
 import { pushInsightDetail } from "@/store/ui/uiSlice";
-import { cn } from "@/utils/cn";
-
-const TOP_TYPES = CONTAINER_TYPE_FIELD_COUNTS.slice(0, 5);
-
-const STATS = [
-	{
-		label: "Average fields per container type",
-		value: CONTAINER_TYPE_FIELD_STATS.average.toFixed(1),
-	},
-	{
-		label: "Median fields per container type",
-		value: CONTAINER_TYPE_FIELD_STATS.median,
-	},
-	{
-		label: "Maximum fields on one container type",
-		value: CONTAINER_TYPE_FIELD_STATS.max,
-	},
-	{
-		label: "Minimum fields on one container type",
-		value: CONTAINER_TYPE_FIELD_STATS.min,
-	},
-];
-
-function ViewAllButton({
-	label,
-	onClick,
-}: {
-	label: string;
-	onClick?: () => void;
-}) {
-	const disabled = !onClick;
-
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			onClick={onClick}
-			className={cn(
-				"mt-1 inline-flex items-center gap-1 self-start text-sm font-medium",
-				disabled
-					? "cursor-not-allowed text-muted-foreground"
-					: "cursor-pointer text-primary hover:underline",
-			)}
-		>
-			{label}
-			<ArrowRight className="h-4 w-4" />
-		</button>
-	);
-}
 
 function EvidenceSubsection({
 	title,
@@ -76,6 +27,25 @@ function EvidenceSubsection({
 
 export function FieldsByTypeDetail() {
 	const dispatch = useAppDispatch();
+	const containerTypeFieldCounts = useAppSelector(
+		selectContainerTypeFieldCounts,
+	);
+	const stats = useAppSelector(selectContainerTypeFieldStats);
+
+	if (!stats) {
+		return null;
+	}
+
+	const topTypes = containerTypeFieldCounts.slice(0, 5);
+	const statRows = [
+		{
+			label: "Average fields per container type",
+			value: stats.average.toFixed(1),
+		},
+		{ label: "Median fields per container type", value: stats.median },
+		{ label: "Maximum fields on one container type", value: stats.max },
+		{ label: "Minimum fields on one container type", value: stats.min },
+	];
 
 	return (
 		<div className="flex flex-col gap-6 text-sm text-card-foreground">
@@ -125,13 +95,13 @@ export function FieldsByTypeDetail() {
 
 				<EvidenceSubsection title="Largest container types">
 					<ul className="flex flex-col gap-2">
-						{TOP_TYPES.map((entry) => (
+						{topTypes.map((entry) => (
 							<ContainerTypeRow key={entry.type} {...entry} />
 						))}
 					</ul>
-					{CONTAINER_TYPE_FIELD_STATS.typeCount > TOP_TYPES.length && (
+					{stats.typeCount > topTypes.length && (
 						<ViewAllButton
-							label={`View all ${CONTAINER_TYPE_FIELD_STATS.typeCount}`}
+							label={`View all ${stats.typeCount}`}
 							onClick={() =>
 								dispatch(pushInsightDetail({ kind: "fieldsByTypeList" }))
 							}
@@ -141,7 +111,7 @@ export function FieldsByTypeDetail() {
 
 				<EvidenceSubsection title="Stats">
 					<ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
-						{STATS.map((stat) => (
+						{statRows.map((stat) => (
 							<li key={stat.label}>
 								{stat.label}:{" "}
 								<span className="font-semibold text-card-foreground">

@@ -9,7 +9,19 @@ from graphql import GraphQLError, GraphQLSyntaxError
 from s2dm import __version__, log
 from s2dm.api.errors import ResourceNotFoundError, ResponseError
 from s2dm.api.models.base import ErrorResponse
-from s2dm.api.routes import avro, deps, filter, jsonschema, linkml, protobuf, query_validate, shacl, validate, vspec
+from s2dm.api.routes import (
+    avro,
+    deps,
+    filter,
+    insights,
+    jsonschema,
+    linkml,
+    protobuf,
+    query_validate,
+    shacl,
+    validate,
+    vspec,
+)
 from s2dm.deps.resolve.errors import DependencyConfigError, DependencySourceError, DependencyUpstreamError
 
 app = FastAPI(
@@ -154,6 +166,7 @@ app.include_router(linkml.router, prefix="/api/v1/export", tags=["export"])
 app.include_router(avro.router, prefix="/api/v1/export", tags=["export"])
 app.include_router(protobuf.router, prefix="/api/v1/export", tags=["export"])
 app.include_router(deps.router, prefix="/api/v1/deps", tags=["deps"])
+app.include_router(insights.router, prefix="/api/v1/insights", tags=["insights"])
 app.include_router(filter.router, prefix="/api/v1/schema", tags=["schema"])
 app.include_router(validate.router, prefix="/api/v1/schema", tags=["schema"])
 app.include_router(query_validate.router, prefix="/api/v1/query", tags=["query"])

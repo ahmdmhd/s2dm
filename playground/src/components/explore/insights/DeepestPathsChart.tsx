@@ -7,25 +7,34 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import {
-	DEPTH_DISTRIBUTION,
-	PATH_DEPTH_STATS,
-	TYPE_PATHS,
-} from "@/components/explore/insights/deepestPathsData";
+import { CategoryTick } from "@/components/explore/insights/CategoryTick";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+	selectDeepestPath,
+	selectDepthDistribution,
+	selectPathDepthStats,
+} from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 
-const deepestPath = TYPE_PATHS[0];
-const maxPathCount = Math.max(
-	...DEPTH_DISTRIBUTION.map((row) => row.pathCount),
-);
+const DEPTH_AXIS_WIDTH = 64;
 
 export function DeepestPathsChart() {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
+	const depthDistribution = useAppSelector(selectDepthDistribution);
+	const stats = useAppSelector(selectPathDepthStats);
+	const deepestPath = useAppSelector(selectDeepestPath);
 	const selected = detail?.kind === "deepestPaths";
+
+	if (!stats || depthDistribution.length === 0) {
+		return null;
+	}
+
+	const maxPathCount = Math.max(
+		...depthDistribution.map((row) => row.pathCount),
+	);
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -34,19 +43,18 @@ export function DeepestPathsChart() {
 			</span>
 			<div className="flex flex-col gap-1">
 				<p className="text-sm text-card-foreground">
-					The deepest path is{" "}
-					<span className="font-semibold">{PATH_DEPTH_STATS.max}</span> hops
-					deep
+					The deepest path is <span className="font-semibold">{stats.max}</span>{" "}
+					hops deep
 				</p>
 				<p className="text-sm text-muted-foreground">
-					<span className="font-semibold">{PATH_DEPTH_STATS.deepestCount}</span>{" "}
-					paths tie at the maximum depth
+					<span className="font-semibold">{stats.deepestCount}</span> paths tie
+					at the maximum depth
 				</p>
 			</div>
 			<div className="h-[176px] w-full">
 				<ResponsiveContainer width="100%" height="100%">
 					<BarChart
-						data={DEPTH_DISTRIBUTION}
+						data={depthDistribution}
 						layout="vertical"
 						margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
 					>
@@ -54,12 +62,16 @@ export function DeepestPathsChart() {
 						<YAxis
 							type="category"
 							dataKey="depth"
-							width={"auto"}
+							width={DEPTH_AXIS_WIDTH}
 							reversed
 							axisLine={false}
 							tickLine={false}
-							tickFormatter={(depth) => `Depth ${depth}`}
-							tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+							tick={
+								<CategoryTick
+									width={DEPTH_AXIS_WIDTH}
+									format={(depth) => `Depth ${depth}`}
+								/>
+							}
 						/>
 						<Bar
 							dataKey="pathCount"
@@ -81,22 +93,27 @@ export function DeepestPathsChart() {
 				<span>
 					Max depth:{" "}
 					<span className="font-semibold text-card-foreground">
-						{PATH_DEPTH_STATS.max}
+						{stats.max}
 					</span>
 				</span>
 				<span>
 					Total paths:{" "}
 					<span className="font-semibold text-card-foreground">
-						{PATH_DEPTH_STATS.pathCount}
+						{stats.pathCount}
 					</span>
 				</span>
 			</div>
-			<div className="flex flex-col gap-2">
-				<span className="text-sm text-muted-foreground">
-					Example deepest path
-				</span>
-				<TypePathBreadcrumb segments={deepestPath.segments} maxSegments={5} />
-			</div>
+			{deepestPath && (
+				<div className="flex flex-col gap-2">
+					<span className="text-sm text-muted-foreground">
+						Example deepest path
+					</span>
+					<TypePathBreadcrumb
+						segments={deepestPath.segments}
+						truncate={false}
+					/>
+				</div>
+			)}
 			<button
 				type="button"
 				onClick={() => dispatch(openInsightDetail({ kind: "deepestPaths" }))}

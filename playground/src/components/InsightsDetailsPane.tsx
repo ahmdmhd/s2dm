@@ -1,6 +1,5 @@
 import { ArrowLeft, X } from "lucide-react";
 import { DetailsPane } from "@/components/DetailsPane";
-import { AllIssuesDetail } from "@/components/explore/insights/AllIssuesDetail";
 import { ConceptsBreakdownDetail } from "@/components/explore/insights/ConceptsBreakdownDetail";
 import { ConceptTypesDetail } from "@/components/explore/insights/ConceptTypesDetail";
 import { DeepestPathsDetail } from "@/components/explore/insights/DeepestPathsDetail";
@@ -9,6 +8,7 @@ import { FieldsByKindDetail } from "@/components/explore/insights/FieldsByKindDe
 import { FieldsByTypeDetail } from "@/components/explore/insights/FieldsByTypeDetail";
 import { FieldsByTypeListDetail } from "@/components/explore/insights/FieldsByTypeListDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
+import { PathsByDepthDetail } from "@/components/explore/insights/PathsByDepthDetail";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
 import { UndocumentedListDetail } from "@/components/explore/insights/UndocumentedListDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -44,18 +44,18 @@ function detailTitle(detail: InsightDetail): string {
 				: "Relationship fields";
 		case "enumsList":
 			return "Enums";
-		case "allIssues":
-			return "All issues";
 		case "fieldsByType":
 			return "Container types by fields";
 		case "fieldsByTypeList":
 			return "All container types";
 		case "deepestPaths":
 			return "Deepest paths";
+		case "pathsByDepth":
+			return `Depth ${detail.depth}`;
 		case "undocumented":
 			return "Undocumented";
 		case "undocumentedList":
-			return "All undocumented";
+			return detail.entityKind;
 	}
 }
 
@@ -69,18 +69,18 @@ function renderDetail(detail: InsightDetail) {
 			return <FieldsByKindDetail fieldKind={detail.fieldKind} />;
 		case "enumsList":
 			return <EnumsDetail />;
-		case "allIssues":
-			return <AllIssuesDetail />;
 		case "fieldsByType":
 			return <FieldsByTypeDetail />;
 		case "fieldsByTypeList":
 			return <FieldsByTypeListDetail />;
 		case "deepestPaths":
 			return <DeepestPathsDetail />;
+		case "pathsByDepth":
+			return <PathsByDepthDetail depth={detail.depth} />;
 		case "undocumented":
 			return <UndocumentedDetail />;
 		case "undocumentedList":
-			return <UndocumentedListDetail />;
+			return <UndocumentedListDetail entityKind={detail.entityKind} />;
 	}
 }
 
@@ -90,6 +90,12 @@ function detailKey(detail: InsightDetail): string {
 	}
 	if (detail.kind === "fieldsByKind") {
 		return `fieldsByKind:${detail.fieldKind}`;
+	}
+	if (detail.kind === "undocumentedList") {
+		return `undocumentedList:${detail.entityKind}`;
+	}
+	if (detail.kind === "pathsByDepth") {
+		return `pathsByDepth:${detail.depth}`;
 	}
 	return detail.kind;
 }
@@ -120,18 +126,18 @@ export function InsightsDetailsPane({
 		content = (
 			<div className="flex h-full flex-col">
 				<div className="flex items-center justify-between border-b px-5 py-4">
-					<div className="flex items-center gap-2">
+					<div className="flex min-w-0 items-center gap-2">
 						{canGoBack && (
 							<button
 								type="button"
 								onClick={() => dispatch(popInsightDetail())}
-								className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
+								className="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
 								aria-label="Back"
 							>
 								<ArrowLeft className="h-4 w-4" />
 							</button>
 						)}
-						<span className="text-lg font-semibold text-card-foreground">
+						<span className="truncate text-lg font-semibold text-card-foreground">
 							{detailTitle(detail)}
 						</span>
 					</div>
@@ -141,7 +147,7 @@ export function InsightsDetailsPane({
 							dispatch(closeInsightDetail());
 							dispatch(collapseResultPane());
 						}}
-						className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
+						className="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted"
 						aria-label="Close details"
 					>
 						<X className="h-4 w-4" />
