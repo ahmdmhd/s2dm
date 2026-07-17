@@ -10,12 +10,12 @@ export type InsightDetail =
 	| { kind: "conceptDetails"; concept: GraphQLConcept }
 	| { kind: "fieldsByKind"; fieldKind: "leaf" | "relationship" }
 	| { kind: "enumsList" }
-	| { kind: "allIssues" }
 	| { kind: "fieldsByType" }
 	| { kind: "fieldsByTypeList" }
 	| { kind: "deepestPaths" }
+	| { kind: "pathsByDepth"; depth: number }
 	| { kind: "undocumented" }
-	| { kind: "undocumentedList" };
+	| { kind: "undocumentedList"; entityKind: string };
 
 export interface UIState {
 	panes: {

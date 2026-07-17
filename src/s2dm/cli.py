@@ -82,6 +82,10 @@ from s2dm.registry.search import NO_LIMIT_KEYWORDS, SearchResult, SKOSSearchServ
 from s2dm.tools.constraint_checker import ConstraintChecker
 from s2dm.tools.diff_parser import DiffChange
 from s2dm.tools.graphql_inspector import GraphQLInspector, requires_graphql_inspector
+from s2dm.tools.insights.concepts import compute_concepts
+from s2dm.tools.insights.coverage import compute_coverage
+from s2dm.tools.insights.quality import compute_quality_issues
+from s2dm.tools.insights.relationships import compute_relationships
 from s2dm.tools.validators import validate_language_tag, validate_linkml_uri
 from s2dm.units.sync import (
     UNITS_README_FILENAME,
@@ -709,6 +713,12 @@ def similar() -> None:
 @click.group()
 def stats() -> None:
     """Stats commands."""
+    pass
+
+
+@click.group()
+def insights() -> None:
+    """Schema insights: concept composition, relationships, coverage, and quality."""
     pass
 
 
@@ -2115,6 +2125,97 @@ def stats_graphql(schemas: list[Path]) -> None:
     log.print_dict(type_counts)
 
 
+# insights -> concepts
+# ----------
+@insights.command(name="concepts")
+@schema_option
+def insights_concepts(schemas: list[Path]) -> None:
+    """Show concept counts, member names, and object-type field composition."""
+    gql_schema = load_schema(schemas)
+    result = compute_concepts(gql_schema)
+
+    log.rule("Schema Concepts")
+    log.print_dict(result.counts.model_dump())
+    log.print_table(
+        [{"type": entry.type, "fields": str(len(entry.fields))} for entry in result.fields_by_type],
+        title="Fields by Type",
+    )
+
+
+# insights -> relationships
+# ----------
+@insights.command(name="relationships")
+@schema_option
+def insights_relationships(schemas: list[Path]) -> None:
+    """Show the deepest object-reference paths reachable from the schema's root."""
+    gql_schema = load_schema(schemas)
+    result = compute_relationships(gql_schema)
+
+    log.rule("Schema Relationships")
+    if result.max_depth:
+        log.key_value("Max depth", result.max_depth.depth)
+    log.print_table(
+        [{"path": " > ".join(path.segments), "depth": str(path.depth)} for path in result.paths[:10]],
+        title="Deepest Paths",
+    )
+
+
+# insights -> coverage
+# ----------
+@insights.command(name="coverage")
+@schema_option
+def insights_coverage(schemas: list[Path]) -> None:
+    """Show documentation coverage across types, fields, enums, and enum values."""
+    gql_schema = load_schema(schemas)
+    result = compute_coverage(gql_schema)
+
+    log.rule("Documentation Coverage")
+    breakdown = result.breakdown
+    categories = [
+        ("Container types", breakdown.types),
+        ("Fields", breakdown.fields),
+        ("Enums", breakdown.enums),
+        ("Enum values", breakdown.enum_values),
+        ("Directives", breakdown.directives),
+    ]
+    documented = sum(count.documented for _, count in categories)
+    total = sum(count.total for _, count in categories)
+    overall = round(documented / total * 100, 1) if total else 0.0
+    summary = {"overall": f"{overall}%"}
+    for label, count in categories:
+        summary[label] = f"{count.documented}/{count.total}"
+    log.print_dict(summary)
+    log.info(f"{len(result.undocumented)} undocumented entities")
+
+
+# insights -> quality
+# ----------
+@insights.command(name="quality")
+@schema_option
+def insights_quality(schemas: list[Path]) -> None:
+    """Show quality issues: missing descriptions, deprecated fields, unused enums."""
+    gql_schema = load_schema(schemas)
+    result = compute_quality_issues(gql_schema)
+
+    log.rule("Quality Issues")
+    if not result.issues:
+        log.success("No quality issues found!")
+        return
+
+    log.print_table(
+        [
+            {
+                "target": issue.target,
+                "problem": issue.problem,
+                "severity": issue.severity,
+                "category": issue.category,
+            }
+            for issue in result.issues
+        ],
+        title="Quality Issues",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Query commands (SPARQL-based schema traversal)
 # ---------------------------------------------------------------------------
@@ -2191,6 +2292,7 @@ cli.add_command(diff)
 
 export.add_command(avro)
 cli.add_command(export)
+cli.add_command(insights)
 cli.add_command(playground)
 cli.add_command(query)
 cli.add_command(registry)

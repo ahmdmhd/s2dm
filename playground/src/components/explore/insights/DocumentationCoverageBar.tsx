@@ -33,10 +33,10 @@ export function DocumentationCoverageBar({
 					}}
 				/>
 			</div>
-			<span className="w-14 text-right text-sm text-muted-foreground">
-				{documented}/{total}
-			</span>
-			<span className="w-10 text-right text-sm text-muted-foreground">
+			<span
+				className="w-10 cursor-help text-right text-sm text-muted-foreground"
+				title={`${documented}/${total} documented`}
+			>
 				{percent}%
 			</span>
 		</div>

@@ -5,7 +5,7 @@
 		"clientKind": "git"
 	},
 	"files": {
-		"includes": ["**", "!!**/dist"]
+		"includes": ["**", "!!**/dist", "!!**/graphify-out"]
 	},
 	"formatter": {
 		"enabled": true,

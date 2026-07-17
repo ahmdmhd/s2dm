@@ -1,12 +1,16 @@
 import { AxiosError } from "axios";
 import { apiClient } from "@/api/client";
 import type {
+	ConceptsResponse,
+	CoverageResponse,
 	DependenciesIdentities,
 	DependenciesStatusResponse,
 	ExportResponse,
 	FilterSchemaRequest,
 	GetDependenciesConfigResponse,
+	QualityResponse,
 	QueryInput,
+	RelationshipsResponse,
 	SaveDependenciesConfigRequest,
 	SchemaInput,
 	ValidateSchemaRequest,
@@ -178,6 +182,62 @@ export async function composeDependencies(
 			},
 		);
 		return response.result[0] ?? "";
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getSchemaConcepts(
+	schemas: SchemaInput[],
+): Promise<ConceptsResponse> {
+	try {
+		const request: ValidateSchemaRequest = { schemas };
+		return await apiClient.post<ConceptsResponse>(
+			"/api/v1/insights/concepts",
+			request,
+		);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getSchemaRelationships(
+	schemas: SchemaInput[],
+): Promise<RelationshipsResponse> {
+	try {
+		const request: ValidateSchemaRequest = { schemas };
+		return await apiClient.post<RelationshipsResponse>(
+			"/api/v1/insights/relationships",
+			request,
+		);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getSchemaCoverage(
+	schemas: SchemaInput[],
+): Promise<CoverageResponse> {
+	try {
+		const request: ValidateSchemaRequest = { schemas };
+		return await apiClient.post<CoverageResponse>(
+			"/api/v1/insights/coverage",
+			request,
+		);
+	} catch (error) {
+		return handleApiError(error);
+	}
+}
+
+export async function getSchemaQualityIssues(
+	schemas: SchemaInput[],
+): Promise<QualityResponse> {
+	try {
+		const request: ValidateSchemaRequest = { schemas };
+		return await apiClient.post<QualityResponse>(
+			"/api/v1/insights/quality",
+			request,
+		);
 	} catch (error) {
 		return handleApiError(error);
 	}

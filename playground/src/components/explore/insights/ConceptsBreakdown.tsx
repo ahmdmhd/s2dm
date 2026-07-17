@@ -1,70 +1,12 @@
 import { ArrowRight } from "lucide-react";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+	type BreakdownSegment,
+	selectElementGroups,
+} from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 import { cn } from "@/utils/cn";
-
-type BreakdownSegment = {
-	label: string;
-	value: number;
-	colorClassName: string;
-};
-
-type BreakdownStat = {
-	label: string;
-	value: number;
-};
-
-type BreakdownGroup = {
-	title: string;
-	total: number;
-	segments?: BreakdownSegment[];
-	stats?: BreakdownStat[];
-};
-
-const ELEMENT_GROUPS: BreakdownGroup[] = [
-	{
-		title: "Field Container Types",
-		total: 18,
-		segments: [
-			{ label: "Object Types", value: 16, colorClassName: "bg-sky-500" },
-			{ label: "Interface Types", value: 0, colorClassName: "bg-purple-500" },
-			{ label: "Input Types", value: 2, colorClassName: "bg-emerald-500" },
-		],
-	},
-	{
-		title: "Fields",
-		total: 72,
-		segments: [
-			{ label: "Leaf fields", value: 55, colorClassName: "bg-sky-500" },
-			{
-				label: "Relationships fields",
-				value: 17,
-				colorClassName: "bg-purple-500",
-			},
-		],
-	},
-	{
-		title: "Enums",
-		total: 35,
-		stats: [
-			{ label: "Enum values", value: 84 },
-			{ label: "Median values/enum", value: 2 },
-		],
-	},
-];
-
-const totalElements = ELEMENT_GROUPS.reduce(
-	(sum, group) => sum + group.total,
-	0,
-);
-
-let largestGroup = ELEMENT_GROUPS[0];
-for (const group of ELEMENT_GROUPS) {
-	if (group.total > largestGroup.total) {
-		largestGroup = group;
-	}
-}
 
 function MiniStackedBar({ segments }: { segments: BreakdownSegment[] }) {
 	const total = segments.reduce((sum, segment) => sum + segment.value, 0);
@@ -85,7 +27,23 @@ function MiniStackedBar({ segments }: { segments: BreakdownSegment[] }) {
 export function ConceptsBreakdown() {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
+	const elementGroups = useAppSelector(selectElementGroups);
 	const selected = detail?.kind === "conceptsBreakdown";
+
+	if (elementGroups.length === 0) {
+		return null;
+	}
+
+	const totalElements = elementGroups.reduce(
+		(sum, group) => sum + group.total,
+		0,
+	);
+	let largestGroup = elementGroups[0];
+	for (const group of elementGroups) {
+		if (group.total > largestGroup.total) {
+			largestGroup = group;
+		}
+	}
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -98,12 +56,13 @@ export function ConceptsBreakdown() {
 					<span className="font-semibold">{totalElements}</span> elements
 				</p>
 				<p className="text-sm text-muted-foreground">
-					<span className="font-semibold">{largestGroup.title}</span> are the most
-					common, with <span className="font-semibold">{largestGroup.total}</span>
+					<span className="font-semibold">{largestGroup.title}</span> are the
+					most common, with{" "}
+					<span className="font-semibold">{largestGroup.total}</span>
 				</p>
 			</div>
 			<div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-				{ELEMENT_GROUPS.map((group, index) => (
+				{elementGroups.map((group, index) => (
 					<div
 						key={group.title}
 						className={cn(

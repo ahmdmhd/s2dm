@@ -17,6 +17,8 @@ import { depsResolveSaga } from "@/store/deps/resolve/resolveSaga";
 import depsResolveReducer from "@/store/deps/resolve/resolveSlice";
 import { exportSaga } from "@/store/export/exportSaga";
 import exportReducer from "@/store/export/exportSlice";
+import { insightsSaga } from "@/store/insights/insightsSaga";
+import insightsReducer from "@/store/insights/insightsSlice";
 import schemaReducer from "@/store/schema/schemaSlice";
 import { pruneSchemaSaga } from "@/store/selection/pruneSchemaSaga";
 import selectionReducer from "@/store/selection/selectionSlice";
@@ -37,6 +39,7 @@ function* rootSaga() {
 		validationSaga(),
 		exportSaga(),
 		capabilitiesSaga(),
+		insightsSaga(),
 	]);
 }
 
@@ -56,6 +59,7 @@ export const store = configureStore({
 		ui: uiReducer,
 		schemaExport: exportReducer,
 		capabilities: capabilitiesReducer,
+		insights: insightsReducer,
 	},
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware({

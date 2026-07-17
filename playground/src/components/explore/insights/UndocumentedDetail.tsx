@@ -1,16 +1,17 @@
-import { ArrowRight, Download } from "lucide-react";
 import { UndocumentedRow } from "@/components/explore/insights/UndocumentedListDetail";
-import { UNDOCUMENTED_BY_KIND } from "@/components/explore/insights/undocumentedData";
+import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectUndocumentedByKind } from "@/store/insights/insightsSelectors";
 import { pushInsightDetail } from "@/store/ui/uiSlice";
 
 const ELEMENTS_PER_KIND = 3;
 
 export function UndocumentedDetail() {
 	const dispatch = useAppDispatch();
+	const undocumentedByKind = useAppSelector(selectUndocumentedByKind);
 
 	return (
 		<div className="flex flex-col gap-6 text-sm text-card-foreground">
@@ -39,6 +40,22 @@ export function UndocumentedDetail() {
 					Check all eligible GraphQL elements and mark those without a
 					description as undocumented. Count them and compute the percentage.
 				</p>
+				<ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+					<li>
+						Types = object types + interface types + input object types + union
+						types + custom scalar types
+					</li>
+					<li>
+						Fields = fields declared on object types, interfaces, and input
+						object types
+					</li>
+					<li>Enums = enum type definitions</li>
+					<li>Enum values = values declared within each enum</li>
+					<li>
+						Directives = custom directive definitions, excluding built-in
+						directives such as @deprecated, @skip, and @include
+					</li>
+				</ul>
 				<StatusBanner variant="info">
 					<span className="font-medium">Note:</span> configured technical root
 					types such as Query, Mutation, and Subscription may be excluded from
@@ -50,55 +67,38 @@ export function UndocumentedDetail() {
 				<Heading level="h3">Evidence</Heading>
 				<div className="flex flex-col gap-3">
 					<Heading level="h4">Undocumented elements</Heading>
-					{UNDOCUMENTED_BY_KIND.map((group) => (
+					{undocumentedByKind.map((group) => (
 						<CollapsibleSection
 							key={group.kind}
 							title={`${group.kind} (${group.elements.length})`}
 							defaultCollapsed
 						>
-							<ul className="flex flex-col gap-2 py-3">
-								{group.elements.slice(0, ELEMENTS_PER_KIND).map((element) => (
-									<UndocumentedRow
-										key={`${element.kind}:${element.name}`}
-										{...element}
+							<div className="flex flex-col gap-2 py-3">
+								<ul className="flex flex-col gap-2">
+									{group.elements.slice(0, ELEMENTS_PER_KIND).map((element) => (
+										<UndocumentedRow
+											key={`${element.kind}:${element.name}`}
+											{...element}
+										/>
+									))}
+								</ul>
+								{group.elements.length > ELEMENTS_PER_KIND && (
+									<ViewAllButton
+										label={`View all ${group.elements.length}`}
+										onClick={() =>
+											dispatch(
+												pushInsightDetail({
+													kind: "undocumentedList",
+													entityKind: group.kind,
+												}),
+											)
+										}
 									/>
-								))}
-							</ul>
+								)}
+							</div>
 						</CollapsibleSection>
 					))}
-					<div className="flex flex-wrap gap-4">
-						<button
-							type="button"
-							onClick={() =>
-								dispatch(pushInsightDetail({ kind: "undocumentedList" }))
-							}
-							className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-						>
-							View all
-							<ArrowRight className="h-4 w-4" />
-						</button>
-						<button
-							type="button"
-							disabled
-							className="inline-flex cursor-not-allowed items-center gap-1 self-start text-sm font-medium text-muted-foreground"
-						>
-							<Download className="h-4 w-4" />
-							Download all
-						</button>
-					</div>
 				</div>
-			</section>
-
-			<section className="flex flex-col gap-2">
-				<Heading level="h3">Actions</Heading>
-				<button
-					type="button"
-					disabled
-					className="inline-flex cursor-not-allowed items-center gap-1 self-start text-sm font-medium text-muted-foreground"
-				>
-					<Download className="h-4 w-4" />
-					Download all
-				</button>
 			</section>
 		</div>
 	);
