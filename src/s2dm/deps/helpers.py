@@ -12,8 +12,6 @@ from s2dm.deps.compose import (
     DependencySchemaBuilder,
     DependencySchemaInput,
     DependencyTypeNameConflict,
-    SchemaDefinition,
-    SharedDefinitionResolver,
 )
 from s2dm.deps.models import DependencyConfig, DependencyLockFile, DependencyMetadata, RemoteIdentityConfig
 from s2dm.deps.resolve.common import (
@@ -29,6 +27,7 @@ from s2dm.deps.resolve.providers import RemoteIdentityProvider
 from s2dm.deps.resolve.resolve import validate_cached_dependency
 from s2dm.deps.resolve.warnings import WarningCollector
 from s2dm.exporters.utils.schema_loader import build_schema_str_with_optional_source_map
+from s2dm.utils.compose import SchemaDefinition, SharedDefinitionResolver
 from s2dm.utils.file import temp_file_from_content, temp_files_from_contents
 
 DependencyStatus = Literal["not_configured", "unresolved", "resolved", "invalid"]

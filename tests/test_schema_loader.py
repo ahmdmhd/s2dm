@@ -1,7 +1,8 @@
 from pathlib import Path
+from typing import cast
 
 import pytest
-from graphql import DocumentNode, GraphQLObjectType, build_schema, parse
+from graphql import DocumentNode, GraphQLField, GraphQLObjectType, build_schema, parse
 
 from s2dm.exporters.utils.schema_loader import (
     check_correct_schema,
@@ -635,6 +636,133 @@ def test_compose_uses_enum_value_superset_with_merge_shared_definitions(tmp_path
 
     assert composed_schema.count("enum Drivetrain") == 1
     assert "AWD" in composed_schema
+
+
+def _query_fields(composed_schema: str) -> dict[str, GraphQLField]:
+    schema = build_schema(composed_schema)
+    assert isinstance(schema.query_type, GraphQLObjectType)
+    return cast(dict[str, GraphQLField], schema.query_type.fields)
+
+
+def test_compose_stitches_query_fields_from_multiple_schemas(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          vin: String
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        type Query {
+          powertrain: Powertrain
+        }
+
+        type Powertrain {
+          range: Float
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    fields = _query_fields(composed_schema)
+    assert set(fields) == {"vehicle", "powertrain"}
+    assert str(fields["vehicle"].type) == "Vehicle"
+    assert str(fields["powertrain"].type) == "Powertrain"
+
+
+def test_compose_merges_identical_query_field_redeclaration(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          vin: String
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type ServiceRecord {
+          vin: String
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    composed_schema = compose_schemas_to_string(
+        schemas=[first_schema_path, second_schema_path],
+        root_type=None,
+        selection_query=None,
+        naming_config=None,
+        expanded_instances=False,
+    )
+
+    fields = _query_fields(composed_schema)
+    assert set(fields) == {"vehicle"}
+    assert str(fields["vehicle"].type) == "Vehicle"
+
+
+def test_compose_rejects_incompatible_query_field_redeclaration(tmp_path: Path) -> None:
+    first_schema_path = tmp_path / "first.graphql"
+    first_schema_path.write_text(
+        """
+        type Query {
+          vehicle: Vehicle
+        }
+
+        type Vehicle {
+          vin: String
+        }
+        """,
+        encoding="utf-8",
+    )
+    second_schema_path = tmp_path / "second.graphql"
+    second_schema_path.write_text(
+        """
+        type Query {
+          vehicle: String
+        }
+
+        type ServiceRecord {
+          vin: String
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        compose_schemas_to_string(
+            schemas=[first_schema_path, second_schema_path],
+            root_type=None,
+            selection_query=None,
+            naming_config=None,
+            expanded_instances=False,
+        )
 
 
 def test_check_correct_schema_flags_multiple_instance_tag_fields() -> None:

@@ -36,7 +36,6 @@ from graphql.language.ast import (
 
 from s2dm import log
 from s2dm.constants.directive import Directive, DirectiveArgument
-from s2dm.deps.compose import SchemaDefinition, SharedDefinitionResolver
 from s2dm.exporters.utils.annotated_schema import (
     AnnotatedSchema,
     FieldMetadata,
@@ -57,6 +56,7 @@ from s2dm.exporters.utils.naming_config import ContextType, ElementType, NamingC
 from s2dm.exporters.utils.violations import ConstraintViolation, Severity
 from s2dm.ledger import Ledger, annotate_schema_with_ledger
 from s2dm.tools.constraint_checker import ConstraintChecker
+from s2dm.utils.compose import SchemaDefinition, SharedDefinitionResolver
 from s2dm.utils.download import download_url_to_temp
 
 SourceMapValueResolver = Callable[[Path, str], str]

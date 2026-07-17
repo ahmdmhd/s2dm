@@ -1,41 +1,50 @@
-from typing import Literal
+from typing import Literal, TypeGuard
 
 from graphql import DocumentNode, parse, print_ast
 from graphql.language.ast import (
     DirectiveDefinitionNode,
     EnumTypeDefinitionNode,
+    FieldDefinitionNode,
     Node,
+    ObjectTypeDefinitionNode,
     ScalarTypeDefinitionNode,
 )
 
-from s2dm.deps.compose.models import (
+from s2dm.utils.compose.models import (
     DirectiveDefinitionConflict,
     EnumDefinitionConflict,
+    QueryFieldConflict,
     ScalarDefinitionConflict,
     SchemaDefinition,
 )
 from s2dm.utils.schema_definitions import (
     is_directive_definition_superset,
     is_enum_definition_superset,
+    is_field_definition_superset,
     is_scalar_definition_superset,
 )
 
 DefinitionKind = Literal["directive", "scalar", "enum"]
 
+QUERY_TYPE_NAME = "Query"
+
 
 class SharedDefinitionResolver:
-    """Reconcile shared directive, scalar, and enum definitions across schema sources.
+    """Reconcile shared directive, scalar, and enum definitions, and Query fields, across schema sources.
 
-    The resolver extracts these definitions out of every schema, reports incompatible redeclarations
-    as conflicts, and emits the reconciled set as a single block. Identical redeclarations collapse to
-    one; differing ones are a conflict, unless ``merge_shared_definitions`` lets a directive or scalar
-    superset absorb the others. Each schema is left with its remaining type definitions only for
-    downstream composition.
+    The resolver extracts directive/scalar/enum definitions out of every schema, reports incompatible
+    redeclarations as conflicts, and emits the reconciled set as a single block. Identical redeclarations
+    collapse to one; differing ones are a conflict, unless ``merge_shared_definitions`` lets a directive or
+    scalar superset absorb the others. It also stitches every schema's ``Query`` type into a single merged
+    type by unioning their fields; a field redeclared identically across schemas collapses to one, while a
+    field name redeclared with a different signature is reported as a conflict. Each schema is left with
+    its remaining type definitions only for downstream composition.
     """
 
     def __init__(self, schema_definitions: list[SchemaDefinition], merge_shared_definitions: bool = False) -> None:
         self.merge_shared_definitions = merge_shared_definitions
         self.superset_definitions_by_key: dict[tuple[DefinitionKind, str], Node] = {}
+        self.merged_query_definition: ObjectTypeDefinitionNode | None = None
         self.schema_documents = [
             (schema_definition.source_label, parse(schema_definition.content))
             for schema_definition in schema_definitions
@@ -56,6 +65,7 @@ class SharedDefinitionResolver:
             for (kind, name), schema_source_labels in incompatible_definitions_items
             if kind == "enum"
         )
+        self.root_type_conflicts = self._resolve_query_fields()
 
     def resolved_definitions_sdl(self) -> str:
         """Return the reconciled directives, scalars, and enums as a single SDL block, each declared once.
@@ -80,16 +90,20 @@ class SharedDefinitionResolver:
                     shared_definitions.append(superset_definition)
                     continue
                 shared_definitions.append(definition)
+        if self.merged_query_definition is not None:
+            shared_definitions.append(self.merged_query_definition)
         if not shared_definitions:
             return ""
         return print_ast(DocumentNode(definitions=tuple(shared_definitions)))
 
     def schema_definitions_without_shared_definitions(self) -> list[SchemaDefinition]:
-        """Return each schema definition with its directive, scalar, and enum declarations removed."""
+        """Return each schema definition with its directive, scalar, enum, and Query declarations removed."""
         type_only_schema_definitions: list[SchemaDefinition] = []
         for source_label, document in self.schema_documents:
             type_definitions = tuple(
-                definition for definition in document.definitions if self._as_shared_definition(definition) is None
+                definition
+                for definition in document.definitions
+                if self._as_shared_definition(definition) is None and not self._is_query_definition(definition)
             )
             type_only_schema_definitions.append(
                 SchemaDefinition(
@@ -98,6 +112,74 @@ class SharedDefinitionResolver:
                 )
             )
         return type_only_schema_definitions
+
+    def _resolve_query_fields(self) -> tuple[QueryFieldConflict, ...]:
+        """Union every schema's ``Query`` fields into ``merged_query_definition``, reporting name clashes."""
+        query_definitions: list[ObjectTypeDefinitionNode] = [
+            definition
+            for _, document in self.schema_documents
+            for definition in document.definitions
+            if self._is_query_definition(definition)
+        ]
+        if not query_definitions:
+            return ()
+
+        field_occurrences_by_name: dict[str, list[tuple[str, FieldDefinitionNode]]] = {}
+        for source_label, document in self.schema_documents:
+            for definition in document.definitions:
+                if not self._is_query_definition(definition):
+                    continue
+                for field in definition.fields:
+                    field_occurrences_by_name.setdefault(field.name.value, []).append((source_label, field))
+
+        conflicts: list[QueryFieldConflict] = []
+        merged_fields_by_name: dict[str, FieldDefinitionNode] = {}
+        for field_name, occurrences in field_occurrences_by_name.items():
+            fields = [field for _, field in occurrences]
+            merged_field = self._resolve_query_field(fields)
+            if merged_field is None:
+                conflicts.append(
+                    QueryFieldConflict(
+                        type_name=QUERY_TYPE_NAME,
+                        field_name=field_name,
+                        schema_source_labels=tuple(source_label for source_label, _ in occurrences),
+                    )
+                )
+                merged_field = fields[0]
+            merged_fields_by_name[field_name] = merged_field
+
+        first_query_definition = query_definitions[0]
+        self.merged_query_definition = ObjectTypeDefinitionNode(
+            name=first_query_definition.name,
+            interfaces=first_query_definition.interfaces,
+            directives=first_query_definition.directives,
+            fields=tuple(merged_fields_by_name.values()),
+        )
+        return tuple(conflicts)
+
+    def _resolve_query_field(self, fields: list[FieldDefinitionNode]) -> FieldDefinitionNode | None:
+        """Return the single field these occurrences collapse to, or ``None`` if they conflict.
+
+        Identical redeclarations (compared order-insensitively) collapse to the first; differing ones
+        conflict unless ``merge_shared_definitions`` lets a superset field absorb the others.
+        """
+        identities = {self._field_identity(field) for field in fields}
+        if len(identities) == 1:
+            return fields[0]
+        if self.merge_shared_definitions:
+            return self._select_superset_field(fields)
+        return None
+
+    def _select_superset_field(self, fields: list[FieldDefinitionNode]) -> FieldDefinitionNode | None:
+        for candidate in fields:
+            is_superset_of_all = all(is_field_definition_superset(candidate, field) for field in fields)
+            if is_superset_of_all:
+                return candidate
+        return None
+
+    @staticmethod
+    def _is_query_definition(definition: Node) -> TypeGuard[ObjectTypeDefinitionNode]:
+        return isinstance(definition, ObjectTypeDefinitionNode) and definition.name.value == QUERY_TYPE_NAME
 
     def conflict_messages(self) -> list[str]:
         """Return generic conflict messages for incompatible shared definitions."""
@@ -118,6 +200,13 @@ class SharedDefinitionResolver:
         for enum_conflict in self.enum_conflicts:
             source_labels = ", ".join(enum_conflict.schema_source_labels)
             messages.append(f"Multiple definitions of enum `{enum_conflict.enum_name}` found in [{source_labels}]")
+
+        for root_type_conflict in self.root_type_conflicts:
+            source_labels = ", ".join(root_type_conflict.schema_source_labels)
+            messages.append(
+                f"Multiple incompatible definitions of field "
+                f"`{root_type_conflict.type_name}.{root_type_conflict.field_name}` found in [{source_labels}]"
+            )
 
         return messages
 
@@ -223,3 +312,11 @@ class SharedDefinitionResolver:
             )
         )
         return (directives, values)
+
+    @staticmethod
+    def _field_identity(node: FieldDefinitionNode) -> tuple[object, ...]:
+        """Field identity: its return type, arguments, and directives, compared order-insensitively."""
+        return_type = print_ast(node.type)
+        arguments = tuple(sorted(print_ast(argument) for argument in node.arguments))
+        directives = tuple(sorted(print_ast(directive) for directive in node.directives))
+        return (return_type, arguments, directives)
