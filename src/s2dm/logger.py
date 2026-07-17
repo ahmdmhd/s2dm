@@ -29,6 +29,9 @@ class S2DMLogger(logging.Logger):
         super().__init__(name, level)
         self.console = Console()
 
+        # Prevent double-emission when a dependency configures its own root handler
+        self.propagate = False
+
         # Add RichHandler for colored console output
         handler = RichHandler(
             console=self.console,

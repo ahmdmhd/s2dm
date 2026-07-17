@@ -1,7 +1,7 @@
 from graphql import parse
-from graphql.language.ast import EnumTypeDefinitionNode
+from graphql.language.ast import EnumTypeDefinitionNode, ObjectTypeDefinitionNode
 
-from s2dm.deps.compose import SchemaDefinition, SharedDefinitionResolver
+from s2dm.utils.compose import SchemaDefinition, SharedDefinitionResolver
 
 
 def test_identical_directives_are_not_a_conflict() -> None:
@@ -277,6 +277,207 @@ def test_enum_value_directive_disjoint_arguments_conflict_with_merge_shared_defi
     (conflict,) = resolver.enum_conflicts
 
     assert conflict.enum_name == "Drivetrain"
+
+
+def test_disjoint_query_fields_are_stitched_into_one_type() -> None:
+    resolver = _resolver(
+        "type Query { vehicle: String }\n",
+        "type Query { powertrain: String }\n",
+    )
+
+    document = parse(resolver.resolved_definitions_sdl())
+    (query,) = [
+        definition
+        for definition in document.definitions
+        if isinstance(definition, ObjectTypeDefinitionNode) and definition.name.value == "Query"
+    ]
+
+    assert resolver.root_type_conflicts == ()
+    assert {field.name.value for field in query.fields} == {"vehicle", "powertrain"}
+
+
+def test_identical_query_field_redeclaration_is_not_a_conflict() -> None:
+    resolver = _resolver(
+        "type Query { vehicle: Vehicle }\n",
+        "type Query { vehicle: Vehicle }\n",
+    )
+
+    assert resolver.root_type_conflicts == ()
+
+
+def test_incompatible_query_field_redeclaration_is_a_conflict() -> None:
+    resolver = _resolver(
+        "type Query { vehicle: Vehicle }\n",
+        "type Query { vehicle: String }\n",
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.type_name == "Query"
+    assert conflict.field_name == "vehicle"
+    assert set(conflict.schema_source_labels) == {"BodyModel@1.0.0", "PowertrainModel@2.0.0"}
+
+
+def test_query_declared_in_only_one_source_is_unchanged() -> None:
+    resolver = _resolver(
+        "type Query { vehicle: Vehicle }\n",
+        "scalar DateTime\n",
+    )
+
+    document = parse(resolver.resolved_definitions_sdl())
+    (query,) = [
+        definition
+        for definition in document.definitions
+        if isinstance(definition, ObjectTypeDefinitionNode) and definition.name.value == "Query"
+    ]
+
+    assert resolver.root_type_conflicts == ()
+    assert {field.name.value for field in query.fields} == {"vehicle"}
+
+
+def test_query_field_directives_are_compared_order_insensitively() -> None:
+    resolver = _resolver(
+        """
+        directive @audited on FIELD_DEFINITION
+        directive @indexed on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @audited @indexed }
+        """,
+        """
+        directive @audited on FIELD_DEFINITION
+        directive @indexed on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @indexed @audited }
+        """,
+    )
+
+    assert resolver.root_type_conflicts == ()
+
+
+def test_query_field_arguments_are_compared_order_insensitively() -> None:
+    resolver = _resolver(
+        "type Query { component(id: ID!, region: String): Component }\n",
+        "type Query { component(region: String, id: ID!): Component }\n",
+    )
+
+    assert resolver.root_type_conflicts == ()
+
+
+def test_query_field_directive_superset_conflicts_without_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String, source: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String, source: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "x", source: "y") }
+        """,
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.field_name == "vehicle"
+
+
+def test_query_field_directive_superset_is_selected_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String, source: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String, source: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "x", source: "y") }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    query = _query_type(resolver.resolved_definitions_sdl())
+    (vehicle,) = query.fields
+    (meta,) = vehicle.directives
+    argument_names = {argument.name.value for argument in meta.arguments}
+
+    assert resolver.root_type_conflicts == ()
+    assert meta.name.value == "meta"
+    assert argument_names == {"note", "source"}
+
+
+def test_query_field_directive_argument_value_mismatch_conflicts_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        """
+        directive @meta(note: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "x") }
+        """,
+        """
+        directive @meta(note: String) on FIELD_DEFINITION
+        type Query { vehicle: Vehicle @meta(note: "y") }
+        """,
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.field_name == "vehicle"
+
+
+def test_query_field_added_optional_argument_is_a_superset_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "type Query { component(id: ID!): Component }\n",
+        "type Query { component(id: ID!, region: String): Component }\n",
+        merge_shared_definitions=True,
+    )
+
+    query = _query_type(resolver.resolved_definitions_sdl())
+    (component,) = query.fields
+    argument_names = {argument.name.value for argument in component.arguments}
+
+    assert resolver.root_type_conflicts == ()
+    assert argument_names == {"id", "region"}
+
+
+def test_query_field_added_required_argument_conflicts_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "type Query { component(id: ID!): Component }\n",
+        "type Query { component(id: ID!, region: String!): Component }\n",
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.field_name == "component"
+
+
+def test_query_field_argument_type_mismatch_conflicts_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "type Query { component(id: ID!): Component }\n",
+        "type Query { component(id: String!): Component }\n",
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.field_name == "component"
+
+
+def test_query_field_return_type_mismatch_conflicts_with_merge_shared_definitions() -> None:
+    resolver = _resolver(
+        "type Query { vehicle: Vehicle }\n",
+        "type Query { vehicle: String }\n",
+        merge_shared_definitions=True,
+    )
+
+    (conflict,) = resolver.root_type_conflicts
+
+    assert conflict.field_name == "vehicle"
+
+
+def _query_type(sdl: str) -> ObjectTypeDefinitionNode:
+    document = parse(sdl)
+    (query,) = [
+        definition
+        for definition in document.definitions
+        if isinstance(definition, ObjectTypeDefinitionNode) and definition.name.value == "Query"
+    ]
+    return query
 
 
 def _resolver(

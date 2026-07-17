@@ -10,6 +10,7 @@ from graphql import (
     DirectiveDefinitionNode,
     DirectiveNode,
     EnumTypeDefinitionNode,
+    FieldDefinitionNode,
     InputValueDefinitionNode,
     NonNullTypeNode,
     ScalarTypeDefinitionNode,
@@ -40,7 +41,34 @@ def is_directive_definition_superset(
 
     candidate_arguments = {argument.name.value: argument for argument in candidate.arguments}
     definition_arguments = {argument.name.value: argument for argument in definition.arguments}
+    return _is_input_value_definitions_superset(candidate_arguments, definition_arguments)
 
+
+def is_field_definition_superset(
+    candidate: FieldDefinitionNode,
+    definition: FieldDefinitionNode,
+) -> bool:
+    """Return whether a field definition can safely replace another field definition.
+
+    The return type must be identical, every argument the definition declares must have an identical
+    argument in the candidate (extra candidate arguments are allowed only when optional), and every
+    directive applied to the field must be a superset of the definition's.
+    """
+    if candidate.name.value != definition.name.value or candidate.type.to_dict() != definition.type.to_dict():
+        return False
+
+    candidate_arguments = {argument.name.value: argument for argument in candidate.arguments}
+    definition_arguments = {argument.name.value: argument for argument in definition.arguments}
+    if not _is_input_value_definitions_superset(candidate_arguments, definition_arguments):
+        return False
+
+    return is_applied_directives_superset(candidate.directives, definition.directives)
+
+
+def _is_input_value_definitions_superset(
+    candidate_arguments: dict[str, InputValueDefinitionNode],
+    definition_arguments: dict[str, InputValueDefinitionNode],
+) -> bool:
     for definition_argument in definition_arguments.values():
         if not _has_matching_input_value_definition(candidate_arguments, definition_argument):
             return False
