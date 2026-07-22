@@ -2,11 +2,16 @@
 
 from pathlib import Path
 
-from graphql import DocumentNode
+from graphql import DocumentNode, GraphQLSchema
 
+from s2dm.api.errors import ResponseError, format_error_list
 from s2dm.api.models.base import BaseInput, ConfigInput, FileContentInput, SchemaInput
 from s2dm.exporters.utils.annotated_schema import AnnotatedSchema
-from s2dm.exporters.utils.schema_loader import download_schema_to_temp, load_and_process_schema
+from s2dm.exporters.utils.schema_loader import (
+    check_correct_schema,
+    download_schema_to_temp,
+    load_and_process_schema,
+)
 from s2dm.utils.file import temp_file_from_content
 
 
@@ -86,3 +91,10 @@ def load_and_process_schema_wrapper(
     )
 
     return annotated_schema, query_document
+
+
+def validate_schema_or_raise(schema: GraphQLSchema) -> None:
+    """Run schema correctness checks and raise a ResponseError if any fail."""
+    schema_errors = check_correct_schema(schema)
+    if schema_errors:
+        raise ResponseError(format_error_list("Schema validation failed", schema_errors))

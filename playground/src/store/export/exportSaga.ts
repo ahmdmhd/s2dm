@@ -1,5 +1,4 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { AxiosError } from "axios";
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import { apiClient } from "@/api/client";
 import { mapImportedFilesToSchemaInputs } from "@/api/schemaInputs";
@@ -14,24 +13,10 @@ import {
 import { selectComposedSources } from "@/store/schema/composedSources";
 import { selectAppliedSelectionQuery } from "@/store/selection/selectionSlice";
 import type { SchemaSource } from "@/types/schemaSource";
-import { getErrorMessage } from "@/utils/getErrorMessage";
+import { getAxiosErrorMessage, getErrorMessage } from "@/utils/getErrorMessage";
 
 function getExportErrorMessage(err: unknown): string {
-	if (err instanceof AxiosError) {
-		if (typeof err.response?.data?.message === "string") {
-			return err.response.data.message;
-		}
-
-		if (err.code === "ECONNABORTED") {
-			return "The API request timed out";
-		}
-
-		if (err.code === "ERR_NETWORK") {
-			return "Cannot reach the API server";
-		}
-	}
-
-	return getErrorMessage(err);
+	return getAxiosErrorMessage(err) ?? getErrorMessage(err);
 }
 
 function isEmpty(value: unknown, propertyType: string): boolean {

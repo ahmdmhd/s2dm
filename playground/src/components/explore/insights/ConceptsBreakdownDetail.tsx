@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { EnumRow } from "@/components/explore/insights/EnumsDetail";
 import { FieldTypeRow } from "@/components/explore/insights/FieldsByKindDetail";
+import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
 import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -29,6 +30,48 @@ function EvidenceSubsection({
 			<Heading level="h4">{title}</Heading>
 			{children}
 		</div>
+	);
+}
+
+function ConceptSampleSection({
+	title,
+	sample,
+	totalCount,
+	concept,
+	emptyMessage,
+}: {
+	title: string;
+	sample: string[];
+	totalCount: number;
+	concept: GraphQLConcept;
+	emptyMessage?: string;
+}) {
+	const dispatch = useAppDispatch();
+
+	if (sample.length === 0 && emptyMessage) {
+		return (
+			<EvidenceSubsection title={title}>
+				<p className="text-muted-foreground">{emptyMessage}</p>
+			</EvidenceSubsection>
+		);
+	}
+
+	return (
+		<EvidenceSubsection title={title}>
+			<div className="flex flex-wrap gap-2">
+				{sample.map((name) => (
+					<TypePathBreadcrumb key={name} segments={[name]} truncate={false} />
+				))}
+			</div>
+			{totalCount > sample.length && (
+				<ViewAllButton
+					label={`View all ${totalCount}`}
+					onClick={() =>
+						dispatch(pushInsightDetail({ kind: "conceptDetails", concept }))
+					}
+				/>
+			)}
+		</EvidenceSubsection>
 	);
 }
 
@@ -134,96 +177,28 @@ export function ConceptsBreakdownDetail() {
 
 				<CollapsibleSection title="Field Container Types" defaultCollapsed>
 					<div className="flex flex-col gap-4 py-3">
-						<EvidenceSubsection title="Object types">
-							<div className="flex flex-wrap gap-2">
-								{objectSample.map((name) => (
-									<TypePathBreadcrumb
-										key={name}
-										segments={[name]}
-										truncate={false}
-									/>
-								))}
-							</div>
-							{members.object.length > objectSample.length && (
-								<ViewAllButton
-									label={`View all ${members.object.length}`}
-									onClick={() =>
-										dispatch(
-											pushInsightDetail({
-												kind: "conceptDetails",
-												concept: "object",
-											}),
-										)
-									}
-								/>
-							)}
-						</EvidenceSubsection>
+						<ConceptSampleSection
+							title="Object types"
+							sample={objectSample}
+							totalCount={members.object.length}
+							concept="object"
+						/>
 
-						<EvidenceSubsection title="Interface types">
-							{interfaceSample.length === 0 ? (
-								<p className="text-muted-foreground">
-									No interface types in this schema.
-								</p>
-							) : (
-								<>
-									<div className="flex flex-wrap gap-2">
-										{interfaceSample.map((name) => (
-											<TypePathBreadcrumb
-												key={name}
-												segments={[name]}
-												truncate={false}
-											/>
-										))}
-									</div>
-									{members.interface.length > interfaceSample.length && (
-										<ViewAllButton
-											label={`View all ${members.interface.length}`}
-											onClick={() =>
-												dispatch(
-													pushInsightDetail({
-														kind: "conceptDetails",
-														concept: "interface",
-													}),
-												)
-											}
-										/>
-									)}
-								</>
-							)}
-						</EvidenceSubsection>
+						<ConceptSampleSection
+							title="Interface types"
+							sample={interfaceSample}
+							totalCount={members.interface.length}
+							concept="interface"
+							emptyMessage="No interface types in this schema."
+						/>
 
-						<EvidenceSubsection title="Input types">
-							{inputSample.length === 0 ? (
-								<p className="text-muted-foreground">
-									No input types in this schema.
-								</p>
-							) : (
-								<>
-									<div className="flex flex-wrap gap-2">
-										{inputSample.map((name) => (
-											<TypePathBreadcrumb
-												key={name}
-												segments={[name]}
-												truncate={false}
-											/>
-										))}
-									</div>
-									{members.input.length > inputSample.length && (
-										<ViewAllButton
-											label={`View all ${members.input.length}`}
-											onClick={() =>
-												dispatch(
-													pushInsightDetail({
-														kind: "conceptDetails",
-														concept: "input",
-													}),
-												)
-											}
-										/>
-									)}
-								</>
-							)}
-						</EvidenceSubsection>
+						<ConceptSampleSection
+							title="Input types"
+							sample={inputSample}
+							totalCount={members.input.length}
+							concept="input"
+							emptyMessage="No input types in this schema."
+						/>
 					</div>
 				</CollapsibleSection>
 

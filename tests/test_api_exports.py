@@ -333,7 +333,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.avro.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.avro.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.avro.translate_to_avro_schema", return_value='{"type":"record"}') as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/avro/schema", json=payload)
@@ -357,7 +357,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.avro.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.avro.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch(
                 "s2dm.api.routes.avro.translate_to_avro_protocol",
                 return_value={"Selection": "protocol Selection {}"},
@@ -383,7 +383,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.jsonschema.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.jsonschema.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch(
                 "s2dm.api.routes.jsonschema.translate_to_jsonschema", return_value='{"type":"object"}'
             ) as exporter_mock,
@@ -408,7 +408,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.protobuf.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.protobuf.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.protobuf.translate_to_protobuf", return_value='syntax = "proto3";') as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/protobuf", json=payload)
@@ -433,7 +433,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.shacl.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.shacl.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.shacl.translate_to_shacl", return_value=graph_mock) as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/shacl", json=payload)
@@ -455,7 +455,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.vspec.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.vspec.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.vspec.translate_to_vspec", return_value="Vehicle:\n  id: {}") as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/vspec", json=payload)
@@ -481,7 +481,7 @@ class TestExportersInternalFunctionsCalled:
                 "s2dm.api.routes.linkml.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.routes.linkml.check_correct_schema", return_value=[]) as schema_check_mock,
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.linkml.translate_to_linkml", return_value="name: test_schema") as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/linkml", json=payload)
@@ -596,7 +596,9 @@ class TestExportSchemaValidationGuards:
                 f"{route_module}.load_and_process_schema_wrapper",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ),
-            patch(f"{route_module}.check_correct_schema", return_value=["invalid schema"]) as schema_check_mock,
+            patch(
+                "s2dm.api.services.schema_service.check_correct_schema", return_value=["invalid schema"]
+            ) as schema_check_mock,
             patch(f"{route_module}.{exporter_function_name}") as exporter_mock,
         ):
             response = test_client.post(route, json=payload)

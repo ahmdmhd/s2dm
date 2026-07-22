@@ -15,6 +15,7 @@ import type {
 	SchemaInput,
 	ValidateSchemaRequest,
 } from "@/api/types";
+import { getAxiosErrorMessage } from "@/utils/getErrorMessage";
 
 type DependenciesWarningsResponse = {
 	warnings: string[];
@@ -31,22 +32,9 @@ export class ApiValidationError extends Error {
 }
 
 function handleApiError(error: unknown): never {
-	if (error instanceof AxiosError) {
-		const responseMessage = error.response?.data?.message;
-		if (
-			typeof responseMessage === "string" &&
-			responseMessage.trim().length > 0
-		) {
-			throw new Error(responseMessage);
-		}
-
-		if (error.code === "ECONNABORTED") {
-			throw new Error("The API request timed out");
-		}
-
-		if (error.code === "ERR_NETWORK") {
-			throw new Error("Cannot reach the API server");
-		}
+	const axiosMessage = getAxiosErrorMessage(error);
+	if (axiosMessage) {
+		throw new Error(axiosMessage);
 	}
 
 	if (error instanceof Error && error.message.trim().length > 0) {
@@ -187,58 +175,41 @@ export async function composeDependencies(
 	}
 }
 
-export async function getSchemaConcepts(
+async function postInsights<TResponse>(
+	endpoint: string,
 	schemas: SchemaInput[],
-): Promise<ConceptsResponse> {
+): Promise<TResponse> {
 	try {
 		const request: ValidateSchemaRequest = { schemas };
-		return await apiClient.post<ConceptsResponse>(
-			"/api/v1/insights/concepts",
-			request,
-		);
+		return await apiClient.post<TResponse>(endpoint, request);
 	} catch (error) {
 		return handleApiError(error);
 	}
+}
+
+export async function getSchemaConcepts(
+	schemas: SchemaInput[],
+): Promise<ConceptsResponse> {
+	return postInsights<ConceptsResponse>("/api/v1/insights/concepts", schemas);
 }
 
 export async function getSchemaRelationships(
 	schemas: SchemaInput[],
 ): Promise<RelationshipsResponse> {
-	try {
-		const request: ValidateSchemaRequest = { schemas };
-		return await apiClient.post<RelationshipsResponse>(
-			"/api/v1/insights/relationships",
-			request,
-		);
-	} catch (error) {
-		return handleApiError(error);
-	}
+	return postInsights<RelationshipsResponse>(
+		"/api/v1/insights/relationships",
+		schemas,
+	);
 }
 
 export async function getSchemaCoverage(
 	schemas: SchemaInput[],
 ): Promise<CoverageResponse> {
-	try {
-		const request: ValidateSchemaRequest = { schemas };
-		return await apiClient.post<CoverageResponse>(
-			"/api/v1/insights/coverage",
-			request,
-		);
-	} catch (error) {
-		return handleApiError(error);
-	}
+	return postInsights<CoverageResponse>("/api/v1/insights/coverage", schemas);
 }
 
 export async function getSchemaQualityIssues(
 	schemas: SchemaInput[],
 ): Promise<QualityResponse> {
-	try {
-		const request: ValidateSchemaRequest = { schemas };
-		return await apiClient.post<QualityResponse>(
-			"/api/v1/insights/quality",
-			request,
-		);
-	} catch (error) {
-		return handleApiError(error);
-	}
+	return postInsights<QualityResponse>("/api/v1/insights/quality", schemas);
 }

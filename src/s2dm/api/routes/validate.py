@@ -3,13 +3,11 @@
 from fastapi import APIRouter
 
 from s2dm.api.config import COMMON_RESPONSES
-from s2dm.api.errors import ResponseError, format_error_list
 from s2dm.api.models.base import ApiResponse
 from s2dm.api.models.validate import ValidateSchemaRequest
 from s2dm.api.services.response_service import execute_and_respond
-from s2dm.api.services.schema_service import process_schema_input
+from s2dm.api.services.schema_service import process_schema_input, validate_schema_or_raise
 from s2dm.exporters.utils.schema_loader import (
-    check_correct_schema,
     load_schema_with_source_map,
     print_schema_with_directives_preserved,
 )
@@ -26,9 +24,7 @@ def validate_schema(request: ValidateSchemaRequest) -> ApiResponse:
 
         schema, source_map = load_schema_with_source_map(schema_paths, naming_config=None)
 
-        errors = check_correct_schema(schema)
-        if errors:
-            raise ResponseError(format_error_list("Schema validation failed", errors))
+        validate_schema_or_raise(schema)
 
         validated_schema = print_schema_with_directives_preserved(schema, source_map)
         return [validated_schema]

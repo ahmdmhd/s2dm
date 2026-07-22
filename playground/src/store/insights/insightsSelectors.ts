@@ -18,6 +18,7 @@ import {
 	selectInsightsQuality,
 	selectInsightsRelationships,
 } from "@/store/insights/insightsSlice";
+import { groupBy } from "@/utils/groupBy";
 
 export type BreakdownSegment = {
 	label: string;
@@ -444,12 +445,7 @@ export const selectDepthGroups = createSelector(
 		if (!relationships) {
 			return [];
 		}
-		const pathsByDepth = new Map<number, RelationshipPath[]>();
-		for (const path of relationships.paths) {
-			const group = pathsByDepth.get(path.depth) ?? [];
-			group.push(path);
-			pathsByDepth.set(path.depth, group);
-		}
+		const pathsByDepth = groupBy(relationships.paths, (path) => path.depth);
 		const groups = Array.from(pathsByDepth, ([depth, paths]) => ({
 			depth,
 			paths,
@@ -519,12 +515,7 @@ export const selectShortestCycle = createSelector(
 export const selectCycleGroups = createSelector(
 	selectCyclicReferences,
 	(cycles): CycleGroup[] => {
-		const cyclesByLength = new Map<number, CyclicReference[]>();
-		for (const cycle of cycles) {
-			const group = cyclesByLength.get(cycle.length) ?? [];
-			group.push(cycle);
-			cyclesByLength.set(cycle.length, group);
-		}
+		const cyclesByLength = groupBy(cycles, (cycle) => cycle.length);
 		const groups = Array.from(cyclesByLength, ([length, groupCycles]) => ({
 			length,
 			cycles: groupCycles,
@@ -596,12 +587,7 @@ export const selectUndocumentedElements = createSelector(
 export const selectUndocumentedByKind = createSelector(
 	selectUndocumentedElements,
 	(elements): UndocumentedKindGroup[] => {
-		const elementsByKind = new Map<string, UndocumentedEntity[]>();
-		for (const element of elements) {
-			const group = elementsByKind.get(element.kind) ?? [];
-			group.push(element);
-			elementsByKind.set(element.kind, group);
-		}
+		const elementsByKind = groupBy(elements, (element) => element.kind);
 		return Array.from(elementsByKind, ([kind, kindElements]) => ({
 			kind,
 			elements: kindElements,
@@ -696,12 +682,7 @@ export const selectUnusedCategories = createSelector(
 export const selectUnusedByCategory = createSelector(
 	selectUnusedElements,
 	(elements): UnusedCategoryGroup[] => {
-		const elementsByCategory = new Map<string, QualityIssue[]>();
-		for (const element of elements) {
-			const group = elementsByCategory.get(element.category) ?? [];
-			group.push(element);
-			elementsByCategory.set(element.category, group);
-		}
+		const elementsByCategory = groupBy(elements, (element) => element.category);
 		return Array.from(elementsByCategory, ([category, categoryElements]) => ({
 			category,
 			elements: categoryElements,
