@@ -2,15 +2,26 @@ import { ArrowLeft, X } from "lucide-react";
 import { DetailsPane } from "@/components/DetailsPane";
 import { ConceptsBreakdownDetail } from "@/components/explore/insights/ConceptsBreakdownDetail";
 import { ConceptTypesDetail } from "@/components/explore/insights/ConceptTypesDetail";
+import { CyclicReferencesDetail } from "@/components/explore/insights/CyclicReferencesDetail";
 import { DeepestPathsDetail } from "@/components/explore/insights/DeepestPathsDetail";
 import { EnumsDetail } from "@/components/explore/insights/EnumsDetail";
+import { EnumUsageDetail } from "@/components/explore/insights/EnumUsageDetail";
+import { EnumUsageListDetail } from "@/components/explore/insights/EnumUsageListDetail";
 import { FieldsByKindDetail } from "@/components/explore/insights/FieldsByKindDetail";
 import { FieldsByTypeDetail } from "@/components/explore/insights/FieldsByTypeDetail";
 import { FieldsByTypeListDetail } from "@/components/explore/insights/FieldsByTypeListDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
+import { MissingUnitsDetail } from "@/components/explore/insights/MissingUnitsDetail";
+import { MissingUnitsListDetail } from "@/components/explore/insights/MissingUnitsListDetail";
 import { PathsByDepthDetail } from "@/components/explore/insights/PathsByDepthDetail";
+import { ReferencesCountDetail } from "@/components/explore/insights/ReferencesCountDetail";
+import { ReferencesCountListDetail } from "@/components/explore/insights/ReferencesCountListDetail";
+import { ScalarDistributionDetail } from "@/components/explore/insights/ScalarDistributionDetail";
+import { ScalarDistributionListDetail } from "@/components/explore/insights/ScalarDistributionListDetail";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
 import { UndocumentedListDetail } from "@/components/explore/insights/UndocumentedListDetail";
+import { UnusedDetail } from "@/components/explore/insights/UnusedDetail";
+import { UnusedListDetail } from "@/components/explore/insights/UnusedListDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	closeInsightDetail,
@@ -48,14 +59,36 @@ function detailTitle(detail: InsightDetail): string {
 			return "Container types by fields";
 		case "fieldsByTypeList":
 			return "All container types";
+		case "scalarDistribution":
+			return "Scalar distribution";
+		case "scalarDistributionList":
+			return "All datatypes";
+		case "enumUsage":
+			return "Enum usage";
+		case "enumUsageList":
+			return "All enums by usage";
+		case "references":
+			return "References count";
+		case "referencesList":
+			return "All references";
 		case "deepestPaths":
 			return "Deepest paths";
 		case "pathsByDepth":
 			return `Depth ${detail.depth}`;
+		case "cyclicReferences":
+			return "Cyclic references";
 		case "undocumented":
 			return "Undocumented";
 		case "undocumentedList":
 			return detail.entityKind;
+		case "unused":
+			return "Unused elements";
+		case "unusedList":
+			return detail.category;
+		case "missingUnits":
+			return "Missing units";
+		case "missingUnitsList":
+			return "All fields without a unit";
 	}
 }
 
@@ -73,14 +106,36 @@ function renderDetail(detail: InsightDetail) {
 			return <FieldsByTypeDetail />;
 		case "fieldsByTypeList":
 			return <FieldsByTypeListDetail />;
+		case "scalarDistribution":
+			return <ScalarDistributionDetail />;
+		case "scalarDistributionList":
+			return <ScalarDistributionListDetail />;
+		case "enumUsage":
+			return <EnumUsageDetail />;
+		case "enumUsageList":
+			return <EnumUsageListDetail />;
+		case "references":
+			return <ReferencesCountDetail />;
+		case "referencesList":
+			return <ReferencesCountListDetail />;
 		case "deepestPaths":
 			return <DeepestPathsDetail />;
 		case "pathsByDepth":
 			return <PathsByDepthDetail depth={detail.depth} />;
+		case "cyclicReferences":
+			return <CyclicReferencesDetail />;
 		case "undocumented":
 			return <UndocumentedDetail />;
 		case "undocumentedList":
 			return <UndocumentedListDetail entityKind={detail.entityKind} />;
+		case "unused":
+			return <UnusedDetail />;
+		case "unusedList":
+			return <UnusedListDetail category={detail.category} />;
+		case "missingUnits":
+			return <MissingUnitsDetail />;
+		case "missingUnitsList":
+			return <MissingUnitsListDetail />;
 	}
 }
 
@@ -93,6 +148,9 @@ function detailKey(detail: InsightDetail): string {
 	}
 	if (detail.kind === "undocumentedList") {
 		return `undocumentedList:${detail.entityKind}`;
+	}
+	if (detail.kind === "unusedList") {
+		return `unusedList:${detail.category}`;
 	}
 	if (detail.kind === "pathsByDepth") {
 		return `pathsByDepth:${detail.depth}`;

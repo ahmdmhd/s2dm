@@ -188,6 +188,168 @@ def test_enum_typed_fields_are_leaf() -> None:
     assert status_field.is_relationship is False
 
 
+def test_scalar_usage_counts_builtin_field_occurrences() -> None:
+    sdl = """
+    type Vehicle {
+      name: String
+      label: String
+      speed: Float
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    counts_by_name = {entry.name: entry.count for entry in concepts.scalar_usage}
+    assert counts_by_name["String"] == 2
+    assert counts_by_name["Float"] == 1
+
+
+def test_scalar_usage_counts_custom_scalars_and_flags_builtin() -> None:
+    sdl = """
+    scalar DateTime
+
+    type Vehicle {
+      createdAt: DateTime
+      updatedAt: DateTime
+      id: ID
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    usage_by_name = {entry.name: entry for entry in concepts.scalar_usage}
+    assert usage_by_name["DateTime"].count == 2
+    assert usage_by_name["DateTime"].is_builtin is False
+    assert usage_by_name["ID"].is_builtin is True
+
+
+def test_scalar_usage_sorted_by_count_descending_then_name() -> None:
+    sdl = """
+    type Vehicle {
+      a: Float
+      b: String
+      c: String
+      d: String
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    assert concepts.scalar_usage == sorted(
+        concepts.scalar_usage, key=lambda entry: (-entry.count, entry.name)
+    )
+    assert concepts.scalar_usage[0].name == "String"
+
+
+def test_scalar_usage_excludes_enum_typed_fields() -> None:
+    sdl = """
+    enum StatusEnum { ON OFF }
+
+    type Vehicle {
+      status: StatusEnum
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    scalar_names = {entry.name for entry in concepts.scalar_usage}
+    assert "StatusEnum" not in scalar_names
+
+
+def test_enum_usage_counts_field_occurrences() -> None:
+    sdl = """
+    enum Status { ON OFF }
+
+    enum Color { RED GREEN }
+
+    type Vehicle {
+      status: Status
+      backupStatus: Status
+      color: Color
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    counts_by_name = {entry.name: entry.count for entry in concepts.enum_usage}
+    assert counts_by_name["Status"] == 2
+    assert counts_by_name["Color"] == 1
+
+
+def test_enum_usage_sorted_by_count_descending_then_name() -> None:
+    sdl = """
+    enum Alpha { A B }
+
+    enum Beta { A B }
+
+    enum Gamma { A B }
+
+    type Vehicle {
+      first: Beta
+      second: Alpha
+      third: Alpha
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    assert concepts.enum_usage == sorted(concepts.enum_usage, key=lambda entry: (-entry.count, entry.name))
+    assert concepts.enum_usage[0].name == "Alpha"
+
+
+def test_enum_usage_excludes_unused_and_scalar_typed_fields() -> None:
+    sdl = """
+    enum UsedEnum { ON OFF }
+
+    enum UnusedEnum { A B }
+
+    type Vehicle {
+      status: UsedEnum
+      name: String
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    usage_names = {entry.name for entry in concepts.enum_usage}
+    assert usage_names == {"UsedEnum"}
+
+
 def test_enum_value_counts_sorted_by_value_count_descending() -> None:
     sdl = """
     enum Small { A B }

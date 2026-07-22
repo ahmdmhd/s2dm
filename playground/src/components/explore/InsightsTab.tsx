@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { CompositionTab } from "@/components/explore/insights/CompositionTab";
 import { OverviewTab } from "@/components/explore/insights/OverviewTab";
 import { QualityTab } from "@/components/explore/insights/QualityTab";
@@ -17,13 +17,16 @@ import {
 	selectIsLoadingInsights,
 } from "@/store/insights/insightsSlice";
 import { selectFilteredSchema } from "@/store/schema/schemaSlice";
-import { closeInsightDetail, selectExploreTab } from "@/store/ui/uiSlice";
-
-type InsightsSubTab = "overview" | "composition" | "relationships" | "quality";
+import {
+	type InsightsSubTab,
+	selectExploreTab,
+	selectInsightsSubTab,
+	setInsightsSubTab,
+} from "@/store/ui/uiSlice";
 
 export function InsightsTab() {
 	const dispatch = useAppDispatch();
-	const [activeSubTab, setActiveSubTab] = useState<InsightsSubTab>("overview");
+	const activeSubTab = useAppSelector(selectInsightsSubTab);
 	const activeTab = useAppSelector(selectExploreTab);
 	const filteredSchema = useAppSelector(selectFilteredSchema);
 	const concepts = useAppSelector(selectInsightsConcepts);
@@ -48,8 +51,7 @@ export function InsightsTab() {
 	}, [activeTab, filteredSchema, dispatch]);
 
 	const handleSubTabChange = (value: string) => {
-		setActiveSubTab(value as InsightsSubTab);
-		dispatch(closeInsightDetail());
+		dispatch(setInsightsSubTab(value as InsightsSubTab));
 	};
 
 	const hasAllData =

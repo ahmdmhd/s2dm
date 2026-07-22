@@ -9,78 +9,70 @@ import {
 } from "recharts";
 import { CategoryTick } from "@/components/explore/insights/CategoryTick";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
-import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-	selectDeepestPath,
-	selectDepthDistribution,
-	selectPathDepthStats,
+	selectScalarUsage,
+	selectScalarUsageStats,
 } from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 
-const DEPTH_AXIS_WIDTH = 64;
+const SCALAR_AXIS_WIDTH = 140;
 
-export function DeepestPathsChart() {
+export function ScalarDistributionChart() {
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
-	const depthDistribution = useAppSelector(selectDepthDistribution);
-	const stats = useAppSelector(selectPathDepthStats);
-	const deepestPath = useAppSelector(selectDeepestPath);
-	const selected = detail?.kind === "deepestPaths";
+	const scalarUsage = useAppSelector(selectScalarUsage);
+	const stats = useAppSelector(selectScalarUsageStats);
+	const selected = detail?.kind === "scalarDistribution";
 
-	const hasData = !!stats && depthDistribution.length > 0;
-	const maxPathCount = Math.max(
-		1,
-		...depthDistribution.map((row) => row.pathCount),
-	);
+	const hasData = !!stats;
+	const topScalars = scalarUsage.slice(0, 5);
+	const topScalar = stats?.topScalar;
 
 	return (
 		<HighlightableCard selected={selected}>
 			<span className="text-lg font-semibold text-card-foreground">
-				Deepest Nested Paths
+				Scalar Distribution
 			</span>
-			{hasData ? (
+			{hasData && topScalar ? (
 				<>
 					<div className="flex flex-col gap-1">
 						<p className="text-sm text-card-foreground">
-							The deepest path is{" "}
-							<span className="font-semibold">{stats.max}</span> hops deep
+							<span className="font-semibold">{topScalar.name}</span> is the
+							most used datatype:{" "}
+							<span className="font-semibold">{topScalar.count}</span> fields
 						</p>
 						<p className="text-sm text-muted-foreground">
-							<span className="font-semibold">{stats.deepestCount}</span> paths
-							tie at the maximum depth
+							<span className="font-semibold">{stats.scalarCount}</span>{" "}
+							datatypes across{" "}
+							<span className="font-semibold">{stats.totalOccurrences}</span>{" "}
+							field usages
 						</p>
 					</div>
 					<div className="h-[176px] w-full">
 						<ResponsiveContainer width="100%" height="100%">
 							<BarChart
-								data={depthDistribution}
+								data={topScalars}
 								layout="vertical"
 								margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
 							>
-								<XAxis type="number" domain={[0, maxPathCount]} hide />
+								<XAxis type="number" domain={[0, topScalar.count]} hide />
 								<YAxis
 									type="category"
-									dataKey="depth"
-									width={DEPTH_AXIS_WIDTH}
-									reversed
+									dataKey="name"
+									width={SCALAR_AXIS_WIDTH}
 									axisLine={false}
 									tickLine={false}
-									tick={
-										<CategoryTick
-											width={DEPTH_AXIS_WIDTH}
-											format={(depth) => `Depth ${depth}`}
-										/>
-									}
+									tick={<CategoryTick width={SCALAR_AXIS_WIDTH} />}
 								/>
 								<Bar
-									dataKey="pathCount"
+									dataKey="count"
 									fill="var(--color-blue-500)"
 									radius={[0, 4, 4, 0]}
 									barSize={16}
 								>
 									<LabelList
-										dataKey="pathCount"
+										dataKey="count"
 										position="right"
 										fill="var(--color-card-foreground)"
 										fontSize={12}
@@ -91,38 +83,29 @@ export function DeepestPathsChart() {
 					</div>
 					<div className="flex gap-6 text-sm text-muted-foreground">
 						<span>
-							Max depth:{" "}
+							Built-in:{" "}
 							<span className="font-semibold text-card-foreground">
-								{stats.max}
+								{stats.builtinCount}
 							</span>
 						</span>
 						<span>
-							Total paths:{" "}
+							Custom scalars:{" "}
 							<span className="font-semibold text-card-foreground">
-								{stats.pathCount}
+								{stats.customCount}
 							</span>
 						</span>
 					</div>
-					{deepestPath && (
-						<div className="flex flex-col gap-2">
-							<span className="text-sm text-muted-foreground">
-								Example deepest path
-							</span>
-							<TypePathBreadcrumb
-								segments={deepestPath.segments}
-								truncate={false}
-							/>
-						</div>
-					)}
 				</>
 			) : (
 				<p className="text-sm text-muted-foreground">
-					No path depth data available
+					No scalar data available
 				</p>
 			)}
 			<button
 				type="button"
-				onClick={() => dispatch(openInsightDetail({ kind: "deepestPaths" }))}
+				onClick={() =>
+					dispatch(openInsightDetail({ kind: "scalarDistribution" }))
+				}
 				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
 			>
 				View details

@@ -1,14 +1,21 @@
 import { createSelector } from "@reduxjs/toolkit";
 import type {
+	ConceptCounts,
 	ConceptMembers,
 	ContainerKind,
+	CyclicReference,
+	EnumUsage,
 	EnumValueCount,
+	QualityIssue,
+	ReferenceCount,
 	RelationshipPath,
+	ScalarUsage,
 	UndocumentedEntity,
 } from "@/api/types";
 import {
 	selectInsightsConcepts,
 	selectInsightsCoverage,
+	selectInsightsQuality,
 	selectInsightsRelationships,
 } from "@/store/insights/insightsSlice";
 
@@ -50,6 +57,36 @@ export type ContainerTypeFieldStats = {
 	min: number;
 };
 
+export type ScalarUsageStats = {
+	scalarCount: number;
+	totalOccurrences: number;
+	builtinCount: number;
+	customCount: number;
+	topScalar: ScalarUsage;
+};
+
+export type EnumUsageStats = {
+	usedCount: number;
+	totalOccurrences: number;
+	unusedCount: number;
+	mostUsed: EnumUsage | null;
+	leastUsed: EnumUsage | null;
+};
+
+export type ReferenceCountStats = {
+	referencedCount: number;
+	totalReferences: number;
+	typeCount: number;
+	directiveCount: number;
+	unusedCount: number;
+	mostReferenced: ReferenceCount | null;
+	leastReferenced: ReferenceCount | null;
+};
+
+export type MissingUnitsStats = {
+	count: number;
+};
+
 export type FieldGroup = {
 	type: string;
 	fields: string[];
@@ -71,8 +108,30 @@ export type DepthGroup = {
 	paths: RelationshipPath[];
 };
 
+export type CycleLengthRow = {
+	length: number;
+	cycleCount: number;
+};
+
+export type CyclicReferenceStats = {
+	cycleCount: number;
+	shortest: number;
+	shortestCount: number;
+};
+
+export type CycleGroup = {
+	length: number;
+	cycles: CyclicReference[];
+};
+
 export type CoverageCategory = {
 	label: string;
+	documented: number;
+	total: number;
+};
+
+export type DocumentationCoverageStats = {
+	overallCoverage: number;
 	documented: number;
 	total: number;
 };
@@ -81,6 +140,47 @@ export type UndocumentedKindGroup = {
 	kind: string;
 	elements: UndocumentedEntity[];
 };
+
+export type UnusedCategory = {
+	label: string;
+	unused: number;
+	total: number;
+};
+
+export type UnusedCategoryGroup = {
+	category: string;
+	elements: QualityIssue[];
+};
+
+// Bars roll the granular backend categories up to match the coverage card: "Types"
+// aggregates every type kind, with "Enums" kept separate.
+const UNUSED_CATEGORIES: {
+	label: string;
+	categories: string[];
+	countKeys: (keyof ConceptCounts)[];
+}[] = [
+	{
+		label: "Types",
+		categories: [
+			"Unused object types",
+			"Unused interfaces",
+			"Unused unions",
+			"Unused input types",
+			"Unused scalars",
+		],
+		countKeys: ["object", "interface", "union", "input", "scalar"],
+	},
+	{ label: "Enums", categories: ["Unused enums"], countKeys: ["enum"] },
+	{
+		label: "Directives",
+		categories: ["Unused directives"],
+		countKeys: ["directive"],
+	},
+];
+
+const UNUSED_QUALITY_CATEGORIES = new Set(
+	UNUSED_CATEGORIES.flatMap((entry) => entry.categories),
+);
 
 function median(values: number[]): number {
 	if (values.length === 0) {
@@ -184,6 +284,66 @@ export const selectContainerTypeFieldStats = createSelector(
 			median: median(fieldCounts),
 			max: Math.max(...fieldCounts),
 			min: Math.min(...fieldCounts),
+		};
+	},
+);
+
+export const selectScalarUsage = createSelector(
+	selectInsightsConcepts,
+	(concepts): ScalarUsage[] => concepts?.scalar_usage ?? [],
+);
+
+export const selectScalarUsageStats = createSelector(
+	selectScalarUsage,
+	(scalarUsage): ScalarUsageStats | null => {
+		const topScalar = scalarUsage[0];
+		if (!topScalar) {
+			return null;
+		}
+		const totalOccurrences = scalarUsage.reduce(
+			(sum, entry) => sum + entry.count,
+			0,
+		);
+		const builtinCount = scalarUsage.filter((entry) => entry.is_builtin).length;
+		return {
+			scalarCount: scalarUsage.length,
+			totalOccurrences,
+			builtinCount,
+			customCount: scalarUsage.length - builtinCount,
+			topScalar,
+		};
+	},
+);
+
+export const selectEnumUsage = createSelector(
+	selectInsightsConcepts,
+	(concepts): EnumUsage[] => concepts?.enum_usage ?? [],
+);
+
+export const selectUnusedEnumCount = createSelector(
+	selectInsightsQuality,
+	(quality): number =>
+		quality?.issues.filter((issue) => issue.category === "Unused enums")
+			.length ?? 0,
+);
+
+export const selectEnumUsageStats = createSelector(
+	selectEnumUsage,
+	selectUnusedEnumCount,
+	(enumUsage, unusedCount): EnumUsageStats | null => {
+		if (enumUsage.length === 0 && unusedCount === 0) {
+			return null;
+		}
+		const totalOccurrences = enumUsage.reduce(
+			(sum, entry) => sum + entry.count,
+			0,
+		);
+		return {
+			usedCount: enumUsage.length,
+			totalOccurrences,
+			unusedCount,
+			mostUsed: enumUsage[0] ?? null,
+			leastUsed: enumUsage[enumUsage.length - 1] ?? null,
 		};
 	},
 );
@@ -299,6 +459,81 @@ export const selectDepthGroups = createSelector(
 	},
 );
 
+export const selectCyclicReferences = createSelector(
+	selectInsightsRelationships,
+	(relationships): CyclicReference[] => relationships?.cyclic_references ?? [],
+);
+
+export const selectCycleLengthDistribution = createSelector(
+	selectCyclicReferences,
+	(cycles): CycleLengthRow[] => {
+		const countsByLength = new Map<number, number>();
+		for (const cycle of cycles) {
+			const current = countsByLength.get(cycle.length) ?? 0;
+			countsByLength.set(cycle.length, current + 1);
+		}
+		const rows = Array.from(countsByLength, ([length, cycleCount]) => ({
+			length,
+			cycleCount,
+		}));
+		rows.sort((a, b) => a.length - b.length);
+		return rows;
+	},
+);
+
+export const selectCyclicReferenceStats = createSelector(
+	selectCyclicReferences,
+	(cycles): CyclicReferenceStats | null => {
+		if (cycles.length === 0) {
+			return null;
+		}
+		const lengths = cycles.map((cycle) => cycle.length);
+		const shortest = Math.min(...lengths);
+		const shortestCount = lengths.filter(
+			(length) => length === shortest,
+		).length;
+		return {
+			cycleCount: cycles.length,
+			shortest,
+			shortestCount,
+		};
+	},
+);
+
+export const selectShortestCycle = createSelector(
+	selectCyclicReferences,
+	(cycles): CyclicReference | null => {
+		if (cycles.length === 0) {
+			return null;
+		}
+		let shortest = cycles[0];
+		for (const cycle of cycles) {
+			if (cycle.length < shortest.length) {
+				shortest = cycle;
+			}
+		}
+		return shortest;
+	},
+);
+
+export const selectCycleGroups = createSelector(
+	selectCyclicReferences,
+	(cycles): CycleGroup[] => {
+		const cyclesByLength = new Map<number, CyclicReference[]>();
+		for (const cycle of cycles) {
+			const group = cyclesByLength.get(cycle.length) ?? [];
+			group.push(cycle);
+			cyclesByLength.set(cycle.length, group);
+		}
+		const groups = Array.from(cyclesByLength, ([length, groupCycles]) => ({
+			length,
+			cycles: groupCycles,
+		}));
+		groups.sort((a, b) => a.length - b.length);
+		return groups;
+	},
+);
+
 export const selectCoverageCategories = createSelector(
 	selectInsightsCoverage,
 	(coverage): CoverageCategory[] => {
@@ -336,6 +571,23 @@ export const selectCoverageCategories = createSelector(
 	},
 );
 
+export const selectDocumentationCoverageStats = createSelector(
+	selectCoverageCategories,
+	(categories): DocumentationCoverageStats | null => {
+		if (categories.length === 0) {
+			return null;
+		}
+		const total = categories.reduce((sum, category) => sum + category.total, 0);
+		const documented = categories.reduce(
+			(sum, category) => sum + category.documented,
+			0,
+		);
+		const overallCoverage =
+			total === 0 ? 0 : Math.round((documented / total) * 100);
+		return { overallCoverage, documented, total };
+	},
+);
+
 export const selectUndocumentedElements = createSelector(
 	selectInsightsCoverage,
 	(coverage): UndocumentedEntity[] => coverage?.undocumented ?? [],
@@ -353,6 +605,106 @@ export const selectUndocumentedByKind = createSelector(
 		return Array.from(elementsByKind, ([kind, kindElements]) => ({
 			kind,
 			elements: kindElements,
+		}));
+	},
+);
+
+export const selectUnusedElements = createSelector(
+	selectInsightsQuality,
+	(quality): QualityIssue[] => {
+		if (!quality) {
+			return [];
+		}
+		return quality.issues.filter((issue) =>
+			UNUSED_QUALITY_CATEGORIES.has(issue.category),
+		);
+	},
+);
+
+export const selectReferenceCounts = createSelector(
+	selectInsightsRelationships,
+	(relationships): ReferenceCount[] => relationships?.reference_counts ?? [],
+);
+
+export const selectReferenceCountStats = createSelector(
+	selectReferenceCounts,
+	selectUnusedElements,
+	(referenceCounts, unusedElements): ReferenceCountStats | null => {
+		const unusedCount = unusedElements.filter(
+			(element) => element.category !== "Unused enums",
+		).length;
+		if (referenceCounts.length === 0 && unusedCount === 0) {
+			return null;
+		}
+		const totalReferences = referenceCounts.reduce(
+			(sum, entry) => sum + entry.count,
+			0,
+		);
+		const typeCount = referenceCounts.filter(
+			(entry) => entry.kind === "type",
+		).length;
+		return {
+			referencedCount: referenceCounts.length,
+			totalReferences,
+			typeCount,
+			directiveCount: referenceCounts.length - typeCount,
+			unusedCount,
+			mostReferenced: referenceCounts[0] ?? null,
+			leastReferenced: referenceCounts[referenceCounts.length - 1] ?? null,
+		};
+	},
+);
+
+export const selectMissingUnits = createSelector(
+	selectInsightsQuality,
+	(quality): QualityIssue[] =>
+		quality?.issues.filter((issue) => issue.category === "Missing units") ?? [],
+);
+
+export const selectMissingUnitsStats = createSelector(
+	selectInsightsQuality,
+	selectMissingUnits,
+	(quality, missingUnits): MissingUnitsStats | null => {
+		if (!quality) {
+			return null;
+		}
+		return { count: missingUnits.length };
+	},
+);
+
+export const selectUnusedCategories = createSelector(
+	selectInsightsQuality,
+	selectInsightsConcepts,
+	(quality, concepts): UnusedCategory[] => {
+		if (!quality || !concepts) {
+			return [];
+		}
+		return UNUSED_CATEGORIES.map((entry) => {
+			const categorySet = new Set(entry.categories);
+			const unused = quality.issues.filter((issue) =>
+				categorySet.has(issue.category),
+			).length;
+			const total = entry.countKeys.reduce(
+				(sum, key) => sum + concepts.counts[key],
+				0,
+			);
+			return { label: entry.label, unused, total };
+		});
+	},
+);
+
+export const selectUnusedByCategory = createSelector(
+	selectUnusedElements,
+	(elements): UnusedCategoryGroup[] => {
+		const elementsByCategory = new Map<string, QualityIssue[]>();
+		for (const element of elements) {
+			const group = elementsByCategory.get(element.category) ?? [];
+			group.push(element);
+			elementsByCategory.set(element.category, group);
+		}
+		return Array.from(elementsByCategory, ([category, categoryElements]) => ({
+			category,
+			elements: categoryElements,
 		}));
 	},
 );
