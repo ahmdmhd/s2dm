@@ -150,7 +150,7 @@ class TestExceptionHandlers:
         annotated_schema = SimpleNamespace(schema=object())
         with (
             patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", return_value=(annotated_schema, object())),
-            patch("s2dm.api.routes.avro.check_correct_schema", return_value=[]),
+            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]),
             patch("s2dm.api.routes.avro.translate_to_avro_schema", side_effect=TypeError("bad type")),
         ):
             response = test_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
