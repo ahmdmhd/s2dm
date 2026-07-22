@@ -35,5 +35,5 @@ def get_coverage(request: InsightsRequest) -> CoverageResult:
 
 @router.post("/quality", response_model=QualityResult)
 def get_quality(request: InsightsRequest) -> QualityResult:
-    """Get quality issues: missing descriptions, deprecated fields, unused enums."""
+    """Get quality issues: missing descriptions, deprecated fields, unused elements."""
     return get_schema_quality_issues(request.schemas)

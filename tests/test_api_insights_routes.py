@@ -40,6 +40,45 @@ class TestInsightsConceptsRoute:
         assert data["counts"]["enum"] == 1
         assert {entry["type"] for entry in data["fields_by_type"]} == {"Vehicle", "Cabin", "Query"}
 
+    def test_get_concepts_includes_scalar_usage(self, test_client: TestClient) -> None:
+        response = test_client.post("/api/v1/insights/concepts", json=VEHICLE_SCHEMA_PAYLOAD)
+
+        assert response.status_code == 200
+        data = response.json()
+        usage_by_name = {entry["name"]: entry for entry in data["scalar_usage"]}
+        assert usage_by_name["ID"]["count"] == 1
+        assert usage_by_name["ID"]["is_builtin"] is True
+        assert usage_by_name["String"]["count"] == 1
+
+    def test_get_concepts_includes_enum_usage(self, test_client: TestClient) -> None:
+        payload = {
+            "schemas": [
+                {
+                    "type": "content",
+                    "content": """
+                    enum Status { ON OFF }
+
+                    enum UnusedEnum { A B }
+
+                    type Vehicle {
+                      status: Status
+                    }
+
+                    type Query {
+                      vehicle: Vehicle
+                    }
+                    """,
+                },
+            ],
+        }
+        response = test_client.post("/api/v1/insights/concepts", json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        usage_by_name = {entry["name"]: entry for entry in data["enum_usage"]}
+        assert usage_by_name["Status"]["count"] == 1
+        assert "UnusedEnum" not in usage_by_name
+
     def test_get_concepts_missing_required_field_returns_400(self, test_client: TestClient) -> None:
         response = test_client.post("/api/v1/insights/concepts", json={})
 
@@ -82,6 +121,44 @@ class TestInsightsRelationshipsRoute:
         assert response.status_code == 200
         data = response.json()
         assert any(path["segments"] == ["Node", "Node"] for path in data["paths"])
+
+    def test_get_relationships_includes_cyclic_references(self, test_client: TestClient) -> None:
+        payload = {
+            "schemas": [
+                {
+                    "type": "content",
+                    "content": """
+                    type Vehicle {
+                      cabin: Cabin
+                    }
+
+                    type Cabin {
+                      vehicle: Vehicle
+                    }
+
+                    type Query {
+                      vehicle: Vehicle
+                    }
+                    """,
+                },
+            ],
+        }
+
+        response = test_client.post("/api/v1/insights/relationships", json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cyclic_references"] == [{"segments": ["Cabin", "Vehicle", "Cabin"], "length": 2}]
+
+    def test_get_relationships_includes_reference_counts(self, test_client: TestClient) -> None:
+        response = test_client.post("/api/v1/insights/relationships", json=VEHICLE_SCHEMA_PAYLOAD)
+
+        assert response.status_code == 200
+        data = response.json()
+        counts_by_name = {entry["name"]: entry for entry in data["reference_counts"]}
+        assert counts_by_name["Cabin"]["count"] == 1
+        assert counts_by_name["Cabin"]["kind"] == "type"
+        assert "UnusedEnum" not in counts_by_name
 
 
 class TestInsightsCoverageRoute:

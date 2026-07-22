@@ -165,11 +165,24 @@ export type EnumValueCount = {
 	values: number;
 };
 
+export type ScalarUsage = {
+	name: string;
+	count: number;
+	is_builtin: boolean;
+};
+
+export type EnumUsage = {
+	name: string;
+	count: number;
+};
+
 export type ConceptsResponse = {
 	counts: ConceptCounts;
 	members: ConceptMembers;
 	fields_by_type: TypeFields[];
 	enum_value_counts: EnumValueCount[];
+	scalar_usage: ScalarUsage[];
+	enum_usage: EnumUsage[];
 };
 
 export type RelationshipPath = {
@@ -177,9 +190,20 @@ export type RelationshipPath = {
 	depth: number;
 };
 
+export type CyclicReference = {
+	segments: string[];
+	length: number;
+};
+
 export type DepthCount = {
 	depth: number;
 	count: number;
+};
+
+export type ReferenceCount = {
+	name: string;
+	count: number;
+	kind: "type" | "directive";
 };
 
 export type RelationshipsResponse = {
@@ -187,6 +211,8 @@ export type RelationshipsResponse = {
 	max_depth: RelationshipPath | null;
 	total_paths: number;
 	depth_distribution: DepthCount[];
+	cyclic_references: CyclicReference[];
+	reference_counts: ReferenceCount[];
 };
 
 export type CoverageCount = {

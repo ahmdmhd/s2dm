@@ -5,6 +5,12 @@ import type { RootState } from "@/store/types";
 
 export type ExploreTab = "explorer" | "insights";
 
+export type InsightsSubTab =
+	| "overview"
+	| "composition"
+	| "relationships"
+	| "quality";
+
 export type InsightDetail =
 	| { kind: "conceptsBreakdown" }
 	| { kind: "conceptDetails"; concept: GraphQLConcept }
@@ -12,10 +18,21 @@ export type InsightDetail =
 	| { kind: "enumsList" }
 	| { kind: "fieldsByType" }
 	| { kind: "fieldsByTypeList" }
+	| { kind: "scalarDistribution" }
+	| { kind: "scalarDistributionList" }
+	| { kind: "enumUsage" }
+	| { kind: "enumUsageList" }
+	| { kind: "references" }
+	| { kind: "referencesList" }
 	| { kind: "deepestPaths" }
 	| { kind: "pathsByDepth"; depth: number }
+	| { kind: "cyclicReferences" }
 	| { kind: "undocumented" }
-	| { kind: "undocumentedList"; entityKind: string };
+	| { kind: "undocumentedList"; entityKind: string }
+	| { kind: "unused" }
+	| { kind: "unusedList"; category: string }
+	| { kind: "missingUnits" }
+	| { kind: "missingUnitsList" };
 
 export interface UIState {
 	panes: {
@@ -27,6 +44,7 @@ export interface UIState {
 		};
 	};
 	exploreTab: ExploreTab;
+	insightsSubTab: InsightsSubTab;
 	insightDetailStack: InsightDetail[];
 }
 
@@ -40,6 +58,7 @@ const initialState: UIState = {
 		},
 	},
 	exploreTab: "explorer",
+	insightsSubTab: "overview",
 	insightDetailStack: [],
 };
 
@@ -58,6 +77,10 @@ const uiSlice = createSlice({
 		},
 		setExploreTab: (state, action: PayloadAction<ExploreTab>) => {
 			state.exploreTab = action.payload;
+			state.insightDetailStack = [];
+		},
+		setInsightsSubTab: (state, action: PayloadAction<InsightsSubTab>) => {
+			state.insightsSubTab = action.payload;
 			state.insightDetailStack = [];
 		},
 		openInsightDetail: (state, action: PayloadAction<InsightDetail>) => {
@@ -82,6 +105,7 @@ export const {
 	toggleResultPane,
 	collapseResultPane,
 	setExploreTab,
+	setInsightsSubTab,
 	openInsightDetail,
 	pushInsightDetail,
 	popInsightDetail,
@@ -93,6 +117,8 @@ export const selectInputPaneCollapsed = (state: RootState) =>
 export const selectResultPaneCollapsed = (state: RootState) =>
 	state.ui.panes.result.isCollapsed;
 export const selectExploreTab = (state: RootState) => state.ui.exploreTab;
+export const selectInsightsSubTab = (state: RootState) =>
+	state.ui.insightsSubTab;
 export const selectInsightDetail = (state: RootState) =>
 	state.ui.insightDetailStack.at(-1) ?? null;
 export const selectCanGoBackInsightDetail = (state: RootState) =>

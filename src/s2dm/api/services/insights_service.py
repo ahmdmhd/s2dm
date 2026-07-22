@@ -38,5 +38,5 @@ def get_schema_coverage(schemas: list[SchemaInput]) -> CoverageResult:
 
 
 def get_schema_quality_issues(schemas: list[SchemaInput]) -> QualityResult:
-    """Get quality issues: missing descriptions, deprecated fields, unused enums."""
+    """Get quality issues: missing descriptions, deprecated fields, unused elements."""
     return compute_quality_issues(_load_schema(schemas))

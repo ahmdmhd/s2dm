@@ -58,6 +58,21 @@ class EnumValueCount(BaseModel):
     values: int
 
 
+class ScalarUsage(BaseModel):
+    """How often a scalar type is used as a field's output type across all container types."""
+
+    name: str
+    count: int = Field(description="Number of container-type fields whose named output type is this scalar")
+    is_builtin: bool = Field(description="True for the built-in scalars (String, Int, Float, Boolean, ID)")
+
+
+class EnumUsage(BaseModel):
+    """How often an enum type is used as a field's output type across all container types."""
+
+    name: str
+    count: int = Field(description="Number of container-type fields whose named output type is this enum")
+
+
 class ConceptsResult(BaseModel):
     """Concept counts, member names, container-type field composition, and enum value counts."""
 
@@ -68,6 +83,12 @@ class ConceptsResult(BaseModel):
     )
     enum_value_counts: list[EnumValueCount] = Field(
         description="Enum types with their value counts, sorted by value count descending",
+    )
+    scalar_usage: list[ScalarUsage] = Field(
+        description="Scalar types with their field-usage counts, sorted by count descending then name",
+    )
+    enum_usage: list[EnumUsage] = Field(
+        description="Enum types used as a field's output type, with usage counts, sorted by count descending then name",
     )
 
 
@@ -85,6 +106,23 @@ class DepthCount(BaseModel):
     count: int
 
 
+class CyclicReference(BaseModel):
+    """A reference loop where following object-type fields returns to a type already in the chain."""
+
+    segments: list[str] = Field(
+        description="The loop's types, starting and ending at the same type, e.g. ['A', 'B', 'A']",
+    )
+    length: int = Field(description="Number of hops (edges) around the loop, equal to len(segments) - 1")
+
+
+class ReferenceCount(BaseModel):
+    """How often a type or custom directive is referenced across the schema."""
+
+    name: str
+    count: int = Field(description="Number of references to this type, or applications of this directive")
+    kind: Literal["type", "directive"]
+
+
 class RelationshipsResult(BaseModel):
     """Deepest object-reference paths reachable from the schema's root."""
 
@@ -95,6 +133,12 @@ class RelationshipsResult(BaseModel):
     total_paths: int = Field(description="Total number of unique reference paths across all depths")
     depth_distribution: list[DepthCount] = Field(
         description="Number of paths at each depth, sorted by depth ascending",
+    )
+    cyclic_references: list[CyclicReference] = Field(
+        description="Deduplicated reference loops, each canonicalized to its smallest type, sorted by length ascending",
+    )
+    reference_counts: list[ReferenceCount] = Field(
+        description="Types and custom directives referenced at least once, sorted by count descending then name",
     )
 
 

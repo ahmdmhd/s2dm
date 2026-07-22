@@ -1,4 +1,6 @@
+import { CompositionSummaryCard } from "@/components/explore/insights/CompositionSummaryCard";
 import { ConceptsBreakdown } from "@/components/explore/insights/ConceptsBreakdown";
+import { QualitySummaryCard } from "@/components/explore/insights/QualitySummaryCard";
 import { TabsContent } from "@/components/ui/tabs";
 
 export function OverviewTab() {
@@ -9,6 +11,8 @@ export function OverviewTab() {
 		>
 			<div className="flex flex-col gap-4 p-4">
 				<ConceptsBreakdown />
+				<CompositionSummaryCard />
+				<QualitySummaryCard />
 			</div>
 		</TabsContent>
 	);
