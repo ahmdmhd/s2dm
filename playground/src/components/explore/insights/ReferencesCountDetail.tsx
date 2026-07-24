@@ -1,6 +1,6 @@
-import { ArrowRight } from "lucide-react";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { ReferenceCountRow } from "@/components/explore/insights/ReferencesCountListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
+import { RootTypesExcludedNote } from "@/components/explore/insights/RootTypesExcludedNote";
 import { Heading } from "@/components/ui/heading";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -18,15 +18,14 @@ export function ReferencesCountDetail() {
 	const referenceCounts = useAppSelector(selectReferenceCounts);
 	const stats = useAppSelector(selectReferenceCountStats);
 
-	if (!stats) {
-		return null;
-	}
-
-	const { mostReferenced, leastReferenced } = stats;
+	const mostReferenced = stats?.mostReferenced ?? null;
+	const leastReferenced = stats?.leastReferenced ?? null;
+	const referencedCount = stats?.referencedCount ?? 0;
+	const unusedCount = stats?.unusedCount ?? 0;
 	const topReferences = referenceCounts.slice(0, 5);
 	const statRows = [
-		{ label: "Types & directives referenced", value: stats.referencedCount },
-		{ label: "Total references", value: stats.totalReferences },
+		{ label: "Types referenced", value: referencedCount },
+		{ label: "Total references", value: stats?.totalReferences ?? 0 },
 		{
 			label: "Most referenced",
 			value: mostReferenced ? mostReferenced.name : "—",
@@ -35,7 +34,7 @@ export function ReferencesCountDetail() {
 			label: "Least referenced",
 			value: leastReferenced ? leastReferenced.name : "—",
 		},
-		{ label: "Unused elements", value: stats.unusedCount },
+		{ label: "Unused elements", value: unusedCount },
 	];
 
 	const openUnusedElements = () => {
@@ -43,22 +42,26 @@ export function ReferencesCountDetail() {
 		dispatch(openInsightDetail({ kind: "unused" }));
 	};
 
+	const openEnumUsage = () => {
+		dispatch(setInsightsSubTab("composition"));
+		dispatch(openInsightDetail({ kind: "enumUsage" }));
+	};
+
 	return (
 		<div className="flex flex-col gap-6 text-sm text-card-foreground">
 			<p className="text-muted-foreground">
-				How often each type and custom directive is referenced across the
-				composed model. Types are counted wherever a field, argument, union
-				member, or interface implementation points to them; directives are
-				counted wherever they are applied. Enums are excluded here — they have
-				their own Enum Usage card.
+				How often each type is referenced across the composed model. A type is
+				counted wherever a field, argument, union member, or interface
+				implementation points to it. Scalars and enums are excluded here — they
+				have their own Scalar Distribution and Enum Usage cards.
 			</p>
 
 			<section className="flex flex-col gap-2">
 				<Heading level="h3">Interpretation</Heading>
 				<ul className="flex list-disc flex-col gap-2 pl-5 text-muted-foreground">
 					<li>
-						A high count means the type or directive is a load-bearing part of
-						the model that many other elements depend on.
+						A high count means the type is a load-bearing part of the model that
+						many other elements depend on.
 					</li>
 					<li>
 						The least referenced element still earns its place, but a rarely
@@ -75,34 +78,38 @@ export function ReferencesCountDetail() {
 				<Heading level="h3">How it is calculated</Heading>
 				<p className="text-muted-foreground">
 					For every field, argument, union member, and interface implementation,
-					resolve the type it points to and count one reference against it. For
-					every applied directive, count one application. Enums, built-in
-					scalars, and root operation types are excluded, then results are
-					sorted by count descending.
+					resolve the type it points to and count one reference against it.
+					Scalars and enums are excluded, then results are sorted by count
+					descending.
 				</p>
+				<RootTypesExcludedNote />
 			</section>
 
 			<section className="flex flex-col gap-4">
 				<Heading level="h3">Evidence</Heading>
 
-				{topReferences.length > 0 && (
-					<div className="flex flex-col gap-2">
-						<Heading level="h4">By reference count</Heading>
-						<ul className="flex flex-col gap-2">
-							{topReferences.map((entry) => (
-								<ReferenceCountRow key={entry.name} {...entry} />
-							))}
-						</ul>
-						{stats.referencedCount > topReferences.length && (
-							<ViewAllButton
-								label={`View all ${stats.referencedCount}`}
-								onClick={() =>
-									dispatch(pushInsightDetail({ kind: "referencesList" }))
-								}
-							/>
-						)}
-					</div>
-				)}
+				<div className="flex flex-col gap-2">
+					{topReferences.length > 0 ? (
+						<>
+							<ul className="flex flex-col gap-2">
+								{topReferences.map((entry) => (
+									<ReferenceCountRow key={entry.name} {...entry} />
+								))}
+							</ul>
+							{referencedCount > topReferences.length && (
+								<InsightLinkButton
+									label={`View all ${referencedCount}`}
+									className="mt-1"
+									onClick={() =>
+										dispatch(pushInsightDetail({ kind: "referencesList" }))
+									}
+								/>
+							)}
+						</>
+					) : (
+						<p className="text-muted-foreground">No types are referenced.</p>
+					)}
+				</div>
 
 				<div className="flex flex-col gap-2">
 					<Heading level="h4">Stats</Heading>
@@ -117,17 +124,19 @@ export function ReferencesCountDetail() {
 						))}
 					</ul>
 				</div>
+			</section>
 
-				{stats.unusedCount > 0 && (
-					<button
-						type="button"
-						onClick={openUnusedElements}
-						className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-					>
-						View unused elements in Quality
-						<ArrowRight className="h-4 w-4" />
-					</button>
-				)}
+			<section className="flex flex-col gap-2">
+				<Heading level="h3">Actions</Heading>
+				<div className="flex flex-col items-start gap-2">
+					<InsightLinkButton label="View enum usage" onClick={openEnumUsage} />
+					{unusedCount > 0 && (
+						<InsightLinkButton
+							label="View unused elements in Quality"
+							onClick={openUnusedElements}
+						/>
+					)}
+				</div>
 			</section>
 		</div>
 	);

@@ -2,11 +2,10 @@ import type { ReactNode } from "react";
 import { EnumRow } from "@/components/explore/insights/EnumsDetail";
 import { FieldTypeRow } from "@/components/explore/insights/FieldsByKindDetail";
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
-import { StatusBanner } from "@/components/ui/status-banner";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectConceptMembers,
@@ -64,8 +63,9 @@ function ConceptSampleSection({
 				))}
 			</div>
 			{totalCount > sample.length && (
-				<ViewAllButton
+				<InsightLinkButton
 					label={`View all ${totalCount}`}
+					className="mt-1"
 					onClick={() =>
 						dispatch(pushInsightDetail({ kind: "conceptDetails", concept }))
 					}
@@ -82,13 +82,12 @@ export function ConceptsBreakdownDetail() {
 	const relationshipFields = useAppSelector(selectRelationshipFields);
 	const enums = useAppSelector(selectEnums);
 
-	if (!members) {
-		return null;
-	}
-
-	const objectSample = members.object.slice(0, SAMPLE_SIZE);
-	const interfaceSample = members.interface.slice(0, SAMPLE_SIZE);
-	const inputSample = members.input.slice(0, SAMPLE_SIZE);
+	const objectMembers = members?.object ?? [];
+	const interfaceMembers = members?.interface ?? [];
+	const inputMembers = members?.input ?? [];
+	const objectSample = objectMembers.slice(0, SAMPLE_SIZE);
+	const interfaceSample = interfaceMembers.slice(0, SAMPLE_SIZE);
+	const inputSample = inputMembers.slice(0, SAMPLE_SIZE);
 	const leafSample = leafFields.slice(0, SAMPLE_SIZE);
 	const relationshipSample = relationshipFields.slice(0, SAMPLE_SIZE);
 	let enumSample: { name: string; values: number; rank: string }[] = [];
@@ -165,11 +164,6 @@ export function ConceptsBreakdownDetail() {
 					</li>
 					<li>Enums = enum type definitions</li>
 				</ul>
-				<StatusBanner variant="info">
-					<span className="font-medium">Note:</span> configured technical root
-					types such as Query, Mutation, and Subscription may be excluded from
-					domain-oriented counts.
-				</StatusBanner>
 			</section>
 
 			<section className="flex flex-col gap-3">
@@ -180,14 +174,15 @@ export function ConceptsBreakdownDetail() {
 						<ConceptSampleSection
 							title="Object types"
 							sample={objectSample}
-							totalCount={members.object.length}
+							totalCount={objectMembers.length}
 							concept="object"
+							emptyMessage="No object types in this schema."
 						/>
 
 						<ConceptSampleSection
 							title="Interface types"
 							sample={interfaceSample}
-							totalCount={members.interface.length}
+							totalCount={interfaceMembers.length}
 							concept="interface"
 							emptyMessage="No interface types in this schema."
 						/>
@@ -195,7 +190,7 @@ export function ConceptsBreakdownDetail() {
 						<ConceptSampleSection
 							title="Input types"
 							sample={inputSample}
-							totalCount={members.input.length}
+							totalCount={inputMembers.length}
 							concept="input"
 							emptyMessage="No input types in this schema."
 						/>
@@ -205,44 +200,62 @@ export function ConceptsBreakdownDetail() {
 				<CollapsibleSection title="Fields" defaultCollapsed>
 					<div className="flex flex-col gap-4 py-3">
 						<EvidenceSubsection title="Leaf fields">
-							<div className="flex flex-col gap-2">
-								{leafSample.map((entry) => (
-									<FieldTypeRow key={entry.field} {...entry} />
-								))}
-							</div>
-							{leafFields.length > leafSample.length && (
-								<ViewAllButton
-									label={`View all ${leafFields.length}`}
-									onClick={() =>
-										dispatch(
-											pushInsightDetail({
-												kind: "fieldsByKind",
-												fieldKind: "leaf",
-											}),
-										)
-									}
-								/>
+							{leafFields.length > 0 ? (
+								<>
+									<div className="flex flex-col gap-2">
+										{leafSample.map((entry) => (
+											<FieldTypeRow key={entry.field} {...entry} />
+										))}
+									</div>
+									{leafFields.length > leafSample.length && (
+										<InsightLinkButton
+											label={`View all ${leafFields.length}`}
+											className="mt-1"
+											onClick={() =>
+												dispatch(
+													pushInsightDetail({
+														kind: "fieldsByKind",
+														fieldKind: "leaf",
+													}),
+												)
+											}
+										/>
+									)}
+								</>
+							) : (
+								<p className="text-muted-foreground">
+									No leaf fields in this schema.
+								</p>
 							)}
 						</EvidenceSubsection>
 
 						<EvidenceSubsection title="Relationship fields">
-							<div className="flex flex-col gap-2">
-								{relationshipSample.map((entry) => (
-									<FieldTypeRow key={entry.field} {...entry} />
-								))}
-							</div>
-							{relationshipFields.length > relationshipSample.length && (
-								<ViewAllButton
-									label={`View all ${relationshipFields.length}`}
-									onClick={() =>
-										dispatch(
-											pushInsightDetail({
-												kind: "fieldsByKind",
-												fieldKind: "relationship",
-											}),
-										)
-									}
-								/>
+							{relationshipFields.length > 0 ? (
+								<>
+									<div className="flex flex-col gap-2">
+										{relationshipSample.map((entry) => (
+											<FieldTypeRow key={entry.field} {...entry} />
+										))}
+									</div>
+									{relationshipFields.length > relationshipSample.length && (
+										<InsightLinkButton
+											label={`View all ${relationshipFields.length}`}
+											className="mt-1"
+											onClick={() =>
+												dispatch(
+													pushInsightDetail({
+														kind: "fieldsByKind",
+														fieldKind: "relationship",
+													}),
+												)
+											}
+										/>
+									)}
+								</>
+							) : (
+								<p className="text-muted-foreground">
+									No relationship fields in this schema.
+								</p>
 							)}
 						</EvidenceSubsection>
 					</div>
@@ -250,16 +263,21 @@ export function ConceptsBreakdownDetail() {
 
 				<CollapsibleSection title="Enums" defaultCollapsed>
 					<div className="flex flex-col gap-2 py-3">
-						{enumSample.map((entry) => (
-							<EnumRow key={`${entry.name}:${entry.rank}`} {...entry} />
-						))}
-						{enums.length > 0 && (
-							<ViewAllButton
-								label={`View all ${enums.length}`}
-								onClick={() =>
-									dispatch(pushInsightDetail({ kind: "enumsList" }))
-								}
-							/>
+						{enums.length > 0 ? (
+							<>
+								{enumSample.map((entry) => (
+									<EnumRow key={`${entry.name}:${entry.rank}`} {...entry} />
+								))}
+								<InsightLinkButton
+									label={`View all ${enums.length}`}
+									className="mt-1"
+									onClick={() =>
+										dispatch(pushInsightDetail({ kind: "enumsList" }))
+									}
+								/>
+							</>
+						) : (
+							<p className="text-muted-foreground">No enums in this schema.</p>
 						)}
 					</div>
 				</CollapsibleSection>
@@ -267,7 +285,7 @@ export function ConceptsBreakdownDetail() {
 
 			<section className="flex flex-col gap-2">
 				<Heading level="h3">Actions</Heading>
-				<ViewAllButton label="Related actions" />
+				<InsightLinkButton label="Related actions" />
 			</section>
 		</div>
 	);

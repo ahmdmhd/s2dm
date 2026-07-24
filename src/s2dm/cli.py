@@ -2155,7 +2155,10 @@ def insights_relationships(schemas: list[Path]) -> None:
     if result.max_depth:
         log.key_value("Max depth", result.max_depth.depth)
     log.print_table(
-        [{"path": " > ".join(path.segments), "depth": str(path.depth)} for path in result.paths[:10]],
+        [
+            {"path": " > ".join(segment.label for segment in path.segments), "depth": str(path.depth)}
+            for path in result.paths[:10]
+        ],
         title="Deepest Paths",
     )
 

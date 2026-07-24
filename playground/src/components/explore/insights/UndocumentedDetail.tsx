@@ -1,8 +1,7 @@
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { UndocumentedRow } from "@/components/explore/insights/UndocumentedListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
-import { StatusBanner } from "@/components/ui/status-banner";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectUndocumentedByKind } from "@/store/insights/insightsSelectors";
 import { pushInsightDetail } from "@/store/ui/uiSlice";
@@ -56,17 +55,14 @@ export function UndocumentedDetail() {
 						directives such as @deprecated, @skip, and @include
 					</li>
 				</ul>
-				<StatusBanner variant="info">
-					<span className="font-medium">Note:</span> configured technical root
-					types such as Query, Mutation, and Subscription may be excluded from
-					documentation coverage.
-				</StatusBanner>
 			</section>
 
 			<section className="flex flex-col gap-3">
 				<Heading level="h3">Evidence</Heading>
 				<div className="flex flex-col gap-3">
-					<Heading level="h4">Undocumented elements</Heading>
+					{undocumentedByKind.length === 0 && (
+						<p className="text-muted-foreground">Everything is documented.</p>
+					)}
 					{undocumentedByKind.map((group) => (
 						<CollapsibleSection
 							key={group.kind}
@@ -83,8 +79,9 @@ export function UndocumentedDetail() {
 									))}
 								</ul>
 								{group.elements.length > ELEMENTS_PER_KIND && (
-									<ViewAllButton
+									<InsightLinkButton
 										label={`View all ${group.elements.length}`}
+										className="mt-1"
 										onClick={() =>
 											dispatch(
 												pushInsightDetail({

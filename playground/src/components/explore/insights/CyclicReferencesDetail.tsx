@@ -1,34 +1,21 @@
-import { useState } from "react";
 import type { CyclicReference } from "@/api/types";
-import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { TypePathTree } from "@/components/explore/insights/TypePathTree";
+import { ExpandableTypePathRow } from "@/components/explore/insights/ExpandableTypePathRow";
+import { RootTypesExcludedNote } from "@/components/explore/insights/RootTypesExcludedNote";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 import { useAppSelector } from "@/store/hooks";
 import { selectCycleGroups } from "@/store/insights/insightsSelectors";
+import { formatPathSegments } from "@/utils/formatPathSegments";
 
 function CycleRow({ cycle }: { cycle: CyclicReference }) {
-	const [expanded, setExpanded] = useState(false);
+	const segmentLabels = formatPathSegments(cycle.segments);
 
 	return (
-		<li className="rounded-md border border-border">
-			<button
-				type="button"
-				onClick={() => setExpanded((open) => !open)}
-				className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left"
-			>
-				<TypePathBreadcrumb segments={cycle.segments} maxSegments={5} />
-				<span className="shrink-0 text-sm">
-					<span className="font-bold text-card-foreground">{cycle.length}</span>{" "}
-					<span className="text-muted-foreground">hops</span>
-				</span>
-			</button>
-			{expanded && (
-				<div className="border-t border-border px-3 py-2">
-					<TypePathTree segments={cycle.segments} />
-				</div>
-			)}
-		</li>
+		<ExpandableTypePathRow
+			segments={segmentLabels}
+			metric={cycle.length}
+			metricLabel="hops"
+		/>
 	);
 }
 
@@ -61,6 +48,7 @@ export function CyclicReferencesDetail() {
 					traversal reaches a type already on the current path, the loop from
 					that type back to itself is recorded as a cyclic reference.
 				</p>
+				<RootTypesExcludedNote />
 			</section>
 
 			<section className="flex flex-col gap-3">
@@ -79,7 +67,10 @@ export function CyclicReferencesDetail() {
 						<div className="flex flex-col gap-2 py-3">
 							<ul className="flex flex-col gap-2">
 								{group.cycles.map((cycle) => (
-									<CycleRow key={cycle.segments.join(">")} cycle={cycle} />
+									<CycleRow
+										key={formatPathSegments(cycle.segments).join(">")}
+										cycle={cycle}
+									/>
 								))}
 							</ul>
 						</div>

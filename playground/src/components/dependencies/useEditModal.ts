@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 
-export type EditModalMode = "add" | "edit";
+type EditModalMode = "add" | "edit";
 
-export type UseEditModalResult<T extends { id: string }> = {
+type UseEditModalResult<T extends { id: string }> = {
 	mode: EditModalMode | null;
 	draft: T | null;
 	isOpen: boolean;

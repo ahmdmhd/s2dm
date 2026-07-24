@@ -99,14 +99,12 @@ function* exportSchemaWorker(action: PayloadAction<ExportSchemaOptions>) {
 				continue;
 			}
 
-			if (property?.type === "contentWrappable") {
-				if (value !== null && value !== undefined) {
-					transformedValues[key] = {
-						type: "content",
-						content: typeof value === "string" ? value.trim() : String(value),
-					};
-					continue;
-				}
+			if (property.type === "contentWrappable") {
+				transformedValues[key] = {
+					type: "content",
+					content: typeof value === "string" ? value.trim() : String(value),
+				};
+				continue;
 			}
 
 			transformedValues[key] = value;

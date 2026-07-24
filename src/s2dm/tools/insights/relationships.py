@@ -1,26 +1,22 @@
 """Deepest object-reference paths reachable from the schema's root."""
 
-from typing import Any
-
 from graphql import (
-    GraphQLEnumType,
     GraphQLField,
     GraphQLInputObjectType,
     GraphQLInterfaceType,
     GraphQLNamedType,
     GraphQLObjectType,
-    GraphQLScalarType,
     GraphQLSchema,
     GraphQLUnionType,
     get_named_type,
-    specified_directives,
 )
 
 from s2dm.exporters.utils.extraction import get_all_named_types
-from s2dm.exporters.utils.graphql_type import is_builtin_scalar_type, is_root_type
+from s2dm.exporters.utils.graphql_type import is_root_type
 from s2dm.tools.insights.models import (
     CyclicReference,
     DepthCount,
+    PathSegment,
     ReferenceCount,
     RelationshipPath,
     RelationshipsResult,
@@ -39,6 +35,30 @@ def _object_reference_graph(schema: GraphQLSchema) -> dict[str, list[str]]:
                 referenced_type_names.append(field_type.name)
         graph[named_type.name] = referenced_type_names
     return graph
+
+
+def _reference_field_edges(schema: GraphQLSchema) -> dict[tuple[str, str], tuple[str, str]]:
+    """Map each (source type, target type) pair to the first field that connects them and its rendered type."""
+    edges: dict[tuple[str, str], tuple[str, str]] = {}
+    for named_type in get_all_named_types(schema):
+        if not isinstance(named_type, GraphQLObjectType) or is_root_type(named_type.name):
+            continue
+        for field_name, field_def in named_type.fields.items():
+            field_type = get_named_type(field_def.type)
+            if not isinstance(field_type, GraphQLObjectType) or is_root_type(field_type.name):
+                continue
+            edge_key = (named_type.name, field_type.name)
+            if edge_key not in edges:
+                edges[edge_key] = (field_name, str(field_def.type))
+    return edges
+
+
+def _path_to_segments(type_names: list[str], edges: dict[tuple[str, str], tuple[str, str]]) -> list[PathSegment]:
+    segments = [PathSegment(type=type_names[0])]
+    for previous_type, current_type in zip(type_names, type_names[1:], strict=False):
+        field_name, field_type = edges[(previous_type, current_type)]
+        segments.append(PathSegment(type=current_type, field=field_name, field_type=field_type))
+    return segments
 
 
 def _unreferenced_object_type_names(graph: dict[str, list[str]]) -> list[str]:
@@ -95,7 +115,11 @@ def _canonical_cycle(cycle_nodes: list[str]) -> tuple[str, ...]:
     return tuple(rotated)
 
 
-def _find_cyclic_references(graph: dict[str, list[str]], root_type_names: list[str]) -> list[CyclicReference]:
+def _find_cyclic_references(
+    graph: dict[str, list[str]],
+    root_type_names: list[str],
+    edges: dict[tuple[str, str], tuple[str, str]],
+) -> list[CyclicReference]:
     canonical_cycles: set[tuple[str, ...]] = set()
 
     def walk(node: str, path: list[str], on_path: set[str]) -> None:
@@ -118,9 +142,10 @@ def _find_cyclic_references(graph: dict[str, list[str]], root_type_names: list[s
 
     cyclic_references = []
     for canonical in canonical_cycles:
-        segments = [*canonical, canonical[0]]
+        type_names = [*canonical, canonical[0]]
+        segments = _path_to_segments(type_names, edges)
         cyclic_references.append(CyclicReference(segments=segments, length=len(segments) - 1))
-    cyclic_references.sort(key=lambda cycle: (cycle.length, cycle.segments))
+    cyclic_references.sort(key=lambda cycle: (cycle.length, [segment.type for segment in cycle.segments]))
     return cyclic_references
 
 
@@ -135,15 +160,13 @@ def _depth_distribution(paths: list[list[str]]) -> list[DepthCount]:
 def _is_countable_type(named_type: GraphQLNamedType) -> bool:
     """A schema-defined type eligible for reference counting.
 
-    Excludes roots and built-in scalars. Also excludes enums, which have their own Enum Usage card.
+    Excludes roots. Scalars and enums are excluded too — they have their own Scalar Distribution and Enum Usage cards.
     """
     if is_root_type(named_type.name):
         return False
-    if isinstance(named_type, GraphQLScalarType) and is_builtin_scalar_type(named_type.name):
-        return False
     return isinstance(
         named_type,
-        GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType | GraphQLInputObjectType | GraphQLScalarType,
+        GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType | GraphQLInputObjectType,
     )
 
 
@@ -177,61 +200,13 @@ def _type_reference_counts(schema: GraphQLSchema) -> dict[str, int]:
     return counts
 
 
-def _applied_directive_names(node: Any) -> list[str]:
-    """Names of the directives applied on a single AST node, including repeats."""
-    if node is None:
-        return []
-    return [directive.name.value for directive in getattr(node, "directives", None) or ()]
-
-
-def _directive_application_counts(schema: GraphQLSchema) -> dict[str, int]:
-    """Count how many times each directive is applied across the schema."""
-    counts: dict[str, int] = {}
-
-    def bump_all(node: Any) -> None:
-        for name in _applied_directive_names(node):
-            counts[name] = counts.get(name, 0) + 1
-
-    bump_all(schema.ast_node)
-    for schema_extension in schema.extension_ast_nodes:
-        bump_all(schema_extension)
-
-    for named_type in get_all_named_types(schema):
-        bump_all(named_type.ast_node)
-        for type_extension in named_type.extension_ast_nodes:
-            bump_all(type_extension)
-
-        if isinstance(named_type, GraphQLObjectType | GraphQLInterfaceType | GraphQLInputObjectType):
-            for field_def in named_type.fields.values():
-                bump_all(field_def.ast_node)
-                if isinstance(field_def, GraphQLField):
-                    for arg in field_def.args.values():
-                        bump_all(arg.ast_node)
-
-        if isinstance(named_type, GraphQLEnumType):
-            for enum_value in named_type.values.values():
-                bump_all(enum_value.ast_node)
-
-    return counts
-
-
 def _reference_counts(schema: GraphQLSchema) -> list[ReferenceCount]:
-    """Reference counts for schema-defined types and custom directives, sorted by count then name."""
+    """Reference counts for schema-defined types, sorted by count descending then name."""
     countable_names = {named_type.name for named_type in get_all_named_types(schema) if _is_countable_type(named_type)}
     type_counts = _type_reference_counts(schema)
     entries = [
-        ReferenceCount(name=name, count=count, kind="type")
-        for name, count in type_counts.items()
-        if name in countable_names
+        ReferenceCount(name=name, count=count) for name, count in type_counts.items() if name in countable_names
     ]
-
-    specified_names = {directive.name for directive in specified_directives}
-    directive_counts = _directive_application_counts(schema)
-    for name, count in directive_counts.items():
-        if name in specified_names:
-            continue
-        entries.append(ReferenceCount(name=f"@{name}", count=count, kind="directive"))
-
     entries.sort(key=lambda entry: (-entry.count, entry.name))
     return entries
 
@@ -239,6 +214,7 @@ def _reference_counts(schema: GraphQLSchema) -> list[ReferenceCount]:
 def compute_relationships(schema: GraphQLSchema) -> RelationshipsResult:
     """Find the object-type reference chains reachable from the schema's root."""
     graph = _object_reference_graph(schema)
+    edges = _reference_field_edges(schema)
     root_type_names = _root_object_type_names(schema, graph)
     paths = _find_all_paths(graph, root_type_names)
 
@@ -246,9 +222,11 @@ def compute_relationships(schema: GraphQLSchema) -> RelationshipsResult:
     multi_hop_paths = [path for path in unique_paths if len(path) >= 2]
     multi_hop_paths.sort(key=len, reverse=True)
 
-    relationship_paths = [RelationshipPath(segments=path, depth=len(path) - 1) for path in multi_hop_paths]
+    relationship_paths = [
+        RelationshipPath(segments=_path_to_segments(path, edges), depth=len(path) - 1) for path in multi_hop_paths
+    ]
     max_depth = relationship_paths[0] if relationship_paths else None
-    cyclic_references = _find_cyclic_references(graph, root_type_names)
+    cyclic_references = _find_cyclic_references(graph, root_type_names, edges)
 
     return RelationshipsResult(
         paths=relationship_paths,

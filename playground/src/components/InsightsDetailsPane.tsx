@@ -20,8 +20,8 @@ import { ScalarDistributionDetail } from "@/components/explore/insights/ScalarDi
 import { ScalarDistributionListDetail } from "@/components/explore/insights/ScalarDistributionListDetail";
 import { UndocumentedDetail } from "@/components/explore/insights/UndocumentedDetail";
 import { UndocumentedListDetail } from "@/components/explore/insights/UndocumentedListDetail";
-import { UnusedDetail } from "@/components/explore/insights/UnusedDetail";
-import { UnusedListDetail } from "@/components/explore/insights/UnusedListDetail";
+import { UnusedElementsDetail } from "@/components/explore/insights/UnusedElementsDetail";
+import { UnusedElementsListDetail } from "@/components/explore/insights/UnusedElementsListDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	closeInsightDetail,
@@ -43,126 +43,149 @@ const CONCEPT_TITLES: Record<GraphQLConcept, string> = {
 	directive: "Directives",
 };
 
-function detailTitle(detail: InsightDetail): string {
-	switch (detail.kind) {
-		case "conceptsBreakdown":
-			return "Elements breakdown";
-		case "conceptDetails":
-			return CONCEPT_TITLES[detail.concept];
-		case "fieldsByKind":
-			return detail.fieldKind === "leaf"
-				? "Leaf fields"
-				: "Relationship fields";
-		case "enumsList":
-			return "Enums";
-		case "fieldsByType":
-			return "Container types by fields";
-		case "fieldsByTypeList":
-			return "All container types";
-		case "scalarDistribution":
-			return "Scalar distribution";
-		case "scalarDistributionList":
-			return "All datatypes";
-		case "enumUsage":
-			return "Enum usage";
-		case "enumUsageList":
-			return "All enums by usage";
-		case "references":
-			return "References count";
-		case "referencesList":
-			return "All references";
-		case "deepestPaths":
-			return "Deepest paths";
-		case "pathsByDepth":
-			return `Depth ${detail.depth}`;
-		case "cyclicReferences":
-			return "Cyclic references";
-		case "undocumented":
-			return "Undocumented";
-		case "undocumentedList":
-			return detail.entityKind;
-		case "unused":
-			return "Unused elements";
-		case "unusedList":
-			return detail.category;
-		case "missingUnits":
-			return "Missing units";
-		case "missingUnitsList":
-			return "All fields without a unit";
-	}
-}
-
-function renderDetail(detail: InsightDetail) {
-	switch (detail.kind) {
-		case "conceptsBreakdown":
-			return <ConceptsBreakdownDetail />;
-		case "conceptDetails":
-			return <ConceptTypesDetail concept={detail.concept} />;
-		case "fieldsByKind":
-			return <FieldsByKindDetail fieldKind={detail.fieldKind} />;
-		case "enumsList":
-			return <EnumsDetail />;
-		case "fieldsByType":
-			return <FieldsByTypeDetail />;
-		case "fieldsByTypeList":
-			return <FieldsByTypeListDetail />;
-		case "scalarDistribution":
-			return <ScalarDistributionDetail />;
-		case "scalarDistributionList":
-			return <ScalarDistributionListDetail />;
-		case "enumUsage":
-			return <EnumUsageDetail />;
-		case "enumUsageList":
-			return <EnumUsageListDetail />;
-		case "references":
-			return <ReferencesCountDetail />;
-		case "referencesList":
-			return <ReferencesCountListDetail />;
-		case "deepestPaths":
-			return <DeepestPathsDetail />;
-		case "pathsByDepth":
-			return <PathsByDepthDetail depth={detail.depth} />;
-		case "cyclicReferences":
-			return <CyclicReferencesDetail />;
-		case "undocumented":
-			return <UndocumentedDetail />;
-		case "undocumentedList":
-			return <UndocumentedListDetail entityKind={detail.entityKind} />;
-		case "unused":
-			return <UnusedDetail />;
-		case "unusedList":
-			return <UnusedListDetail category={detail.category} />;
-		case "missingUnits":
-			return <MissingUnitsDetail />;
-		case "missingUnitsList":
-			return <MissingUnitsListDetail />;
-	}
-}
-
-function detailKey(detail: InsightDetail): string {
-	if (detail.kind === "conceptDetails") {
-		return `conceptDetails:${detail.concept}`;
-	}
-	if (detail.kind === "fieldsByKind") {
-		return `fieldsByKind:${detail.fieldKind}`;
-	}
-	if (detail.kind === "undocumentedList") {
-		return `undocumentedList:${detail.entityKind}`;
-	}
-	if (detail.kind === "unusedList") {
-		return `unusedList:${detail.category}`;
-	}
-	if (detail.kind === "pathsByDepth") {
-		return `pathsByDepth:${detail.depth}`;
-	}
-	return detail.kind;
-}
-
 type InsightsDetailsPaneProps = {
 	position?: "none" | "left" | "center" | "right";
 	collapsible?: boolean;
 	className?: string;
 };
+
+type InsightDetailView = {
+	title: string;
+	key: string;
+	content: React.ReactNode;
+};
+
+function getInsightDetailView(detail: InsightDetail): InsightDetailView {
+	switch (detail.kind) {
+		case "conceptsBreakdown":
+			return {
+				title: "Elements breakdown",
+				key: detail.kind,
+				content: <ConceptsBreakdownDetail />,
+			};
+		case "conceptDetails":
+			return {
+				title: CONCEPT_TITLES[detail.concept],
+				key: `conceptDetails:${detail.concept}`,
+				content: <ConceptTypesDetail concept={detail.concept} />,
+			};
+		case "fieldsByKind":
+			return {
+				title:
+					detail.fieldKind === "leaf" ? "Leaf fields" : "Relationship fields",
+				key: `fieldsByKind:${detail.fieldKind}`,
+				content: <FieldsByKindDetail fieldKind={detail.fieldKind} />,
+			};
+		case "enumsList":
+			return {
+				title: "Enums",
+				key: detail.kind,
+				content: <EnumsDetail />,
+			};
+		case "fieldsByType":
+			return {
+				title: "Largest Container Types by Fields",
+				key: detail.kind,
+				content: <FieldsByTypeDetail />,
+			};
+		case "fieldsByTypeList":
+			return {
+				title: "All container types",
+				key: detail.kind,
+				content: <FieldsByTypeListDetail />,
+			};
+		case "scalarDistribution":
+			return {
+				title: "Scalar Distribution",
+				key: detail.kind,
+				content: <ScalarDistributionDetail />,
+			};
+		case "scalarDistributionList":
+			return {
+				title: "All datatypes",
+				key: detail.kind,
+				content: <ScalarDistributionListDetail />,
+			};
+		case "enumUsage":
+			return {
+				title: "Enum Usage",
+				key: detail.kind,
+				content: <EnumUsageDetail />,
+			};
+		case "enumUsageList":
+			return {
+				title: "All enums by usage",
+				key: detail.kind,
+				content: <EnumUsageListDetail />,
+			};
+		case "references":
+			return {
+				title: "References Count",
+				key: detail.kind,
+				content: <ReferencesCountDetail />,
+			};
+		case "referencesList":
+			return {
+				title: "All references",
+				key: detail.kind,
+				content: <ReferencesCountListDetail />,
+			};
+		case "deepestPaths":
+			return {
+				title: "Deepest Nested Paths",
+				key: detail.kind,
+				content: <DeepestPathsDetail />,
+			};
+		case "pathsByDepth":
+			return {
+				title: `Depth ${detail.depth}`,
+				key: `pathsByDepth:${detail.depth}`,
+				content: <PathsByDepthDetail depth={detail.depth} />,
+			};
+		case "cyclicReferences":
+			return {
+				title: "Cyclic References",
+				key: detail.kind,
+				content: <CyclicReferencesDetail />,
+			};
+		case "undocumented":
+			return {
+				title: "Documentation Coverage",
+				key: detail.kind,
+				content: <UndocumentedDetail />,
+			};
+		case "undocumentedList":
+			return {
+				title: detail.entityKind,
+				key: `undocumentedList:${detail.entityKind}`,
+				content: <UndocumentedListDetail entityKind={detail.entityKind} />,
+			};
+		case "unused":
+			return {
+				title: "Unused Elements",
+				key: detail.kind,
+				content: <UnusedElementsDetail />,
+			};
+		case "unusedList":
+			return {
+				title: detail.category,
+				key: `unusedList:${detail.category}`,
+				content: <UnusedElementsListDetail category={detail.category} />,
+			};
+		case "missingUnits":
+			return {
+				title: "Missing Units",
+				key: detail.kind,
+				content: <MissingUnitsDetail />,
+			};
+		case "missingUnitsList":
+			return {
+				title: "All fields without a unit",
+				key: detail.kind,
+				content: <MissingUnitsListDetail />,
+			};
+	}
+}
 
 export function InsightsDetailsPane({
 	position = "right",
@@ -172,9 +195,10 @@ export function InsightsDetailsPane({
 	const dispatch = useAppDispatch();
 	const detail = useAppSelector(selectInsightDetail);
 	const canGoBack = useAppSelector(selectCanGoBackInsightDetail);
+	const detailView = detail ? getInsightDetailView(detail) : null;
 
 	let content: React.ReactNode;
-	if (!detail) {
+	if (!detailView) {
 		content = (
 			<div className="flex flex-1 items-center justify-center p-5 text-center text-muted-foreground">
 				<p>Select a card to see details</p>
@@ -196,7 +220,7 @@ export function InsightsDetailsPane({
 							</button>
 						)}
 						<span className="truncate text-lg font-semibold text-card-foreground">
-							{detailTitle(detail)}
+							{detailView.title}
 						</span>
 					</div>
 					<button
@@ -212,10 +236,10 @@ export function InsightsDetailsPane({
 					</button>
 				</div>
 				<div
-					key={detailKey(detail)}
+					key={detailView.key}
 					className="flex-1 animate-in overflow-y-auto px-5 pt-5 pb-14 fade-in slide-in-from-right-4 duration-200"
 				>
-					{renderDetail(detail)}
+					{detailView.content}
 				</div>
 			</div>
 		);

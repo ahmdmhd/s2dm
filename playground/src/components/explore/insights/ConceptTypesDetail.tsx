@@ -1,7 +1,6 @@
 import type { GraphQLConcept } from "@/components/explore/insights/graphqlConceptStyles";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { usePagedItems } from "@/hooks/usePagedItems";
 import { useAppSelector } from "@/store/hooks";
 import {
 	selectConceptMembers,
@@ -19,8 +18,6 @@ export function ConceptTypesDetail({ concept }: ConceptTypesDetailProps) {
 	if (members && concept !== "field") {
 		conceptMembers = members[concept];
 	}
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(conceptMembers);
 
 	if (concept === "field") {
 		return (
@@ -45,29 +42,15 @@ export function ConceptTypesDetail({ concept }: ConceptTypesDetailProps) {
 		);
 	}
 
-	if (!members) {
-		return null;
-	}
-
 	return (
-		<div className="flex flex-col gap-2">
-			<ul className="flex flex-col gap-2">
-				{visibleItems.map((member) => (
-					<li
-						key={member}
-						className="flex rounded-md border border-border px-3 py-2 text-sm"
-					>
-						<TypePathBreadcrumb segments={[member]} />
-					</li>
-				))}
-			</ul>
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={conceptMembers}
+			getKey={(member) => member}
+			renderItem={(member) => (
+				<li className="flex rounded-md border border-border px-3 py-2 text-sm">
+					<TypePathBreadcrumb segments={[member]} />
+				</li>
+			)}
+		/>
 	);
 }

@@ -1,7 +1,6 @@
 import { CONTAINER_KIND_DOT_CLASSES } from "@/components/explore/insights/FieldsByKindDetail";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { usePagedItems } from "@/hooks/usePagedItems";
 import { useAppSelector } from "@/store/hooks";
 import {
 	type ContainerTypeFieldCount,
@@ -40,23 +39,12 @@ export function FieldsByTypeListDetail() {
 	const containerTypeFieldCounts = useAppSelector(
 		selectContainerTypeFieldCounts,
 	);
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(containerTypeFieldCounts);
 
 	return (
-		<div className="flex flex-col gap-2">
-			<ul className="flex flex-col gap-2">
-				{visibleItems.map((entry) => (
-					<ContainerTypeRow key={entry.type} {...entry} />
-				))}
-			</ul>
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={containerTypeFieldCounts}
+			getKey={(entry) => entry.type}
+			renderItem={(entry) => <ContainerTypeRow {...entry} />}
+		/>
 	);
 }

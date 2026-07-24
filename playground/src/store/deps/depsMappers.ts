@@ -1,4 +1,3 @@
-import { load } from "js-yaml";
 import { isAbsolute } from "pathe";
 import type {
 	ContentInput,
@@ -7,20 +6,15 @@ import type {
 	PathInput,
 } from "@/api/types";
 import type { DependencyDraft } from "@/types/dependency";
+import { parseYamlObject } from "@/utils/parseYamlObject";
 
 export function parseDependenciesConfigYaml(
 	fileContent: string,
 ): DependenciesConfig {
-	const parsedYaml = load(fileContent);
-	if (
-		parsedYaml === null ||
-		typeof parsedYaml !== "object" ||
-		Array.isArray(parsedYaml)
-	) {
-		throw new Error("Dependency config root must be a YAML object.");
-	}
-
-	const config = parsedYaml as DependenciesConfig;
+	const config = parseYamlObject<DependenciesConfig>(
+		fileContent,
+		"Dependency config root must be a YAML object.",
+	);
 	if (!Array.isArray(config.dependencies)) {
 		throw new Error("Dependency config must contain a 'dependencies' array.");
 	}

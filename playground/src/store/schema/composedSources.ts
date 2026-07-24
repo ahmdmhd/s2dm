@@ -1,8 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit";
-import {
-	selectComposedDependenciesSchema,
-	selectHasComposedDependenciesSchema,
-} from "@/store/deps/compose/composeSlice";
+import { selectComposedDependenciesSchema } from "@/store/deps/compose/composeSlice";
 import {
 	selectIncludeBuiltDependencies,
 	selectSourceFiles,
@@ -13,20 +10,14 @@ export const selectComposedSources = createSelector(
 	[
 		selectSourceFiles,
 		selectIncludeBuiltDependencies,
-		selectHasComposedDependenciesSchema,
 		selectComposedDependenciesSchema,
 	],
 	(
 		sourceFiles,
 		includeBuiltDependencies,
-		hasComposedDependenciesSchema,
 		composedDependenciesSchema,
 	): SchemaSource[] => {
-		if (
-			includeBuiltDependencies &&
-			hasComposedDependenciesSchema &&
-			composedDependenciesSchema
-		) {
+		if (includeBuiltDependencies && composedDependenciesSchema?.trim()) {
 			return [
 				...sourceFiles,
 				{ type: "content", content: composedDependenciesSchema },

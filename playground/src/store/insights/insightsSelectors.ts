@@ -26,7 +26,7 @@ export type BreakdownSegment = {
 	colorClassName: string;
 };
 
-export type BreakdownStat = {
+type BreakdownStat = {
 	label: string;
 	value: number;
 };
@@ -49,7 +49,7 @@ export type ContainerTypeFieldCount = {
 	kind: ContainerKind;
 };
 
-export type ContainerTypeFieldStats = {
+type ContainerTypeFieldStats = {
 	typeCount: number;
 	total: number;
 	average: number;
@@ -58,7 +58,7 @@ export type ContainerTypeFieldStats = {
 	min: number;
 };
 
-export type ScalarUsageStats = {
+type ScalarUsageStats = {
 	scalarCount: number;
 	totalOccurrences: number;
 	builtinCount: number;
@@ -66,7 +66,7 @@ export type ScalarUsageStats = {
 	topScalar: ScalarUsage;
 };
 
-export type EnumUsageStats = {
+type EnumUsageStats = {
 	usedCount: number;
 	totalOccurrences: number;
 	unusedCount: number;
@@ -74,81 +74,79 @@ export type EnumUsageStats = {
 	leastUsed: EnumUsage | null;
 };
 
-export type ReferenceCountStats = {
+type ReferenceCountStats = {
 	referencedCount: number;
 	totalReferences: number;
-	typeCount: number;
-	directiveCount: number;
 	unusedCount: number;
 	mostReferenced: ReferenceCount | null;
 	leastReferenced: ReferenceCount | null;
 };
 
-export type MissingUnitsStats = {
+type MissingUnitsStats = {
 	count: number;
 };
 
-export type FieldGroup = {
+type FieldGroup = {
 	type: string;
 	fields: string[];
 };
 
-export type DepthCountRow = {
+type DepthCountRow = {
 	depth: number;
 	pathCount: number;
 };
 
-export type PathDepthStats = {
+type PathDepthStats = {
 	pathCount: number;
 	max: number;
 	deepestCount: number;
 };
 
-export type DepthGroup = {
+type DepthGroup = {
 	depth: number;
 	paths: RelationshipPath[];
 };
 
-export type CycleLengthRow = {
+type CycleLengthRow = {
 	length: number;
 	cycleCount: number;
 };
 
-export type CyclicReferenceStats = {
+type CyclicReferenceStats = {
 	cycleCount: number;
 	shortest: number;
 	shortestCount: number;
 };
 
-export type CycleGroup = {
+type CycleGroup = {
 	length: number;
 	cycles: CyclicReference[];
 };
 
-export type CoverageCategory = {
+type CoverageCategory = {
 	label: string;
 	documented: number;
 	total: number;
 };
 
-export type DocumentationCoverageStats = {
+type DocumentationCoverageStats = {
 	overallCoverage: number;
 	documented: number;
 	total: number;
 };
 
-export type UndocumentedKindGroup = {
+type UndocumentedKindGroup = {
 	kind: string;
 	elements: UndocumentedEntity[];
 };
 
-export type UnusedCategory = {
+type UnusedCategory = {
 	label: string;
 	unused: number;
 	total: number;
 };
 
-export type UnusedCategoryGroup = {
+type UnusedCategoryGroup = {
 	category: string;
 	elements: QualityIssue[];
 };
@@ -321,7 +319,7 @@ export const selectEnumUsage = createSelector(
 	(concepts): EnumUsage[] => concepts?.enum_usage ?? [],
 );
 
-export const selectUnusedEnumCount = createSelector(
+const selectUnusedEnumCount = createSelector(
 	selectInsightsQuality,
 	(quality): number =>
 		quality?.issues.filter((issue) => issue.category === "Unused enums")
@@ -455,7 +453,7 @@ export const selectDepthGroups = createSelector(
 	},
 );
 
-export const selectCyclicReferences = createSelector(
+const selectCyclicReferences = createSelector(
 	selectInsightsRelationships,
 	(relationships): CyclicReference[] => relationships?.cyclic_references ?? [],
 );
@@ -626,14 +624,9 @@ export const selectReferenceCountStats = createSelector(
 			(sum, entry) => sum + entry.count,
 			0,
 		);
-		const typeCount = referenceCounts.filter(
-			(entry) => entry.kind === "type",
-		).length;
 		return {
 			referencedCount: referenceCounts.length,
 			totalReferences,
-			typeCount,
-			directiveCount: referenceCounts.length - typeCount,
 			unusedCount,
 			mostReferenced: referenceCounts[0] ?? null,
 			leastReferenced: referenceCounts[referenceCounts.length - 1] ?? null,

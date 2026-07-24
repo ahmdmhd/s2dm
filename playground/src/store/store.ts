@@ -22,7 +22,6 @@ import insightsReducer from "@/store/insights/insightsSlice";
 import schemaReducer from "@/store/schema/schemaSlice";
 import { pruneSchemaSaga } from "@/store/selection/pruneSchemaSaga";
 import selectionReducer from "@/store/selection/selectionSlice";
-import type { RootState } from "@/store/types";
 import uiReducer from "@/store/ui/uiSlice";
 import { validationSaga } from "@/store/validation/validationSaga";
 import validationReducer from "@/store/validation/validationSlice";
@@ -70,5 +69,4 @@ export const store = configureStore({
 
 sagaMiddleware.run(rootSaga);
 
-export type { RootState };
 export type AppDispatch = typeof store.dispatch;

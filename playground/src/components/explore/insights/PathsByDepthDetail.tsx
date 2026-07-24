@@ -1,34 +1,19 @@
-import { useState } from "react";
 import type { RelationshipPath } from "@/api/types";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
-import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { TypePathTree } from "@/components/explore/insights/TypePathTree";
-import { usePagedItems } from "@/hooks/usePagedItems";
+import { ExpandableTypePathRow } from "@/components/explore/insights/ExpandableTypePathRow";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { useAppSelector } from "@/store/hooks";
 import { selectDepthGroups } from "@/store/insights/insightsSelectors";
+import { formatPathSegments } from "@/utils/formatPathSegments";
 
 export function PathRow({ path }: { path: RelationshipPath }) {
-	const [expanded, setExpanded] = useState(false);
+	const segmentLabels = formatPathSegments(path.segments);
 
 	return (
-		<li className="rounded-md border border-border">
-			<button
-				type="button"
-				onClick={() => setExpanded((open) => !open)}
-				className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left"
-			>
-				<TypePathBreadcrumb segments={path.segments} maxSegments={5} />
-				<span className="shrink-0 text-sm">
-					<span className="font-bold text-card-foreground">{path.depth}</span>{" "}
-					<span className="text-muted-foreground">deep</span>
-				</span>
-			</button>
-			{expanded && (
-				<div className="border-t border-border px-3 py-2">
-					<TypePathTree segments={path.segments} />
-				</div>
-			)}
-		</li>
+		<ExpandableTypePathRow
+			segments={segmentLabels}
+			metric={path.depth}
+			metricLabel="deep"
+		/>
 	);
 }
 
@@ -36,23 +21,12 @@ export function PathsByDepthDetail({ depth }: { depth: number }) {
 	const depthGroups = useAppSelector(selectDepthGroups);
 	const group = depthGroups.find((entry) => entry.depth === depth);
 	const paths = group?.paths ?? [];
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(paths);
 
 	return (
-		<div className="flex flex-col gap-2">
-			<ul className="flex flex-col gap-2">
-				{visibleItems.map((path) => (
-					<PathRow key={path.segments.join(">")} path={path} />
-				))}
-			</ul>
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={paths}
+			getKey={(path) => formatPathSegments(path.segments).join(">")}
+			renderItem={(path) => <PathRow path={path} />}
+		/>
 	);
 }

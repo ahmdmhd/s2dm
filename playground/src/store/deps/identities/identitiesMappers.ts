@@ -1,24 +1,18 @@
 import { nanoid } from "@reduxjs/toolkit";
-import { load } from "js-yaml";
 import type {
 	DependenciesIdentities,
 	DependencyIdentityEntry,
 } from "@/api/types";
 import type { DependencyIdentityDraft } from "@/types/dependencyIdentity";
+import { parseYamlObject } from "@/utils/parseYamlObject";
 
 export function parseDependenciesIdentitiesYaml(
 	fileContent: string,
 ): DependenciesIdentities {
-	const parsedYaml = load(fileContent);
-	if (
-		parsedYaml === null ||
-		typeof parsedYaml !== "object" ||
-		Array.isArray(parsedYaml)
-	) {
-		throw new Error("Dependency identities root must be a YAML object.");
-	}
-
-	const identities = parsedYaml as DependenciesIdentities;
+	const identities = parseYamlObject<DependenciesIdentities>(
+		fileContent,
+		"Dependency identities root must be a YAML object.",
+	);
 	if (!Array.isArray(identities.identities)) {
 		throw new Error(
 			"Dependency identities config must contain an 'identities' array.",

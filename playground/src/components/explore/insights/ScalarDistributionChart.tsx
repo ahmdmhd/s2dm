@@ -1,20 +1,15 @@
-import { ArrowRight } from "lucide-react";
-import {
-	Bar,
-	BarChart,
-	LabelList,
-	ResponsiveContainer,
-	XAxis,
-	YAxis,
-} from "recharts";
-import { CategoryTick } from "@/components/explore/insights/CategoryTick";
+import pluralize from "pluralize";
+import type { ReactNode } from "react";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { HorizontalMetricBarChart } from "@/components/explore/insights/HorizontalMetricBarChart";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectScalarUsage,
 	selectScalarUsageStats,
 } from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
+import { countTiedForTop } from "@/utils/countTiedForTop";
 
 const SCALAR_AXIS_WIDTH = 140;
 
@@ -28,6 +23,27 @@ export function ScalarDistributionChart() {
 	const hasData = !!stats;
 	const topScalars = scalarUsage.slice(0, 5);
 	const topScalar = stats?.topScalar;
+	const tiedForMost = countTiedForTop(scalarUsage, (entry) => entry.count);
+
+	let topScalarSummary: ReactNode = null;
+	if (topScalar && tiedForMost > 1) {
+		topScalarSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{tiedForMost}</span> datatypes are tied
+				for most used, with{" "}
+				<span className="font-semibold">{topScalar.count}</span>{" "}
+				{pluralize("field", topScalar.count)} each
+			</p>
+		);
+	} else if (topScalar) {
+		topScalarSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{topScalar.name}</span> is the most used
+				datatype: <span className="font-semibold">{topScalar.count}</span>{" "}
+				{pluralize("field", topScalar.count)}
+			</p>
+		);
+	}
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -37,50 +53,21 @@ export function ScalarDistributionChart() {
 			{hasData && topScalar ? (
 				<>
 					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
-							<span className="font-semibold">{topScalar.name}</span> is the
-							most used datatype:{" "}
-							<span className="font-semibold">{topScalar.count}</span> fields
-						</p>
+						{topScalarSummary}
 						<p className="text-sm text-muted-foreground">
 							<span className="font-semibold">{stats.scalarCount}</span>{" "}
-							datatypes across{" "}
+							{pluralize("datatype", stats.scalarCount)} across{" "}
 							<span className="font-semibold">{stats.totalOccurrences}</span>{" "}
-							field usages
+							field {pluralize("usage", stats.totalOccurrences)}
 						</p>
 					</div>
-					<div className="h-[176px] w-full">
-						<ResponsiveContainer width="100%" height="100%">
-							<BarChart
-								data={topScalars}
-								layout="vertical"
-								margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
-							>
-								<XAxis type="number" domain={[0, topScalar.count]} hide />
-								<YAxis
-									type="category"
-									dataKey="name"
-									width={SCALAR_AXIS_WIDTH}
-									axisLine={false}
-									tickLine={false}
-									tick={<CategoryTick width={SCALAR_AXIS_WIDTH} />}
-								/>
-								<Bar
-									dataKey="count"
-									fill="var(--color-blue-500)"
-									radius={[0, 4, 4, 0]}
-									barSize={16}
-								>
-									<LabelList
-										dataKey="count"
-										position="right"
-										fill="var(--color-card-foreground)"
-										fontSize={12}
-									/>
-								</Bar>
-							</BarChart>
-						</ResponsiveContainer>
-					</div>
+					<HorizontalMetricBarChart
+						data={topScalars}
+						categoryKey="name"
+						valueKey="count"
+						maxValue={topScalar.count}
+						axisWidth={SCALAR_AXIS_WIDTH}
+					/>
 					<div className="flex gap-6 text-sm text-muted-foreground">
 						<span>
 							Built-in:{" "}
@@ -101,16 +88,12 @@ export function ScalarDistributionChart() {
 					No scalar data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() =>
 					dispatch(openInsightDetail({ kind: "scalarDistribution" }))
 				}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

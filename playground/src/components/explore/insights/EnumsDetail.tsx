@@ -1,7 +1,7 @@
+import pluralize from "pluralize";
 import type { EnumValueCount } from "@/api/types";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { usePagedItems } from "@/hooks/usePagedItems";
 import { useAppSelector } from "@/store/hooks";
 import { selectEnums } from "@/store/insights/insightsSelectors";
 
@@ -21,7 +21,7 @@ export function EnumRow({
 				<TypePathBreadcrumb segments={[name]} />
 			</div>
 			<span className="shrink-0 font-medium text-card-foreground">
-				{values} values
+				{values} {pluralize("value", values)}
 			</span>
 		</div>
 	);
@@ -29,21 +29,13 @@ export function EnumRow({
 
 export function EnumsDetail() {
 	const enums = useAppSelector(selectEnums);
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(enums);
 
 	return (
-		<div className="flex flex-col gap-2">
-			{visibleItems.map((entry) => (
-				<EnumRow key={entry.name} {...entry} />
-			))}
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={enums}
+			getKey={(entry) => entry.name}
+			renderItem={(entry) => <EnumRow {...entry} />}
+			as="div"
+		/>
 	);
 }

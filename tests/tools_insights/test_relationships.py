@@ -1,6 +1,11 @@
 from graphql import build_schema
 
+from s2dm.tools.insights.models import CyclicReference, RelationshipPath
 from s2dm.tools.insights.relationships import compute_relationships
+
+
+def _type_chain(path: RelationshipPath | CyclicReference) -> list[str]:
+    return [segment.type for segment in path.segments]
 
 
 def test_deepest_path_starts_at_query_field_return_type() -> None:
@@ -26,9 +31,9 @@ def test_deepest_path_starts_at_query_field_return_type() -> None:
     relationships = compute_relationships(schema)
 
     assert relationships.max_depth is not None
-    assert relationships.max_depth.segments == ["Vehicle", "Cabin", "Seat"]
+    assert _type_chain(relationships.max_depth) == ["Vehicle", "Cabin", "Seat"]
     assert relationships.max_depth.depth == 2
-    assert "Query" not in relationships.max_depth.segments
+    assert "Query" not in _type_chain(relationships.max_depth)
 
 
 def test_cycles_do_not_cause_infinite_recursion() -> None:
@@ -55,7 +60,7 @@ def test_cycles_do_not_cause_infinite_recursion() -> None:
     relationships = compute_relationships(schema)
 
     assert relationships.max_depth is not None
-    assert relationships.max_depth.segments == ["Vehicle", "Cabin", "Seat"]
+    assert _type_chain(relationships.max_depth) == ["Vehicle", "Cabin", "Seat"]
 
 
 def test_returns_all_paths_ordered_deepest_first() -> None:
@@ -95,7 +100,7 @@ def test_returns_all_paths_ordered_deepest_first() -> None:
     relationships = compute_relationships(schema)
 
     assert [path.depth for path in relationships.paths] == [3, 1, 1]
-    assert relationships.paths[0].segments == ["Vehicle", "Cabin", "Seat", "Backrest"]
+    assert _type_chain(relationships.paths[0]) == ["Vehicle", "Cabin", "Seat", "Backrest"]
     assert relationships.total_paths == 3
 
 
@@ -114,7 +119,7 @@ def test_no_query_type_falls_back_to_unreferenced_object_types() -> None:
     relationships = compute_relationships(schema)
 
     assert relationships.max_depth is not None
-    assert relationships.max_depth.segments == ["Root", "Child"]
+    assert _type_chain(relationships.max_depth) == ["Root", "Child"]
 
 
 def test_standalone_type_with_no_references_yields_no_paths() -> None:
@@ -193,7 +198,7 @@ def test_query_type_with_no_object_fields_falls_back_to_unreferenced_object_type
     relationships = compute_relationships(schema)
 
     assert relationships.max_depth is not None
-    assert relationships.max_depth.segments == ["Vehicle", "Cabin", "Seat"]
+    assert _type_chain(relationships.max_depth) == ["Vehicle", "Cabin", "Seat"]
 
 
 def test_no_object_types_returns_no_paths() -> None:
@@ -227,7 +232,7 @@ def test_direct_self_reference_is_recorded_as_a_path() -> None:
     relationships = compute_relationships(schema)
 
     assert len(relationships.paths) == 1
-    assert relationships.paths[0].segments == ["Node", "Node"]
+    assert _type_chain(relationships.paths[0]) == ["Node", "Node"]
     assert relationships.paths[0].depth == 1
     assert relationships.total_paths == 1
     distribution_by_depth = {entry.depth: entry.count for entry in relationships.depth_distribution}
@@ -253,9 +258,39 @@ def test_self_reference_and_other_reference_are_both_retained() -> None:
 
     relationships = compute_relationships(schema)
 
-    segments_by_path = {tuple(path.segments) for path in relationships.paths}
+    segments_by_path = {tuple(_type_chain(path)) for path in relationships.paths}
     assert ("Node", "Node") in segments_by_path
     assert ("Node", "Other") in segments_by_path
+
+
+def test_path_segments_carry_field_name_and_rendered_type() -> None:
+    sdl = """
+    type Vehicle {
+      cabin: Cabin!
+    }
+
+    type Cabin {
+      seats: [Seat!]!
+    }
+
+    type Seat {
+      id: ID
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    relationships = compute_relationships(schema)
+
+    assert relationships.max_depth is not None
+    root, cabin, seat = relationships.max_depth.segments
+    assert (root.type, root.field, root.field_type) == ("Vehicle", None, None)
+    assert (cabin.type, cabin.field, cabin.field_type) == ("Cabin", "cabin", "Cabin!")
+    assert (seat.type, seat.field, seat.field_type) == ("Seat", "seats", "[Seat!]!")
+    assert [root.label, cabin.label, seat.label] == ["Vehicle", "cabin: Cabin!", "seats: [Seat!]!"]
 
 
 def test_direct_self_reference_is_recorded_as_a_cyclic_reference() -> None:
@@ -274,8 +309,11 @@ def test_direct_self_reference_is_recorded_as_a_cyclic_reference() -> None:
 
     assert len(relationships.cyclic_references) == 1
     cycle = relationships.cyclic_references[0]
-    assert cycle.segments == ["Node", "Node"]
+    assert _type_chain(cycle) == ["Node", "Node"]
     assert cycle.length == 1
+    start, back = cycle.segments
+    assert (start.field, start.field_type) == (None, None)
+    assert (back.field, back.field_type) == ("next", "Node")
 
 
 def test_two_type_cycle_is_recorded_as_a_cyclic_reference() -> None:
@@ -303,8 +341,9 @@ def test_two_type_cycle_is_recorded_as_a_cyclic_reference() -> None:
 
     assert len(relationships.cyclic_references) == 1
     cycle = relationships.cyclic_references[0]
-    assert cycle.segments == ["Cabin", "Vehicle", "Cabin"]
+    assert _type_chain(cycle) == ["Cabin", "Vehicle", "Cabin"]
     assert cycle.length == 2
+    assert [segment.label for segment in cycle.segments] == ["Cabin", "vehicle: Vehicle", "cabin: Cabin"]
 
 
 def test_three_type_cycle_is_canonicalized_to_its_smallest_type() -> None:
@@ -331,7 +370,7 @@ def test_three_type_cycle_is_canonicalized_to_its_smallest_type() -> None:
 
     assert len(relationships.cyclic_references) == 1
     cycle = relationships.cyclic_references[0]
-    assert cycle.segments == ["A", "B", "C", "A"]
+    assert _type_chain(cycle) == ["A", "B", "C", "A"]
     assert cycle.length == 3
 
 
@@ -385,7 +424,7 @@ def test_the_same_cycle_reached_from_two_roots_is_deduplicated() -> None:
 
     assert len(relationships.cyclic_references) == 1
     cycle = relationships.cyclic_references[0]
-    assert cycle.segments == ["Cabin", "Vehicle", "Cabin"]
+    assert _type_chain(cycle) == ["Cabin", "Vehicle", "Cabin"]
 
 
 def test_reference_counts_tally_type_references_from_fields() -> None:
@@ -439,7 +478,7 @@ def test_reference_counts_include_interface_implementations() -> None:
     assert counts_by_name["Node"] == 2
 
 
-def test_reference_counts_tally_directive_applications() -> None:
+def test_reference_counts_exclude_directives() -> None:
     sdl = """
     directive @meta(note: String) on OBJECT | FIELD_DEFINITION
 
@@ -455,9 +494,29 @@ def test_reference_counts_tally_directive_applications() -> None:
 
     relationships = compute_relationships(schema)
 
-    meta = next(entry for entry in relationships.reference_counts if entry.name == "@meta")
-    assert meta.count == 2
-    assert meta.kind == "directive"
+    names = {entry.name for entry in relationships.reference_counts}
+    assert "@meta" not in names
+
+
+def test_reference_counts_exclude_scalars() -> None:
+    sdl = """
+    scalar Timestamp
+
+    type Vehicle {
+      builtAt: Timestamp
+      soldAt: Timestamp
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    relationships = compute_relationships(schema)
+
+    names = {entry.name for entry in relationships.reference_counts}
+    assert "Timestamp" not in names
 
 
 def test_reference_counts_exclude_unused_types_directives_and_builtins() -> None:
@@ -483,6 +542,7 @@ def test_reference_counts_exclude_unused_types_directives_and_builtins() -> None
 
     names = {entry.name for entry in relationships.reference_counts}
     assert "Orphan" not in names
+    assert "@used" not in names
     assert "@unused" not in names
     assert "ID" not in names
     assert "Query" not in names

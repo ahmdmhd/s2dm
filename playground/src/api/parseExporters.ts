@@ -175,7 +175,7 @@ function isSelectionQueryRequired(schema: Record<string, unknown>): boolean {
 	return schema.required.includes("selection_query");
 }
 
-export function computePropertyValues(
+function computePropertyValues(
 	properties: Record<string, SchemaProperty>,
 ): Record<string, unknown> {
 	const propertyValues: Record<string, unknown> = {};

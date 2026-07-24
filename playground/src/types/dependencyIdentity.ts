@@ -1,4 +1,5 @@
 import { nanoid } from "@reduxjs/toolkit";
+import { areDraftCollectionsEqual } from "@/utils/areDraftCollectionsEqual";
 
 export type DependencyIdentityDraft = {
 	id: string;
@@ -25,12 +26,7 @@ export function areDependencyIdentityDraftsEqual(
 	left: DependencyIdentityDraft[],
 	right: DependencyIdentityDraft[],
 ): boolean {
-	if (left.length !== right.length) {
-		return false;
-	}
-
-	return left.every((leftDraft, index) => {
-		const rightDraft = right[index];
+	return areDraftCollectionsEqual(left, right, (leftDraft, rightDraft) => {
 		return (
 			leftDraft.id === rightDraft.id &&
 			leftDraft.host === rightDraft.host &&

@@ -17,7 +17,7 @@ const headingVariants = cva("font-bold text-foreground", {
 	},
 });
 
-export interface HeadingProps
+interface HeadingProps
 	extends React.HTMLAttributes<HTMLHeadingElement>,
 		VariantProps<typeof headingVariants> {
 	level?: "h1" | "h2" | "h3" | "h4";
