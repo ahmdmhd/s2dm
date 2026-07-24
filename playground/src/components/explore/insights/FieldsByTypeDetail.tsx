@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { ContainerTypeRow } from "@/components/explore/insights/FieldsByTypeListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { Heading } from "@/components/ui/heading";
-import { StatusBanner } from "@/components/ui/status-banner";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectContainerTypeFieldCounts,
@@ -32,19 +31,16 @@ export function FieldsByTypeDetail() {
 	);
 	const stats = useAppSelector(selectContainerTypeFieldStats);
 
-	if (!stats) {
-		return null;
-	}
-
+	const typeCount = stats?.typeCount ?? 0;
 	const topTypes = containerTypeFieldCounts.slice(0, 5);
 	const statRows = [
 		{
 			label: "Average fields per container type",
-			value: stats.average.toFixed(1),
+			value: (stats?.average ?? 0).toFixed(1),
 		},
-		{ label: "Median fields per container type", value: stats.median },
-		{ label: "Maximum fields on one container type", value: stats.max },
-		{ label: "Minimum fields on one container type", value: stats.min },
+		{ label: "Median fields per container type", value: stats?.median ?? 0 },
+		{ label: "Maximum fields on one container type", value: stats?.max ?? 0 },
+		{ label: "Minimum fields on one container type", value: stats?.min ?? 0 },
 	];
 
 	return (
@@ -83,31 +79,35 @@ export function FieldsByTypeDetail() {
 					interface, input) from the composed schema, then sort in descending
 					order by field count.
 				</p>
-				<StatusBanner variant="info">
-					<span className="font-medium">Note:</span> configured technical root
-					types such as Query, Mutation, and Subscription may be excluded from
-					domain-oriented counts.
-				</StatusBanner>
 			</section>
 
 			<section className="flex flex-col gap-4">
 				<Heading level="h3">Evidence</Heading>
 
-				<EvidenceSubsection title="Largest container types">
-					<ul className="flex flex-col gap-2">
-						{topTypes.map((entry) => (
-							<ContainerTypeRow key={entry.type} {...entry} />
-						))}
-					</ul>
-					{stats.typeCount > topTypes.length && (
-						<ViewAllButton
-							label={`View all ${stats.typeCount}`}
-							onClick={() =>
-								dispatch(pushInsightDetail({ kind: "fieldsByTypeList" }))
-							}
-						/>
+				<div className="flex flex-col gap-2">
+					{topTypes.length > 0 ? (
+						<>
+							<ul className="flex flex-col gap-2">
+								{topTypes.map((entry) => (
+									<ContainerTypeRow key={entry.type} {...entry} />
+								))}
+							</ul>
+							{typeCount > topTypes.length && (
+								<InsightLinkButton
+									label={`View all ${typeCount}`}
+									className="mt-1"
+									onClick={() =>
+										dispatch(pushInsightDetail({ kind: "fieldsByTypeList" }))
+									}
+								/>
+							)}
+						</>
+					) : (
+						<p className="text-muted-foreground">
+							No container types have fields.
+						</p>
 					)}
-				</EvidenceSubsection>
+				</div>
 
 				<EvidenceSubsection title="Stats">
 					<ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
@@ -125,7 +125,7 @@ export function FieldsByTypeDetail() {
 
 			<section className="flex flex-col gap-2">
 				<Heading level="h3">Actions</Heading>
-				<ViewAllButton label="Related actions" />
+				<InsightLinkButton label="Related actions" />
 			</section>
 		</div>
 	);

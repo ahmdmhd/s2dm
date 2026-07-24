@@ -78,8 +78,6 @@ export const {
 	clearExportResultForEndpoint,
 } = exportSlice.actions;
 
-export const selectIsExporting = (state: RootState) =>
-	state.schemaExport.isExporting;
 export const selectIsExportingEndpoint = (state: RootState, endpoint: string) =>
 	state.schemaExport.isExporting &&
 	state.schemaExport.activeEndpoint === endpoint;

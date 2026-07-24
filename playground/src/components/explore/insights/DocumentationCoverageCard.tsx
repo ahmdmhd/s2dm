@@ -1,6 +1,7 @@
-import { ArrowRight } from "lucide-react";
+import pluralize from "pluralize";
 import { DocumentationCoverageBar } from "@/components/explore/insights/DocumentationCoverageBar";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectCoverageCategories,
@@ -34,7 +35,7 @@ export function DocumentationCoverageCard() {
 						</p>
 						<p className="text-sm text-muted-foreground">
 							<span className="font-semibold">{documentedElements}</span> of{" "}
-							{totalElements} elements documented
+							{totalElements} {pluralize("element", totalElements)} documented
 						</p>
 					</div>
 					<div className="flex flex-col gap-3">
@@ -53,14 +54,10 @@ export function DocumentationCoverageCard() {
 					No documentation data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() => dispatch(openInsightDetail({ kind: "undocumented" }))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

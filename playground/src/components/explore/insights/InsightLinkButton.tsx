@@ -1,12 +1,17 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/utils/cn";
 
-type ViewAllButtonProps = {
+type InsightLinkButtonProps = {
 	label: string;
 	onClick?: () => void;
+	className?: string;
 };
 
-export function ViewAllButton({ label, onClick }: ViewAllButtonProps) {
+export function InsightLinkButton({
+	label,
+	onClick,
+	className,
+}: InsightLinkButtonProps) {
 	const disabled = !onClick;
 
 	return (
@@ -15,10 +20,11 @@ export function ViewAllButton({ label, onClick }: ViewAllButtonProps) {
 			disabled={disabled}
 			onClick={onClick}
 			className={cn(
-				"mt-1 inline-flex items-center gap-1 self-start text-sm font-medium",
+				"inline-flex items-center gap-1 self-start text-sm font-medium",
 				disabled
 					? "cursor-not-allowed text-muted-foreground"
 					: "cursor-pointer text-primary hover:underline",
+				className,
 			)}
 		>
 			{label}

@@ -1,6 +1,7 @@
-import { ArrowRight } from "lucide-react";
+import pluralize from "pluralize";
 import { BreakdownGroups } from "@/components/explore/insights/BreakdownGroups";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectElementGroups } from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
@@ -33,7 +34,8 @@ export function ConceptsBreakdown() {
 					<div className="flex flex-col gap-1">
 						<p className="text-sm text-card-foreground">
 							The composed model has{" "}
-							<span className="font-semibold">{totalElements}</span> elements
+							<span className="font-semibold">{totalElements}</span>{" "}
+							{pluralize("element", totalElements)}
 						</p>
 						<p className="text-sm text-muted-foreground">
 							<span className="font-semibold">{largestGroup.title}</span> are
@@ -48,16 +50,12 @@ export function ConceptsBreakdown() {
 					No elements found in the model
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() =>
 					dispatch(openInsightDetail({ kind: "conceptsBreakdown" }))
 				}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

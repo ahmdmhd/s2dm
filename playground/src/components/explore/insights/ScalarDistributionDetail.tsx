@@ -1,5 +1,5 @@
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { ScalarUsageRow } from "@/components/explore/insights/ScalarDistributionListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
 import { Heading } from "@/components/ui/heading";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -13,16 +13,13 @@ export function ScalarDistributionDetail() {
 	const scalarUsage = useAppSelector(selectScalarUsage);
 	const stats = useAppSelector(selectScalarUsageStats);
 
-	if (!stats) {
-		return null;
-	}
-
+	const scalarCount = stats?.scalarCount ?? 0;
 	const topScalars = scalarUsage.slice(0, 5);
 	const statRows = [
-		{ label: "Distinct datatypes used", value: stats.scalarCount },
-		{ label: "Total scalar field usages", value: stats.totalOccurrences },
-		{ label: "Built-in scalars", value: stats.builtinCount },
-		{ label: "Custom scalars", value: stats.customCount },
+		{ label: "Distinct datatypes used", value: scalarCount },
+		{ label: "Total scalar field usages", value: stats?.totalOccurrences ?? 0 },
+		{ label: "Built-in scalars", value: stats?.builtinCount ?? 0 },
+		{ label: "Custom scalars", value: stats?.customCount ?? 0 },
 	];
 
 	return (
@@ -64,19 +61,27 @@ export function ScalarDistributionDetail() {
 				<Heading level="h3">Evidence</Heading>
 
 				<div className="flex flex-col gap-2">
-					<Heading level="h4">Datatypes by usage</Heading>
-					<ul className="flex flex-col gap-2">
-						{topScalars.map((scalar) => (
-							<ScalarUsageRow key={scalar.name} {...scalar} />
-						))}
-					</ul>
-					{stats.scalarCount > topScalars.length && (
-						<ViewAllButton
-							label={`View all ${stats.scalarCount}`}
-							onClick={() =>
-								dispatch(pushInsightDetail({ kind: "scalarDistributionList" }))
-							}
-						/>
+					{topScalars.length > 0 ? (
+						<>
+							<ul className="flex flex-col gap-2">
+								{topScalars.map((scalar) => (
+									<ScalarUsageRow key={scalar.name} {...scalar} />
+								))}
+							</ul>
+							{scalarCount > topScalars.length && (
+								<InsightLinkButton
+									label={`View all ${scalarCount}`}
+									className="mt-1"
+									onClick={() =>
+										dispatch(
+											pushInsightDetail({ kind: "scalarDistributionList" }),
+										)
+									}
+								/>
+							)}
+						</>
+					) : (
+						<p className="text-muted-foreground">No datatypes are used.</p>
 					)}
 				</div>
 

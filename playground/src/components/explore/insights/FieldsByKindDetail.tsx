@@ -1,8 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { ContainerKind } from "@/api/types";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { TypePathBreadcrumb } from "@/components/explore/insights/TypePathBreadcrumb";
-import { usePagedItems } from "@/hooks/usePagedItems";
 import { useAppSelector } from "@/store/hooks";
 import {
 	type FieldWithType,
@@ -36,21 +35,13 @@ export function FieldsByKindDetail({ fieldKind }: FieldsByKindDetailProps) {
 	const leafFields = useAppSelector(selectLeafFields);
 	const relationshipFields = useAppSelector(selectRelationshipFields);
 	const fields = fieldKind === "relationship" ? relationshipFields : leafFields;
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(fields);
 
 	return (
-		<div className="flex flex-col gap-2">
-			{visibleItems.map((entry) => (
-				<FieldTypeRow key={entry.field} {...entry} />
-			))}
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={fields}
+			getKey={(entry) => entry.field}
+			renderItem={(entry) => <FieldTypeRow {...entry} />}
+			as="div"
+		/>
 	);
 }

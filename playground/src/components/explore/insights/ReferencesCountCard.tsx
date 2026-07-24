@@ -1,14 +1,8 @@
-import { ArrowRight } from "lucide-react";
-import {
-	Bar,
-	BarChart,
-	LabelList,
-	ResponsiveContainer,
-	XAxis,
-	YAxis,
-} from "recharts";
-import { CategoryTick } from "@/components/explore/insights/CategoryTick";
+import pluralize from "pluralize";
+import type { ReactNode } from "react";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { HorizontalMetricBarChart } from "@/components/explore/insights/HorizontalMetricBarChart";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectReferenceCountStats,
@@ -19,6 +13,7 @@ import {
 	selectInsightDetail,
 	setInsightsSubTab,
 } from "@/store/ui/uiSlice";
+import { countTiedForTop } from "@/utils/countTiedForTop";
 
 const REFERENCE_AXIS_WIDTH = 140;
 
@@ -36,11 +31,41 @@ export function ReferencesCountCard() {
 	const topReferences = referenceCounts.slice(0, 5);
 	const showLeastReferenced =
 		stats && stats.referencedCount > 1 && leastReferenced !== null;
+	const tiedForMost = countTiedForTop(referenceCounts, (entry) => entry.count);
 
 	const openUnusedElements = () => {
 		dispatch(setInsightsSubTab("quality"));
 		dispatch(openInsightDetail({ kind: "unused" }));
 	};
+
+	let mostReferencedSummary: ReactNode;
+	if (!mostReferenced) {
+		mostReferencedSummary = (
+			<p className="text-sm text-card-foreground">No referenced types</p>
+		);
+	} else if (tiedForMost > 1) {
+		mostReferencedSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{tiedForMost}</span> types are tied for
+				most referenced, with{" "}
+				<span className="font-semibold">
+					{mostReferenced.count.toLocaleString()}
+				</span>{" "}
+				{pluralize("reference", mostReferenced.count)} each
+			</p>
+		);
+	} else {
+		mostReferencedSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{mostReferenced.name}</span> is the most
+				referenced with{" "}
+				<span className="font-semibold">
+					{mostReferenced.count.toLocaleString()}
+				</span>{" "}
+				{pluralize("reference", mostReferenced.count)}
+			</p>
+		);
+	}
 
 	return (
 		<HighlightableCard selected={selected}>
@@ -50,69 +75,22 @@ export function ReferencesCountCard() {
 			{hasData ? (
 				<>
 					<div className="flex flex-col gap-1">
-						{mostReferenced ? (
-							<p className="text-sm text-card-foreground">
-								{mostReferenced.kind}{" "}
-								<span className="font-semibold">{mostReferenced.name}</span> is
-								the most referenced with{" "}
-								<span className="font-semibold">
-									{mostReferenced.count.toLocaleString()}
-								</span>{" "}
-								references
-							</p>
-						) : (
-							<p className="text-sm text-card-foreground">
-								No referenced types or directives
-							</p>
-						)}
+						{mostReferencedSummary}
 						<p className="text-sm text-muted-foreground">
 							<span className="font-semibold">
-								{stats.typeCount.toLocaleString()}
+								{stats.referencedCount.toLocaleString()}
 							</span>{" "}
-							types,{" "}
-							<span className="font-semibold">
-								{stats.directiveCount.toLocaleString()}
-							</span>{" "}
-							directives referenced
+							{pluralize("type", stats.referencedCount)} referenced
 						</p>
 					</div>
 					{mostReferenced && (
-						<div className="h-[176px] w-full">
-							<ResponsiveContainer width="100%" height="100%">
-								<BarChart
-									data={topReferences}
-									layout="vertical"
-									margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
-								>
-									<XAxis
-										type="number"
-										domain={[0, mostReferenced.count]}
-										hide
-									/>
-									<YAxis
-										type="category"
-										dataKey="name"
-										width={REFERENCE_AXIS_WIDTH}
-										axisLine={false}
-										tickLine={false}
-										tick={<CategoryTick width={REFERENCE_AXIS_WIDTH} />}
-									/>
-									<Bar
-										dataKey="count"
-										fill="var(--color-blue-500)"
-										radius={[0, 4, 4, 0]}
-										barSize={16}
-									>
-										<LabelList
-											dataKey="count"
-											position="right"
-											fill="var(--color-card-foreground)"
-											fontSize={12}
-										/>
-									</Bar>
-								</BarChart>
-							</ResponsiveContainer>
-						</div>
+						<HorizontalMetricBarChart
+							data={topReferences}
+							categoryKey="name"
+							valueKey="count"
+							maxValue={mostReferenced.count}
+							axisWidth={REFERENCE_AXIS_WIDTH}
+						/>
 					)}
 					<div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
 						{showLeastReferenced && (
@@ -141,14 +119,10 @@ export function ReferencesCountCard() {
 					No references data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() => dispatch(openInsightDetail({ kind: "references" }))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

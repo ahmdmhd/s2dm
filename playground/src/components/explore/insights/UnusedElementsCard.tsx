@@ -1,14 +1,7 @@
-import { ArrowRight } from "lucide-react";
-import {
-	Bar,
-	BarChart,
-	LabelList,
-	ResponsiveContainer,
-	XAxis,
-	YAxis,
-} from "recharts";
-import { CategoryTick } from "@/components/explore/insights/CategoryTick";
+import pluralize from "pluralize";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { HorizontalMetricBarChart } from "@/components/explore/insights/HorizontalMetricBarChart";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectUnusedCategories } from "@/store/insights/insightsSelectors";
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
@@ -49,13 +42,13 @@ export function UnusedElementsCard() {
 				<>
 					<div className="flex flex-col gap-1">
 						<p className="text-sm text-card-foreground">
-							<span className="font-semibold">{totalUnused}</span> unused
-							elements
+							<span className="font-semibold">{totalUnused}</span> unused{" "}
+							{pluralize("element", totalUnused)}
 						</p>
 						{totalUnused > 0 ? (
 							<p className="text-sm text-muted-foreground">
 								out of <span className="font-semibold">{totalElements}</span>{" "}
-								elements
+								{pluralize("element", totalElements)}
 							</p>
 						) : (
 							<p className="text-sm text-muted-foreground">
@@ -64,38 +57,14 @@ export function UnusedElementsCard() {
 						)}
 					</div>
 					{totalUnused > 0 && (
-						<div className="w-full" style={{ height: chartHeight }}>
-							<ResponsiveContainer width="100%" height="100%">
-								<BarChart
-									data={chartCategories}
-									layout="vertical"
-									margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
-								>
-									<XAxis type="number" domain={[0, maxUnused]} hide />
-									<YAxis
-										type="category"
-										dataKey="label"
-										width={CATEGORY_AXIS_WIDTH}
-										axisLine={false}
-										tickLine={false}
-										tick={<CategoryTick width={CATEGORY_AXIS_WIDTH} />}
-									/>
-									<Bar
-										dataKey="unused"
-										fill="var(--color-blue-500)"
-										radius={[0, 4, 4, 0]}
-										barSize={16}
-									>
-										<LabelList
-											dataKey="unused"
-											position="right"
-											fill="var(--color-card-foreground)"
-											fontSize={12}
-										/>
-									</Bar>
-								</BarChart>
-							</ResponsiveContainer>
-						</div>
+						<HorizontalMetricBarChart
+							data={chartCategories}
+							categoryKey="label"
+							valueKey="unused"
+							maxValue={maxUnused}
+							axisWidth={CATEGORY_AXIS_WIDTH}
+							height={chartHeight}
+						/>
 					)}
 				</>
 			) : (
@@ -103,14 +72,10 @@ export function UnusedElementsCard() {
 					No unused elements data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() => dispatch(openInsightDetail({ kind: "unused" }))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

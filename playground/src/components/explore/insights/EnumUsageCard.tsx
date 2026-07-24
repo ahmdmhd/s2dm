@@ -1,14 +1,8 @@
-import { ArrowRight } from "lucide-react";
-import {
-	Bar,
-	BarChart,
-	LabelList,
-	ResponsiveContainer,
-	XAxis,
-	YAxis,
-} from "recharts";
-import { CategoryTick } from "@/components/explore/insights/CategoryTick";
+import pluralize from "pluralize";
+import type { ReactNode } from "react";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { HorizontalMetricBarChart } from "@/components/explore/insights/HorizontalMetricBarChart";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectEnumUsage,
@@ -20,6 +14,7 @@ import {
 	selectInsightDetail,
 	setInsightsSubTab,
 } from "@/store/ui/uiSlice";
+import { countTiedForTop } from "@/utils/countTiedForTop";
 
 const ENUM_AXIS_WIDTH = 140;
 
@@ -36,6 +31,7 @@ export function EnumUsageCard() {
 	const unusedCount = stats?.unusedCount ?? 0;
 	const topEnums = enumUsage.slice(0, 5);
 	const showLeastUsed = stats && stats.usedCount > 1 && leastUsed !== null;
+	const tiedForMost = countTiedForTop(enumUsage, (entry) => entry.count);
 
 	const openUnusedEnums = () => {
 		dispatch(setInsightsSubTab("quality"));
@@ -45,6 +41,29 @@ export function EnumUsageCard() {
 		);
 	};
 
+	let mostUsedSummary: ReactNode;
+	if (!mostUsed) {
+		mostUsedSummary = (
+			<p className="text-sm text-card-foreground">No enums are used</p>
+		);
+	} else if (tiedForMost > 1) {
+		mostUsedSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{tiedForMost}</span> enums are tied for
+				most used, with <span className="font-semibold">{mostUsed.count}</span>{" "}
+				{pluralize("usage", mostUsed.count)} each
+			</p>
+		);
+	} else {
+		mostUsedSummary = (
+			<p className="text-sm text-card-foreground">
+				<span className="font-semibold">{mostUsed.name}</span> is the most used
+				enum: <span className="font-semibold">{mostUsed.count}</span>{" "}
+				{pluralize("usage", mostUsed.count)}
+			</p>
+		);
+	}
+
 	return (
 		<HighlightableCard selected={selected}>
 			<span className="text-lg font-semibold text-card-foreground">
@@ -53,57 +72,22 @@ export function EnumUsageCard() {
 			{hasData ? (
 				<>
 					<div className="flex flex-col gap-1">
-						{mostUsed ? (
-							<p className="text-sm text-card-foreground">
-								<span className="font-semibold">{mostUsed.name}</span> is the
-								most used enum:{" "}
-								<span className="font-semibold">{mostUsed.count}</span> fields
-							</p>
-						) : (
-							<p className="text-sm text-card-foreground">
-								No enums are used as field types
-							</p>
-						)}
+						{mostUsedSummary}
 						<p className="text-sm text-muted-foreground">
 							<span className="font-semibold">{stats.usedCount}</span> used
 							across{" "}
 							<span className="font-semibold">{stats.totalOccurrences}</span>{" "}
-							field usages
+							{pluralize("usage", stats.totalOccurrences)}
 						</p>
 					</div>
 					{mostUsed && (
-						<div className="h-[176px] w-full">
-							<ResponsiveContainer width="100%" height="100%">
-								<BarChart
-									data={topEnums}
-									layout="vertical"
-									margin={{ top: 0, right: 32, bottom: 0, left: 0 }}
-								>
-									<XAxis type="number" domain={[0, mostUsed.count]} hide />
-									<YAxis
-										type="category"
-										dataKey="name"
-										width={ENUM_AXIS_WIDTH}
-										axisLine={false}
-										tickLine={false}
-										tick={<CategoryTick width={ENUM_AXIS_WIDTH} />}
-									/>
-									<Bar
-										dataKey="count"
-										fill="var(--color-blue-500)"
-										radius={[0, 4, 4, 0]}
-										barSize={16}
-									>
-										<LabelList
-											dataKey="count"
-											position="right"
-											fill="var(--color-card-foreground)"
-											fontSize={12}
-										/>
-									</Bar>
-								</BarChart>
-							</ResponsiveContainer>
-						</div>
+						<HorizontalMetricBarChart
+							data={topEnums}
+							categoryKey="name"
+							valueKey="count"
+							maxValue={mostUsed.count}
+							axisWidth={ENUM_AXIS_WIDTH}
+						/>
 					)}
 					<div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
 						{showLeastUsed && (
@@ -130,14 +114,10 @@ export function EnumUsageCard() {
 			) : (
 				<p className="text-sm text-muted-foreground">No enum data available</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() => dispatch(openInsightDetail({ kind: "enumUsage" }))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

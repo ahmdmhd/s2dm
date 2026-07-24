@@ -1,5 +1,6 @@
-import { ArrowRight } from "lucide-react";
+import pluralize from "pluralize";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { MissingUnitRow } from "@/components/explore/insights/MissingUnitsListDetail";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -33,7 +34,8 @@ export function MissingUnitsCard() {
 								<span className="font-semibold">
 									{stats.count.toLocaleString()}
 								</span>{" "}
-								scalar fields declare no unit
+								scalar {pluralize("field", stats.count)}{" "}
+								{stats.count === 1 ? "declares" : "declare"} no unit
 							</p>
 						) : (
 							<p className="text-sm text-card-foreground">
@@ -58,14 +60,10 @@ export function MissingUnitsCard() {
 					No missing units data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View details"
 				onClick={() => dispatch(openInsightDetail({ kind: "missingUnits" }))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View details
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }

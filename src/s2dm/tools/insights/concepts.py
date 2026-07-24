@@ -9,6 +9,7 @@ from graphql import (
     GraphQLObjectType,
     GraphQLScalarType,
     GraphQLSchema,
+    GraphQLType,
     GraphQLUnionType,
     get_named_type,
     specified_directives,
@@ -47,14 +48,27 @@ def _tally_scalar_usage(
             scalar_counts[named_output_type.name] = scalar_counts.get(named_output_type.name, 0) + 1
 
 
+def _bump_if_enum(graphql_type: GraphQLType, enum_counts: dict[str, int]) -> None:
+    named_type = get_named_type(graphql_type)
+    if isinstance(named_type, GraphQLEnumType):
+        enum_counts[named_type.name] = enum_counts.get(named_type.name, 0) + 1
+
+
 def _tally_enum_usage(
     fields: dict[str, GraphQLField] | dict[str, GraphQLInputField],
     enum_counts: dict[str, int],
 ) -> None:
     for field_def in fields.values():
-        named_output_type = get_named_type(field_def.type)
-        if isinstance(named_output_type, GraphQLEnumType):
-            enum_counts[named_output_type.name] = enum_counts.get(named_output_type.name, 0) + 1
+        _bump_if_enum(field_def.type, enum_counts)
+        if isinstance(field_def, GraphQLField):
+            for arg in field_def.args.values():
+                _bump_if_enum(arg.type, enum_counts)
+
+
+def _tally_directive_enum_usage(schema: GraphQLSchema, enum_counts: dict[str, int]) -> None:
+    for directive in schema.directives:
+        for arg in directive.args.values():
+            _bump_if_enum(arg.type, enum_counts)
 
 
 def compute_concepts(schema: GraphQLSchema) -> ConceptsResult:
@@ -113,6 +127,7 @@ def compute_concepts(schema: GraphQLSchema) -> ConceptsResult:
     ]
     scalar_usage.sort(key=lambda entry: (-entry.count, entry.name))
 
+    _tally_directive_enum_usage(schema, enum_counts)
     enum_usage = [EnumUsage(name=name, count=count) for name, count in enum_counts.items()]
     enum_usage.sort(key=lambda entry: (-entry.count, entry.name))
 

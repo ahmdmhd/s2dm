@@ -1,5 +1,6 @@
-import { UnusedRow } from "@/components/explore/insights/UnusedListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
+import { RootTypesExcludedNote } from "@/components/explore/insights/RootTypesExcludedNote";
+import { UnusedRow } from "@/components/explore/insights/UnusedElementsListDetail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -8,7 +9,7 @@ import { pushInsightDetail } from "@/store/ui/uiSlice";
 
 const ELEMENTS_PER_CATEGORY = 3;
 
-export function UnusedDetail() {
+export function UnusedElementsDetail() {
 	const dispatch = useAppDispatch();
 	const unusedByCategory = useAppSelector(selectUnusedByCategory);
 
@@ -35,16 +36,18 @@ export function UnusedDetail() {
 				<Heading level="h3">How it is calculated</Heading>
 				<p className="text-muted-foreground">
 					A type is unused when nothing references it: no field, argument, union
-					member, or interface implementation points to it, and it is not a root
-					operation type. A directive is unused when it is defined but never
-					applied to any element.
+					member, or interface implementation points to it. A directive is
+					unused when it is defined but never applied to any element.
 				</p>
+				<RootTypesExcludedNote />
 			</section>
 
 			<section className="flex flex-col gap-3">
 				<Heading level="h3">Evidence</Heading>
 				<div className="flex flex-col gap-3">
-					<Heading level="h4">Unused elements</Heading>
+					{unusedByCategory.length === 0 && (
+						<p className="text-muted-foreground">No unused elements.</p>
+					)}
 					{unusedByCategory.map((group) => (
 						<CollapsibleSection
 							key={group.category}
@@ -63,8 +66,9 @@ export function UnusedDetail() {
 										))}
 								</ul>
 								{group.elements.length > ELEMENTS_PER_CATEGORY && (
-									<ViewAllButton
+									<InsightLinkButton
 										label={`View all ${group.elements.length}`}
+										className="mt-1"
 										onClick={() =>
 											dispatch(
 												pushInsightDetail({

@@ -25,18 +25,3 @@ export interface RootState {
 	capabilities: CapabilitiesState;
 	insights: InsightsState;
 }
-
-export type {
-	CapabilitiesState,
-	DependencyExplorationState,
-	DepsComposeState,
-	DepsIdentitiesState,
-	DepsResolveState,
-	DepsState,
-	ExportState,
-	InsightsState,
-	SchemaState,
-	SelectionState,
-	UIState,
-	ValidationState,
-};

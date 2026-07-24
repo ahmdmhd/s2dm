@@ -10,7 +10,10 @@ export function getAxiosErrorMessage(error: unknown): string | null {
 	}
 
 	const responseMessage = error.response?.data?.message;
-	if (typeof responseMessage === "string" && responseMessage.trim().length > 0) {
+	if (
+		typeof responseMessage === "string" &&
+		responseMessage.trim().length > 0
+	) {
 		return responseMessage;
 	}
 

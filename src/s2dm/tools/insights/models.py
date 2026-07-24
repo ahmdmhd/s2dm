@@ -92,10 +92,31 @@ class ConceptsResult(BaseModel):
     )
 
 
+class PathSegment(BaseModel):
+    """One object type in a reference path, with the field that leads into it."""
+
+    type: str
+    field: str | None = Field(
+        default=None,
+        description="Field on the preceding type that resolves to this type; None for the root",
+    )
+    field_type: str | None = Field(
+        default=None,
+        description="GraphQL type notation of that field, e.g. '[Seat!]!'; None for the root",
+    )
+
+    @property
+    def label(self) -> str:
+        """Human-readable segment, e.g. 'Vehicle' for the root or 'seats: [Seat!]!' for a hop."""
+        if self.field is None:
+            return self.type
+        return f"{self.field}: {self.field_type}"
+
+
 class RelationshipPath(BaseModel):
     """A chain of object types connected by field references."""
 
-    segments: list[str]
+    segments: list[PathSegment]
     depth: int = Field(description="Number of hops (edges) in the path, equal to len(segments) - 1")
 
 
@@ -109,18 +130,17 @@ class DepthCount(BaseModel):
 class CyclicReference(BaseModel):
     """A reference loop where following object-type fields returns to a type already in the chain."""
 
-    segments: list[str] = Field(
-        description="The loop's types, starting and ending at the same type, e.g. ['A', 'B', 'A']",
+    segments: list[PathSegment] = Field(
+        description="The loop's segments, starting and ending at the same type, e.g. A -> b: B -> a: A",
     )
     length: int = Field(description="Number of hops (edges) around the loop, equal to len(segments) - 1")
 
 
 class ReferenceCount(BaseModel):
-    """How often a type or custom directive is referenced across the schema."""
+    """How often a type is referenced across the schema."""
 
     name: str
-    count: int = Field(description="Number of references to this type, or applications of this directive")
-    kind: Literal["type", "directive"]
+    count: int = Field(description="Number of references to this type")
 
 
 class RelationshipsResult(BaseModel):
@@ -138,7 +158,7 @@ class RelationshipsResult(BaseModel):
         description="Deduplicated reference loops, each canonicalized to its smallest type, sorted by length ascending",
     )
     reference_counts: list[ReferenceCount] = Field(
-        description="Types and custom directives referenced at least once, sorted by count descending then name",
+        description="Types referenced at least once, sorted by count descending then name",
     )
 
 

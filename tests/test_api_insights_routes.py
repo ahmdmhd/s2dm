@@ -95,7 +95,10 @@ class TestInsightsRelationshipsRoute:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["max_depth"]["segments"] == ["Vehicle", "Cabin"]
+        assert data["max_depth"]["segments"] == [
+            {"type": "Vehicle", "field": None, "field_type": None},
+            {"type": "Cabin", "field": "cabin", "field_type": "Cabin"},
+        ]
         assert data["max_depth"]["depth"] == 1
 
     def test_get_relationships_includes_self_reference(self, test_client: TestClient) -> None:
@@ -120,7 +123,14 @@ class TestInsightsRelationshipsRoute:
 
         assert response.status_code == 200
         data = response.json()
-        assert any(path["segments"] == ["Node", "Node"] for path in data["paths"])
+        assert any(
+            path["segments"]
+            == [
+                {"type": "Node", "field": None, "field_type": None},
+                {"type": "Node", "field": "next", "field_type": "Node"},
+            ]
+            for path in data["paths"]
+        )
 
     def test_get_relationships_includes_cyclic_references(self, test_client: TestClient) -> None:
         payload = {
@@ -148,7 +158,16 @@ class TestInsightsRelationshipsRoute:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["cyclic_references"] == [{"segments": ["Cabin", "Vehicle", "Cabin"], "length": 2}]
+        assert data["cyclic_references"] == [
+            {
+                "segments": [
+                    {"type": "Cabin", "field": None, "field_type": None},
+                    {"type": "Vehicle", "field": "vehicle", "field_type": "Vehicle"},
+                    {"type": "Cabin", "field": "cabin", "field_type": "Cabin"},
+                ],
+                "length": 2,
+            }
+        ]
 
     def test_get_relationships_includes_reference_counts(self, test_client: TestClient) -> None:
         response = test_client.post("/api/v1/insights/relationships", json=VEHICLE_SCHEMA_PAYLOAD)
@@ -157,7 +176,6 @@ class TestInsightsRelationshipsRoute:
         data = response.json()
         counts_by_name = {entry["name"]: entry for entry in data["reference_counts"]}
         assert counts_by_name["Cabin"]["count"] == 1
-        assert counts_by_name["Cabin"]["kind"] == "type"
         assert "UnusedEnum" not in counts_by_name
 
 

@@ -1,6 +1,5 @@
 import type { ScalarUsage } from "@/api/types";
-import { ListPagination } from "@/components/explore/insights/ListPagination";
-import { usePagedItems } from "@/hooks/usePagedItems";
+import { PagedList } from "@/components/explore/insights/PagedList";
 import { useAppSelector } from "@/store/hooks";
 import { selectScalarUsage } from "@/store/insights/insightsSelectors";
 
@@ -23,23 +22,12 @@ export function ScalarUsageRow({ name, count, is_builtin }: ScalarUsage) {
 
 export function ScalarDistributionListDetail() {
 	const scalarUsage = useAppSelector(selectScalarUsage);
-	const { visibleItems, hasMore, shown, total, pageSize, showMore } =
-		usePagedItems(scalarUsage);
 
 	return (
-		<div className="flex flex-col gap-2">
-			<ul className="flex flex-col gap-2">
-				{visibleItems.map((entry) => (
-					<ScalarUsageRow key={entry.name} {...entry} />
-				))}
-			</ul>
-			<ListPagination
-				shown={shown}
-				total={total}
-				hasMore={hasMore}
-				pageSize={pageSize}
-				onShowMore={showMore}
-			/>
-		</div>
+		<PagedList
+			items={scalarUsage}
+			getKey={(entry) => entry.name}
+			renderItem={(entry) => <ScalarUsageRow {...entry} />}
+		/>
 	);
 }

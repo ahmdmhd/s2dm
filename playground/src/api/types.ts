@@ -148,13 +148,13 @@ export type ConceptMembers = {
 
 export type ContainerKind = "object" | "interface" | "input";
 
-export type FieldInfo = {
+type FieldInfo = {
 	name: string;
 	type: string;
 	is_relationship: boolean;
 };
 
-export type TypeFields = {
+type TypeFields = {
 	type: string;
 	kind: ContainerKind;
 	fields: FieldInfo[];
@@ -185,17 +185,23 @@ export type ConceptsResponse = {
 	enum_usage: EnumUsage[];
 };
 
+export type PathSegment = {
+	type: string;
+	field: string | null;
+	field_type: string | null;
+};
+
 export type RelationshipPath = {
-	segments: string[];
+	segments: PathSegment[];
 	depth: number;
 };
 
 export type CyclicReference = {
-	segments: string[];
+	segments: PathSegment[];
 	length: number;
 };
 
-export type DepthCount = {
+type DepthCount = {
 	depth: number;
 	count: number;
 };
@@ -203,7 +209,6 @@ export type DepthCount = {
 export type ReferenceCount = {
 	name: string;
 	count: number;
-	kind: "type" | "directive";
 };
 
 export type RelationshipsResponse = {
@@ -215,12 +220,12 @@ export type RelationshipsResponse = {
 	reference_counts: ReferenceCount[];
 };
 
-export type CoverageCount = {
+type CoverageCount = {
 	documented: number;
 	total: number;
 };
 
-export type CoverageBreakdown = {
+type CoverageBreakdown = {
 	types: CoverageCount;
 	fields: CoverageCount;
 	enums: CoverageCount;
@@ -238,7 +243,7 @@ export type CoverageResponse = {
 	undocumented: UndocumentedEntity[];
 };
 
-export type QualitySeverity = "warning" | "info";
+type QualitySeverity = "warning" | "info";
 
 export type QualityIssue = {
 	target: string;

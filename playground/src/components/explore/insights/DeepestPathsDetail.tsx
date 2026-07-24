@@ -1,10 +1,12 @@
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { PathRow } from "@/components/explore/insights/PathsByDepthDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
+import { RootTypesExcludedNote } from "@/components/explore/insights/RootTypesExcludedNote";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectDepthGroups } from "@/store/insights/insightsSelectors";
 import { pushInsightDetail } from "@/store/ui/uiSlice";
+import { formatPathSegments } from "@/utils/formatPathSegments";
 
 const PATHS_PER_GROUP = 3;
 
@@ -37,10 +39,14 @@ export function DeepestPathsDetail() {
 					maximum number of type-to-type steps, and stop traversal when a cycle
 					is detected.
 				</p>
+				<RootTypesExcludedNote />
 			</section>
 
 			<section className="flex flex-col gap-3">
 				<Heading level="h3">Evidence</Heading>
+				{depthGroups.length === 0 && (
+					<p className="text-muted-foreground">No nested paths found.</p>
+				)}
 				{depthGroups.map((group) => (
 					<CollapsibleSection
 						key={group.depth}
@@ -50,12 +56,16 @@ export function DeepestPathsDetail() {
 						<div className="flex flex-col gap-2 py-3">
 							<ul className="flex flex-col gap-2">
 								{group.paths.slice(0, PATHS_PER_GROUP).map((path) => (
-									<PathRow key={path.segments.join(">")} path={path} />
+									<PathRow
+										key={formatPathSegments(path.segments).join(">")}
+										path={path}
+									/>
 								))}
 							</ul>
 							{group.paths.length > PATHS_PER_GROUP && (
-								<ViewAllButton
+								<InsightLinkButton
 									label={`View all ${group.paths.length}`}
+									className="mt-1"
 									onClick={() =>
 										dispatch(
 											pushInsightDetail({

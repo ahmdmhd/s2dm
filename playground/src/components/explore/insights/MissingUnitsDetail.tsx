@@ -1,8 +1,5 @@
-import {
-	MissingUnitRow,
-	MissingUnitsListDetail,
-} from "@/components/explore/insights/MissingUnitsListDetail";
-import { ViewAllButton } from "@/components/explore/insights/ViewAllButton";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
+import { MissingUnitRow } from "@/components/explore/insights/MissingUnitsListDetail";
 import { Heading } from "@/components/ui/heading";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -18,10 +15,7 @@ export function MissingUnitsDetail() {
 	const missingUnits = useAppSelector(selectMissingUnits);
 	const stats = useAppSelector(selectMissingUnitsStats);
 
-	if (!stats) {
-		return null;
-	}
-
+	const count = stats?.count ?? 0;
 	const preview = missingUnits.slice(0, PREVIEW_COUNT);
 
 	return (
@@ -55,15 +49,15 @@ export function MissingUnitsDetail() {
 				<Heading level="h3">Evidence</Heading>
 				{preview.length > 0 ? (
 					<div className="flex flex-col gap-2">
-						<Heading level="h4">Fields without a unit</Heading>
 						<ul className="flex flex-col gap-2">
 							{preview.map((element) => (
 								<MissingUnitRow key={element.target} {...element} />
 							))}
 						</ul>
-						{stats.count > preview.length && (
-							<ViewAllButton
-								label={`View all ${stats.count}`}
+						{count > preview.length && (
+							<InsightLinkButton
+								label={`View all ${count}`}
+								className="mt-1"
 								onClick={() =>
 									dispatch(pushInsightDetail({ kind: "missingUnitsList" }))
 								}

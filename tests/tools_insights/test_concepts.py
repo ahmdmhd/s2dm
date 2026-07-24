@@ -350,6 +350,68 @@ def test_enum_usage_excludes_unused_and_scalar_typed_fields() -> None:
     assert usage_names == {"UsedEnum"}
 
 
+def test_enum_usage_counts_field_argument_occurrences() -> None:
+    sdl = """
+    enum DriveType { FWD RWD }
+
+    type Vehicle {
+      wheels(drive: DriveType): Int
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    counts_by_name = {entry.name: entry.count for entry in concepts.enum_usage}
+    assert counts_by_name["DriveType"] == 1
+
+
+def test_enum_usage_counts_field_output_type_and_argument_separately() -> None:
+    sdl = """
+    enum Status { ON OFF }
+
+    type Vehicle {
+      status(filter: Status): Status
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    counts_by_name = {entry.name: entry.count for entry in concepts.enum_usage}
+    assert counts_by_name["Status"] == 2
+
+
+def test_enum_usage_counts_directive_argument_occurrences() -> None:
+    sdl = """
+    directive @tag(kind: TagKind) on FIELD_DEFINITION
+
+    enum TagKind { A B }
+
+    type Vehicle {
+      id: ID @tag(kind: A)
+    }
+
+    type Query {
+      vehicle: Vehicle
+    }
+    """
+    schema = build_schema(sdl)
+
+    concepts = compute_concepts(schema)
+
+    counts_by_name = {entry.name: entry.count for entry in concepts.enum_usage}
+    assert counts_by_name["TagKind"] == 1
+
+
 def test_enum_value_counts_sorted_by_value_count_descending() -> None:
     sdl = """
     enum Small { A B }

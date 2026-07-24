@@ -1,6 +1,6 @@
-import { ArrowRight } from "lucide-react";
 import { BreakdownGroups } from "@/components/explore/insights/BreakdownGroups";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
+import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	type BreakdownGroup,
@@ -64,14 +64,10 @@ export function CompositionSummaryCard() {
 					No composition data available
 				</p>
 			)}
-			<button
-				type="button"
+			<InsightLinkButton
+				label="View composition"
 				onClick={() => dispatch(setInsightsSubTab("composition"))}
-				className="inline-flex cursor-pointer items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
-			>
-				View composition
-				<ArrowRight className="h-4 w-4" />
-			</button>
+			/>
 		</HighlightableCard>
 	);
 }
