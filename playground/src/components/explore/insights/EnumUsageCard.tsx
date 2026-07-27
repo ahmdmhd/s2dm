@@ -10,7 +10,6 @@ import {
 } from "@/store/insights/insightsSelectors";
 import {
 	openInsightDetail,
-	pushInsightDetail,
 	selectInsightDetail,
 	setInsightsSubTab,
 } from "@/store/ui/uiSlice";
@@ -36,9 +35,6 @@ export function EnumUsageCard() {
 	const openUnusedEnums = () => {
 		dispatch(setInsightsSubTab("quality"));
 		dispatch(openInsightDetail({ kind: "unused" }));
-		dispatch(
-			pushInsightDetail({ kind: "unusedList", category: "Unused enums" }),
-		);
 	};
 
 	let mostUsedSummary: ReactNode;

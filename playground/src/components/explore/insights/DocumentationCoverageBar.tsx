@@ -42,7 +42,7 @@ export function DocumentationCoverageBar({
 			>
 				{label}
 			</span>
-			<div className="h-2 flex-1 rounded-full bg-muted">
+			<div className="h-4 flex-1 rounded-full bg-muted">
 				<div
 					className="h-full rounded-full"
 					style={{
