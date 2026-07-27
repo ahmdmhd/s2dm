@@ -33,9 +33,6 @@ export function EnumUsageDetail() {
 	const openUnusedEnums = () => {
 		dispatch(setInsightsSubTab("quality"));
 		dispatch(openInsightDetail({ kind: "unused" }));
-		dispatch(
-			pushInsightDetail({ kind: "unusedList", category: "Unused enums" }),
-		);
 	};
 
 	return (

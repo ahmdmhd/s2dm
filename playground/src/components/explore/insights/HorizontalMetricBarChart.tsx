@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
 	Bar,
 	BarChart,
@@ -18,6 +19,7 @@ type HorizontalMetricBarChartProps = {
 	axisWidth: number;
 	height?: number | string;
 	formatCategory?: (value: string | number) => string;
+	renderCategoryBadge?: (value: string | number) => ReactNode;
 	reversed?: boolean;
 };
 
@@ -29,6 +31,7 @@ export function HorizontalMetricBarChart({
 	axisWidth,
 	height = 176,
 	formatCategory,
+	renderCategoryBadge,
 	reversed = false,
 }: HorizontalMetricBarChartProps) {
 	return (
@@ -47,13 +50,20 @@ export function HorizontalMetricBarChart({
 						reversed={reversed}
 						axisLine={false}
 						tickLine={false}
-						tick={<CategoryTick width={axisWidth} format={formatCategory} />}
+						tick={
+							<CategoryTick
+								width={axisWidth}
+								format={formatCategory}
+								renderBadge={renderCategoryBadge}
+							/>
+						}
 					/>
 					<Bar
 						dataKey={valueKey}
 						fill="var(--color-blue-500)"
-						radius={[0, 4, 4, 0]}
+						radius={8}
 						barSize={16}
+						isAnimationActive={false}
 					>
 						<LabelList
 							dataKey={valueKey}

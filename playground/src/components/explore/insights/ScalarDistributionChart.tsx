@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { HighlightableCard } from "@/components/explore/insights/HighlightableCard";
 import { HorizontalMetricBarChart } from "@/components/explore/insights/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@/components/explore/insights/InsightLinkButton";
+import { ScalarTypeBadge } from "@/components/explore/insights/ScalarTypeBadge";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
 	selectScalarUsage,
@@ -11,7 +12,7 @@ import {
 import { openInsightDetail, selectInsightDetail } from "@/store/ui/uiSlice";
 import { countTiedForTop } from "@/utils/countTiedForTop";
 
-const SCALAR_AXIS_WIDTH = 140;
+const SCALAR_AXIS_WIDTH = 200;
 
 export function ScalarDistributionChart() {
 	const dispatch = useAppDispatch();
@@ -24,6 +25,17 @@ export function ScalarDistributionChart() {
 	const topScalars = scalarUsage.slice(0, 5);
 	const topScalar = stats?.topScalar;
 	const tiedForMost = countTiedForTop(scalarUsage, (entry) => entry.count);
+	const builtinByName = new Map<string, boolean>(
+		topScalars.map((scalar) => [scalar.name, scalar.is_builtin]),
+	);
+
+	function renderScalarTypeBadge(value: string | number) {
+		const isBuiltin = builtinByName.get(String(value));
+		if (isBuiltin === undefined) {
+			return null;
+		}
+		return <ScalarTypeBadge isBuiltin={isBuiltin} />;
+	}
 
 	let topScalarSummary: ReactNode = null;
 	if (topScalar && tiedForMost > 1) {
@@ -67,6 +79,7 @@ export function ScalarDistributionChart() {
 						valueKey="count"
 						maxValue={topScalar.count}
 						axisWidth={SCALAR_AXIS_WIDTH}
+						renderCategoryBadge={renderScalarTypeBadge}
 					/>
 					<div className="flex gap-6 text-sm text-muted-foreground">
 						<span>
