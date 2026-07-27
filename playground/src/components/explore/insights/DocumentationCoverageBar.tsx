@@ -44,10 +44,9 @@ export function DocumentationCoverageBar({
 			</span>
 			<div className="h-4 flex-1 rounded-full bg-muted">
 				<div
-					className="h-full rounded-full"
+					className={cn("h-full rounded-full", documented > 0 && "min-w-4")}
 					style={{
 						width: `${rawPercent}%`,
-						minWidth: documented > 0 ? "0.25rem" : undefined,
 						backgroundImage: SPECTRUM_GRADIENT,
 						backgroundSize: fillBackgroundSize,
 					}}
