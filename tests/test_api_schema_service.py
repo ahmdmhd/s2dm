@@ -11,11 +11,11 @@ from s2dm.api.services import schema_service
 from s2dm.exporters.utils import schema_loader
 
 
-class TestLoadAndProcessSchemaWrapper:
-    """Test argument forwarding in load_and_process_schema_wrapper."""
+class TestLoadValidatedSchema:
+    """Test argument forwarding in load_validated_schema."""
 
-    def test_wrapper_forwards_all_arguments(self, tmp_path: Path) -> None:
-        """Wrapper forwards converted paths and options to load_and_process_schema."""
+    def test_loader_forwards_all_arguments(self, tmp_path: Path) -> None:
+        """Loader forwards converted paths and options to load_and_process_schema."""
         first_schema = ContentInput(type="content", content="type Query { a: String }")
         second_schema = ContentInput(type="content", content="type Query { b: String }")
         naming_config = ContentInput(type="content", content="field:\n  object: snake_case\n")
@@ -26,7 +26,7 @@ class TestLoadAndProcessSchemaWrapper:
         naming_path = tmp_path / "naming.yaml"
         query_path = tmp_path / "query.graphql"
 
-        expected_annotated_schema = object()
+        expected_annotated_schema = Mock(schema=object())
         expected_query_document = object()
 
         with (
@@ -42,8 +42,9 @@ class TestLoadAndProcessSchemaWrapper:
                 "s2dm.api.services.schema_service.load_and_process_schema",
                 return_value=(expected_annotated_schema, None, expected_query_document),
             ) as load_and_process_schema_mock,
+            patch("s2dm.api.services.schema_service.validate_schema_or_raise") as validate_schema_mock,
         ):
-            annotated_schema, query_document = schema_service.load_and_process_schema_wrapper(
+            annotated_schema, query_document = schema_service.load_validated_schema(
                 schemas=[first_schema, second_schema],
                 naming_config_input=naming_config,
                 selection_query_input=selection_query,
@@ -63,14 +64,15 @@ class TestLoadAndProcessSchemaWrapper:
             root_type="Vehicle",
             expanded_instances=True,
         )
+        validate_schema_mock.assert_called_once_with(expected_annotated_schema.schema)
         assert annotated_schema is expected_annotated_schema
         assert query_document is expected_query_document
 
-    def test_wrapper_omits_optional_paths_when_not_provided(self) -> None:
-        """Wrapper forwards None for optional config/query inputs when omitted."""
+    def test_loader_omits_optional_paths_when_not_provided(self) -> None:
+        """Loader forwards None for optional config/query inputs when omitted."""
         schema_input = ContentInput(type="content", content="type Query { a: String }")
         expected_schema_path = Path("/tmp/schema.graphql")
-        expected_annotated_schema = object()
+        expected_annotated_schema = Mock(schema=object())
 
         with (
             patch(
@@ -82,8 +84,9 @@ class TestLoadAndProcessSchemaWrapper:
                 "s2dm.api.services.schema_service.load_and_process_schema",
                 return_value=(expected_annotated_schema, None, None),
             ) as load_and_process_schema_mock,
+            patch("s2dm.api.services.schema_service.validate_schema_or_raise") as validate_schema_mock,
         ):
-            annotated_schema, query_document = schema_service.load_and_process_schema_wrapper(
+            annotated_schema, query_document = schema_service.load_validated_schema(
                 schemas=[schema_input],
                 naming_config_input=None,
                 selection_query_input=None,
@@ -100,6 +103,7 @@ class TestLoadAndProcessSchemaWrapper:
             root_type=None,
             expanded_instances=False,
         )
+        validate_schema_mock.assert_called_once_with(expected_annotated_schema.schema)
         assert annotated_schema is expected_annotated_schema
         assert query_document is None
 

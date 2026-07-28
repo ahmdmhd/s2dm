@@ -9,7 +9,7 @@ from s2dm.api.config import COMMON_RESPONSES
 from s2dm.api.models.base import ApiResponse
 from s2dm.api.models.protobuf import ProtobufExportRequest
 from s2dm.api.services.response_service import execute_and_respond
-from s2dm.api.services.schema_service import load_and_process_schema_wrapper, validate_schema_or_raise
+from s2dm.api.services.schema_service import load_validated_schema
 from s2dm.exporters.protobuf import translate_to_protobuf
 from s2dm.exporters.utils.extraction import get_root_level_types_from_query
 
@@ -25,15 +25,13 @@ def export_protobuf(request: ProtobufExportRequest) -> ApiResponse:
     """Export GraphQL schema to Protocol Buffers."""
 
     def process_request() -> list[str]:
-        annotated_schema, query_document = load_and_process_schema_wrapper(
+        annotated_schema, query_document = load_validated_schema(
             schemas=request.schemas,
             naming_config_input=request.naming_config,
             selection_query_input=request.selection_query,
             root_type=request.root_type,
             expanded_instances=request.expanded_instances,
         )
-
-        validate_schema_or_raise(annotated_schema.schema)
 
         query_document = cast(DocumentNode, query_document)
 

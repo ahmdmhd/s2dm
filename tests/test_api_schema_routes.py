@@ -2,6 +2,12 @@
 
 from fastapi.testclient import TestClient
 
+INVALID_ENUM_DEFAULT_SCHEMA = """
+enum DriveMode { ECO SPORT }
+input VehicleFilter { mode: DriveMode = COMFORT }
+type Query { vehicle(filter: VehicleFilter): String }
+"""
+
 
 class TestSchemaFilterRoute:
     """Test /api/v1/schema/filter route behavior."""
@@ -57,6 +63,19 @@ class TestSchemaFilterRoute:
         assert response.status_code == 422
         data = response.json()
         assert data["error"] in ["ValidationError", "GraphQLError"]
+
+    def test_filter_schema_invalid_enum_default_returns_422(self, test_client: TestClient) -> None:
+        """Schemas rejected by shared correctness checks fail before filtering."""
+        response = test_client.post(
+            "/api/v1/schema/filter",
+            json={
+                "schemas": [{"type": "content", "content": INVALID_ENUM_DEFAULT_SCHEMA}],
+                "selection_query": {"type": "content", "content": "query Selection { vehicle }"},
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"] == "ValidationError"
 
 
 class TestSchemaValidateRoute:
@@ -234,3 +253,16 @@ class TestQueryValidateRoute:
         data = response.json()
         assert data["error"] == "ValidationError"
         assert "Syntax Error" in data["message"]
+
+    def test_validate_query_invalid_enum_default_returns_422(self, test_client: TestClient) -> None:
+        """Schemas rejected by shared correctness checks fail before query validation."""
+        response = test_client.post(
+            "/api/v1/query/validate",
+            json={
+                "schemas": [{"type": "content", "content": INVALID_ENUM_DEFAULT_SCHEMA}],
+                "selection_query": {"type": "content", "content": "query Selection { vehicle }"},
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"] == "ValidationError"

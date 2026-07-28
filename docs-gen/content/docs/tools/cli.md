@@ -727,16 +727,16 @@ enum VehicleCategory {
 
 ##### Nullability Rules
 
-| GraphQL Type | Strict Mode JSON Schema |
-| ------------- | ------------------------ |
-| `String` | `{"type": ["string", "null"]}` |
-| `String!` | `{"type": "string"}` |
-| `VehicleType` (enum) | `{"oneOf": [{"$ref": "#/$defs/VehicleType"}, {"type": "null"}]}` |
-| `VehicleType!` (enum) | `{"$ref": "#/$defs/VehicleType"}` |
-| `[String]` | Array and items both nullable |
-| `[String!]` | Array nullable, items non-null |
-| `[String]!` | Array non-null, items nullable |
-| `[String!]!` | Array and items both non-null |
+| GraphQL Type          | Strict Mode JSON Schema                                          |
+| --------------------- | ---------------------------------------------------------------- |
+| `String`              | `{"type": ["string", "null"]}`                                   |
+| `String!`             | `{"type": "string"}`                                             |
+| `VehicleType` (enum)  | `{"oneOf": [{"$ref": "#/$defs/VehicleType"}, {"type": "null"}]}` |
+| `VehicleType!` (enum) | `{"$ref": "#/$defs/VehicleType"}`                                |
+| `[String]`            | Array and items both nullable                                    |
+| `[String!]`           | Array nullable, items non-null                                   |
+| `[String]!`           | Array non-null, items nullable                                   |
+| `[String!]!`          | Array and items both non-null                                    |
 
 You can call the help for usage reference:
 
@@ -839,19 +839,19 @@ classes:
 GraphQL scalar types are mapped to LinkML ranges as follows:
 
 | GraphQL Type | LinkML Range |
-| -------------- | -------------- |
-| `String` | `string` |
-| `Int` | `integer` |
-| `Float` | `float` |
-| `Boolean` | `boolean` |
-| `ID` | `string` |
-| `Int8` | `integer` |
-| `UInt8` | `integer` |
-| `Int16` | `integer` |
-| `UInt16` | `integer` |
-| `UInt32` | `integer` |
-| `Int64` | `integer` |
-| `UInt64` | `integer` |
+| ------------ | ------------ |
+| `String`     | `string`     |
+| `Int`        | `integer`    |
+| `Float`      | `float`      |
+| `Boolean`    | `boolean`    |
+| `ID`         | `string`     |
+| `Int8`       | `integer`    |
+| `UInt8`      | `integer`    |
+| `Int16`      | `integer`    |
+| `UInt16`     | `integer`    |
+| `UInt32`     | `integer`    |
+| `Int64`      | `integer`    |
+| `UInt64`     | `integer`    |
 
 Additional type behavior:
 
@@ -1360,7 +1360,7 @@ message Selection {
 GraphQL types are mapped to protobuf types as follows:
 
 | GraphQL Type | Protobuf Type |
-|--------------|---------------|
+| ------------ | ------------- |
 | `String`     | `string`      |
 | `Int`        | `int32`       |
 | `Float`      | `float`       |
@@ -1758,19 +1758,19 @@ s2dm export avro protocol --help
 GraphQL scalar types are mapped to Avro types (same for both exporters):
 
 | GraphQL Type | Avro Type |
-| -------------- | ----------- |
-| `String` | `string` |
-| `Int` | `int` |
-| `Float` | `double` |
-| `Boolean` | `boolean` |
-| `ID` | `string` |
-| `Int8` | `int` |
-| `UInt8` | `int` |
-| `Int16` | `int` |
-| `UInt16` | `int` |
-| `UInt32` | `long` |
-| `Int64` | `long` |
-| `UInt64` | `long` |
+| ------------ | --------- |
+| `String`     | `string`  |
+| `Int`        | `int`     |
+| `Float`      | `double`  |
+| `Boolean`    | `boolean` |
+| `ID`         | `string`  |
+| `Int8`       | `int`     |
+| `UInt8`      | `int`     |
+| `Int16`      | `int`     |
+| `UInt16`     | `int`     |
+| `UInt32`     | `long`    |
+| `Int64`      | `long`    |
+| `UInt64`     | `long`    |
 
 ##### List Types
 
@@ -1902,6 +1902,321 @@ s2dm export avro schema --help
 s2dm export avro protocol --help
 ```
 
+## Insights Commands
+
+The `insights` command group analyzes GraphQL schemas and prints compact JSON summaries. These outputs are aligned with the summary cards in the playground, not the detailed drill-down views.
+
+### Shared Schema Input
+
+All `insights` subcommands require at least one schema input:
+
+- `-s, --schema PATH`: GraphQL schema file, directory, or URL. Can be specified multiple times.
+
+#### Shared Usage Pattern
+
+```bash
+s2dm insights <subcommand> -s <schema_path>
+```
+
+#### Shared Examples
+
+Single file:
+
+```bash
+s2dm insights concepts -s schema.graphql
+```
+
+Directory of schemas:
+
+```bash
+s2dm insights quality -s ./spec/
+```
+
+Multiple schema inputs:
+
+```bash
+s2dm insights relationships -s ./spec/core -s ./spec/extensions.graphql
+```
+
+Remote schema URL:
+
+```bash
+s2dm insights quality -s https://example.org/schema.graphql
+```
+
+### Example Schema
+
+The examples below use a standalone schema assembled from GraphQL snippets already shown elsewhere on this page. The `@instanceTag` directive definition comes from the JSON Schema example, and the `Cabin`/`Door`/`DoorPosition` structure comes from the Protobuf example.
+
+```graphql
+directive @instanceTag on OBJECT
+
+type Cabin {
+  doors: [Door]
+  temperature: Float
+}
+
+type Door {
+  isLocked: Boolean
+  instanceTag: DoorPosition
+}
+
+type DoorPosition @instanceTag {
+  row: RowEnum
+  side: SideEnum
+}
+
+enum RowEnum {
+  ROW1
+  ROW2
+}
+
+enum SideEnum {
+  DRIVERSIDE
+  PASSENGERSIDE
+}
+
+type Query {
+  cabin: Cabin
+}
+```
+
+### Concepts
+
+The `insights concepts` command prints a compact composition summary.
+
+#### Usage
+
+```bash
+s2dm insights concepts -s schema.graphql
+```
+
+#### What It Prints
+
+- `field_container_types`: Object, interface, and input type totals
+- `fields`: Total, leaf-field, and relationship-field counts
+- `enums`: Enum totals and enum-value statistics
+- `scalars`: Built-in versus custom scalar usage totals
+- `enum_usage`: Used versus unused enum counts
+
+#### Example
+
+```bash
+uv run s2dm insights concepts -s schema.graphql
+```
+
+#### Example Output
+
+```text
+{
+  "field_container_types": {
+    "total": 4,
+    "object_types": 4,
+    "interface_types": 0,
+    "input_types": 0
+  },
+  "fields": {
+    "total": 7,
+    "leaf_fields": 4,
+    "relationship_fields": 3
+  },
+  "enums": {
+    "total": 2,
+    "enum_values": 4,
+    "median_values_per_enum": 2.0
+  },
+  "scalars": {
+    "total": 2,
+    "built_in": 2,
+    "custom": 0
+  },
+  "enum_usage": {
+    "used": 2,
+    "unused": 0,
+    "total": 2
+  }
+}
+```
+
+In this example, `Cabin.doors`, `Door.instanceTag`, and `Query.cabin` are counted as relationship fields, while `Cabin.temperature`, `Door.isLocked`, `DoorPosition.row`, and `DoorPosition.side` are counted as leaf fields.
+
+### Relationships
+
+The `insights relationships` command prints a compact relationships summary.
+
+#### Usage
+
+```bash
+s2dm insights relationships -s schema.graphql
+```
+
+#### What It Prints
+
+- `references_count`: Referenced-type totals plus most-referenced, least-referenced, and top-reference previews
+- `deepest_nested_paths`: Maximum depth, how many paths have that maximum depth, depth distribution, and one example deepest path
+- `cyclic_references`: Cycle totals, cycle-length distribution, and one example shortest cycle
+
+#### Example
+
+```bash
+uv run s2dm insights relationships -s schema.graphql
+```
+
+#### Example Output
+
+```text
+{
+  "references_count": {
+    "referenced": 3,
+    "total_references": 3,
+    "unused": 1,
+    "most_referenced": {
+      "name": "Seat",
+      "count": 1
+    },
+    "least_referenced": {
+      "name": "Vehicle",
+      "count": 1
+    },
+    "top_references": [
+      {
+        "name": "Seat",
+        "count": 1
+      },
+      {
+        "name": "SeatTag",
+        "count": 1
+      },
+      {
+        "name": "Vehicle",
+        "count": 1
+      }
+    ]
+  },
+  "deepest_nested_paths": {
+    "max_depth": 2,
+    "paths_with_max_depth_count": 1,
+    "total_paths": 1,
+    "depth_distribution": [
+      {
+        "depth": 2,
+        "path_count": 1
+      }
+    ],
+    "deepest_path_example": {
+      "depth": 2,
+      "path": [
+        "Vehicle",
+        "seat: Seat",
+        "tag: SeatTag"
+      ]
+    }
+  },
+  "cyclic_references": {
+    "count": 0,
+    "shortest_length": 0,
+    "cycle_length_distribution": [],
+    "shortest_cycle_example": null
+  }
+}
+```
+
+In this example, the deepest reachable object-reference path is `Vehicle -> Seat -> SeatTag`, which gives a maximum depth of `2`. There are no cycles, so `cycle_length_distribution` is empty and `shortest_cycle_example` is `null`.
+
+### Quality
+
+The `insights quality` command prints the compact quality summary categories highlighted in the playground, including documentation coverage.
+
+#### Usage
+
+```bash
+s2dm insights quality -s schema.graphql
+```
+
+#### What It Prints
+
+- `coverage`: Per-category documentation totals, documented counts, undocumented counts, and percentages
+- `unused_elements`: Top-level used-versus-unused totals plus grouped summaries under `categories.types`, `categories.enums`, and `categories.directives`
+- `missing_units`: The number of scalar fields that declare no unit
+
+#### Example
+
+```bash
+uv run s2dm insights quality -s schema.graphql
+```
+
+#### Example Output
+
+```text
+{
+  "coverage": {
+    "types": {
+      "total": 4,
+      "documented": 0,
+      "undocumented": 4,
+      "percentage": 0
+    },
+    "fields": {
+      "total": 7,
+      "documented": 0,
+      "undocumented": 7,
+      "percentage": 0
+    },
+    "enums": {
+      "total": 2,
+      "documented": 0,
+      "undocumented": 2,
+      "percentage": 0
+    },
+    "enum_values": {
+      "total": 4,
+      "documented": 0,
+      "undocumented": 4,
+      "percentage": 0
+    },
+    "directives": {
+      "total": 1,
+      "documented": 0,
+      "undocumented": 1,
+      "percentage": 0
+    }
+  },
+  "unused_elements": {
+    "total": 7,
+    "used": 7,
+    "unused": 0,
+    "percentage": 0,
+    "categories": {
+      "types": {
+        "total": 4,
+        "used": 4,
+        "unused": 0,
+        "percentage": 0
+      },
+      "enums": {
+        "total": 2,
+        "used": 2,
+        "unused": 0,
+        "percentage": 0
+      },
+      "directives": {
+        "total": 1,
+        "used": 1,
+        "unused": 0,
+        "percentage": 0
+      }
+    }
+  },
+  "missing_units": {
+    "count": 1
+  }
+}
+```
+
+In this example schema, nothing is unused, so `unused_elements.used` equals `unused_elements.total` and every unused percentage is `0`.
+
+The `missing_units.count` value is `1` because `Cabin.temperature` is a scalar field that does not declare a `unit` argument.
+
 ## Playground Commands
 
 The playground commands initialize and run the local S2DM GUI playground.
@@ -1957,12 +2272,12 @@ s2dm playground start
 s2dm playground start
 ```
 
-
 ## Export RDF
 
 The `export rdf` command materializes a GraphQL schema as RDF triples using the s2dm ontology. It produces two separate graphs: a SKOS graph (concepts, collections, labels) and a data graph (ontology instantiation). Both can be queried with SPARQL.
 
 #### Usage
+
 ```bash
 s2dm export rdf -s <schema_path> -o <output_dir> --namespace <uri>
 ```
@@ -2018,11 +2333,11 @@ s2dm export rdf \
 
 #### Output Formats
 
-| Format | Alias | Extension | Description |
-|--------|-------|-----------|-------------|
-| `nt` | | `.nt` | Sorted n-triples (deterministic, git-friendly diffs) |
-| `turtle` | `ttl` | `.ttl` | Turtle (human-readable, for consumption) |
-| `json-ld` | `jsonld` | `.jsonld` | JSON-LD (for web and linked data tooling) |
+| Format    | Alias    | Extension | Description                                          |
+| --------- | -------- | --------- | ---------------------------------------------------- |
+| `nt`      |          | `.nt`     | Sorted n-triples (deterministic, git-friendly diffs) |
+| `turtle`  | `ttl`    | `.ttl`    | Turtle (human-readable, for consumption)             |
+| `json-ld` | `jsonld` | `.jsonld` | JSON-LD (for web and linked data tooling)            |
 
 The `nt` format is special-cased to produce lexicographically sorted lines, ensuring deterministic output suitable for version control.
 

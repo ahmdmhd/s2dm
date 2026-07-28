@@ -22,6 +22,14 @@ type UrlInput = {
 export type SchemaInput = ContentInput | FileContentInput | UrlInput;
 export type QueryInput = ContentInput;
 
+type SchemasRequest = {
+	schemas: SchemaInput[];
+};
+
+type SchemasWithSelectionQueryRequest = SchemasRequest & {
+	selection_query: QueryInput;
+};
+
 export type DependencyConfigEntry = {
 	name: string;
 	version: string;
@@ -71,14 +79,9 @@ export type ExportResponse = {
 	metadata?: ResponseMetadata;
 };
 
-export type ValidateSchemaRequest = {
-	schemas: SchemaInput[];
-};
+export type ValidateSchemaRequest = SchemasRequest;
 
-export type FilterSchemaRequest = {
-	schemas: SchemaInput[];
-	selection_query: QueryInput;
-};
+export type FilterSchemaRequest = SchemasWithSelectionQueryRequest;
 
 export type OpenAPIPath = {
 	"x-exporter-name"?: string;

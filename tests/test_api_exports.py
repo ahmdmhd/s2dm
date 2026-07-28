@@ -8,6 +8,8 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from s2dm.api.errors import ResponseError
+
 LINKML_SCHEMA_ID = "https://covesa.global/s2dm"
 LINKML_SCHEMA_NAME = "TestSchema"
 LINKML_DEFAULT_PREFIX = "s2dm"
@@ -330,10 +332,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.avro.load_and_process_schema_wrapper",
+                "s2dm.api.routes.avro.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.avro.translate_to_avro_schema", return_value='{"type":"record"}') as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/avro/schema", json=payload)
@@ -341,7 +342,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "avsc"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_avro_protocol_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -354,10 +354,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.avro.load_and_process_schema_wrapper",
+                "s2dm.api.routes.avro.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch(
                 "s2dm.api.routes.avro.translate_to_avro_protocol",
                 return_value={"Selection": "protocol Selection {}"},
@@ -368,7 +367,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "avdl"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_jsonschema_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -380,10 +378,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.jsonschema.load_and_process_schema_wrapper",
+                "s2dm.api.routes.jsonschema.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch(
                 "s2dm.api.routes.jsonschema.translate_to_jsonschema", return_value='{"type":"object"}'
             ) as exporter_mock,
@@ -393,7 +390,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "json"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_protobuf_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -405,10 +401,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.protobuf.load_and_process_schema_wrapper",
+                "s2dm.api.routes.protobuf.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.protobuf.translate_to_protobuf", return_value='syntax = "proto3";') as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/protobuf", json=payload)
@@ -416,7 +411,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "proto"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_shacl_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -430,10 +424,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.shacl.load_and_process_schema_wrapper",
+                "s2dm.api.routes.shacl.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.shacl.translate_to_shacl", return_value=graph_mock) as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/shacl", json=payload)
@@ -441,7 +434,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "ttl"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_vspec_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -452,10 +444,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.vspec.load_and_process_schema_wrapper",
+                "s2dm.api.routes.vspec.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.vspec.translate_to_vspec", return_value="Vehicle:\n  id: {}") as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/vspec", json=payload)
@@ -463,7 +454,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "vspec"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
     def test_linkml_route_calls_internal_functions(self, test_client: TestClient) -> None:
@@ -478,10 +468,9 @@ class TestExportersInternalFunctionsCalled:
 
         with (
             patch(
-                "s2dm.api.routes.linkml.load_and_process_schema_wrapper",
+                "s2dm.api.routes.linkml.load_validated_schema",
                 return_value=(SimpleNamespace(schema=object()), object()),
             ) as wrapper_mock,
-            patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]) as schema_check_mock,
             patch("s2dm.api.routes.linkml.translate_to_linkml", return_value="name: test_schema") as exporter_mock,
         ):
             response = test_client.post("/api/v1/export/linkml", json=payload)
@@ -489,7 +478,6 @@ class TestExportersInternalFunctionsCalled:
         assert response.status_code == 200
         assert response.json()["metadata"]["result_format"] == "yaml"
         wrapper_mock.assert_called_once()
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_called_once()
 
 
@@ -593,12 +581,9 @@ class TestExportSchemaValidationGuards:
         """Schema check failures return 422 and short-circuit exporter execution."""
         with (
             patch(
-                f"{route_module}.load_and_process_schema_wrapper",
-                return_value=(SimpleNamespace(schema=object()), object()),
+                f"{route_module}.load_validated_schema",
+                side_effect=ResponseError("invalid schema"),
             ),
-            patch(
-                "s2dm.api.services.schema_service.check_correct_schema", return_value=["invalid schema"]
-            ) as schema_check_mock,
             patch(f"{route_module}.{exporter_function_name}") as exporter_mock,
         ):
             response = test_client.post(route, json=payload)
@@ -606,5 +591,4 @@ class TestExportSchemaValidationGuards:
         assert response.status_code == 422
         data = response.json()
         assert data["error"] == "ValidationError"
-        schema_check_mock.assert_called_once()
         exporter_mock.assert_not_called()

@@ -250,9 +250,7 @@ def test_scalar_usage_sorted_by_count_descending_then_name() -> None:
 
     concepts = compute_concepts(schema)
 
-    assert concepts.scalar_usage == sorted(
-        concepts.scalar_usage, key=lambda entry: (-entry.count, entry.name)
-    )
+    assert concepts.scalar_usage == sorted(concepts.scalar_usage, key=lambda entry: (-entry.count, entry.name))
     assert concepts.scalar_usage[0].name == "String"
 
 

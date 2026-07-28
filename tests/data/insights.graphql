@@ -1,0 +1,37 @@
+directive @instanceTag on OBJECT
+directive @audit on OBJECT
+
+scalar UInt16
+
+"""Vehicle."""
+type Vehicle {
+  """Identifier."""
+  id: ID!
+  """Seat reference."""
+  seat: Seat
+  speed: UInt16
+  oldSpeed: Int @deprecated(reason: "use speed")
+}
+
+type Seat {
+  tag: SeatTag
+}
+
+type SeatTag @instanceTag {
+  row: RowEnum
+}
+
+"""Seat rows."""
+enum RowEnum {
+  FRONT
+  REAR
+}
+
+enum UnusedEnum {
+  A
+  B
+}
+
+type Query {
+  vehicle: Vehicle
+}

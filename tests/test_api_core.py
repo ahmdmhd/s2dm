@@ -129,7 +129,7 @@ class TestExceptionHandlers:
 
     def test_file_not_found_error_returns_400(self, test_client: TestClient) -> None:
         """FileNotFoundError is mapped to 400."""
-        with patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", side_effect=FileNotFoundError("missing")):
+        with patch("s2dm.api.routes.avro.load_validated_schema", side_effect=FileNotFoundError("missing")):
             response = test_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
 
         assert response.status_code == 400
@@ -138,7 +138,7 @@ class TestExceptionHandlers:
 
     def test_runtime_error_returns_400(self, test_client: TestClient) -> None:
         """RuntimeError is mapped to 400."""
-        with patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", side_effect=RuntimeError("download failed")):
+        with patch("s2dm.api.routes.avro.load_validated_schema", side_effect=RuntimeError("download failed")):
             response = test_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
 
         assert response.status_code == 400
@@ -149,7 +149,7 @@ class TestExceptionHandlers:
         """TypeError is mapped to 422 ValidationError."""
         annotated_schema = SimpleNamespace(schema=object())
         with (
-            patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", return_value=(annotated_schema, object())),
+            patch("s2dm.api.routes.avro.load_validated_schema", return_value=(annotated_schema, object())),
             patch("s2dm.api.services.schema_service.check_correct_schema", return_value=[]),
             patch("s2dm.api.routes.avro.translate_to_avro_schema", side_effect=TypeError("bad type")),
         ):
@@ -163,7 +163,7 @@ class TestExceptionHandlers:
     def test_graphql_syntax_error_returns_422(self, test_client: TestClient) -> None:
         """GraphQLSyntaxError is mapped to 422."""
         syntax_error = GraphQLSyntaxError(Source("query Selection {"), 18, "Syntax Error")
-        with patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", side_effect=syntax_error):
+        with patch("s2dm.api.routes.avro.load_validated_schema", side_effect=syntax_error):
             response = test_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
 
         assert response.status_code == 422
@@ -173,9 +173,7 @@ class TestExceptionHandlers:
 
     def test_graphql_error_returns_422(self, test_client: TestClient) -> None:
         """GraphQLError is mapped to 422."""
-        with patch(
-            "s2dm.api.routes.avro.load_and_process_schema_wrapper", side_effect=GraphQLError("validation failed")
-        ):
+        with patch("s2dm.api.routes.avro.load_validated_schema", side_effect=GraphQLError("validation failed")):
             response = test_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
 
         assert response.status_code == 422
@@ -186,7 +184,7 @@ class TestExceptionHandlers:
     def test_unhandled_exception_returns_500(self) -> None:
         """Unexpected exceptions are mapped to 500."""
         with (
-            patch("s2dm.api.routes.avro.load_and_process_schema_wrapper", side_effect=Exception("unexpected")),
+            patch("s2dm.api.routes.avro.load_validated_schema", side_effect=Exception("unexpected")),
             TestClient(app, raise_server_exceptions=False) as non_raising_client,
         ):
             response = non_raising_client.post("/api/v1/export/avro/schema", json=self._valid_avro_request())
