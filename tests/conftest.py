@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from ariadne import gql
@@ -327,7 +327,7 @@ def schema_builder() -> Callable[[str], GraphQLSchema]:
     """Helper to build schemas consistently."""
 
     def _build(schema_str: str) -> GraphQLSchema:
-        return cast(GraphQLSchema, ensure_query(build_schema(schema_str)))
+        return ensure_query(build_schema(schema_str))
 
     return _build
 
@@ -344,7 +344,7 @@ def inspector_path() -> Path | None:
     Returns:
         Path to node_modules directory, or None if not found
     """
-    path = cast(Path | None, locate_graphql_inspector())
+    path = locate_graphql_inspector()
     if path is None:
         pytest.skip("graphql-inspector not found. Run 'npm install' to install dependencies.")
     return path

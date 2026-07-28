@@ -2154,6 +2154,7 @@ def insights_relationships(schemas: list[Path]) -> None:
     quality = compute_quality_issues(graphql_schema)
     click.echo(format_json_output(build_relationships_summary(relationships, quality)))
 
+
 # insights -> quality
 # ----------
 @insights.command(name="quality")
