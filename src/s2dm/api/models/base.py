@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import AnyHttpUrl, BaseModel, Field, FilePath
 
@@ -36,14 +36,41 @@ BaseInput = PathInput | ContentInput
 ConfigInput = BaseInput
 SchemaInput = BaseInput | FileContentInput | UrlInput
 
+ErrorCode: TypeAlias = Literal[
+    "BadRequest",
+    "FileNotFound",
+    "RuntimeError",
+    "ValidationError",
+    "GraphQLSyntaxError",
+    "GraphQLError",
+    "NotFound",
+    "DependencySourceError",
+    "DependencyUpstreamError",
+    "ServerError",
+]
 
-class BaseExportRequest(BaseModel):
-    """Base request model for all export endpoints with common parameters."""
+
+class SchemasRequest(BaseModel):
+    """Base request model for endpoints that only need schema inputs."""
 
     schemas: list[SchemaInput] = Field(
         description="Array of schema inputs (paths or URLs)",
         json_schema_extra={"x-property-format": "graphql", "x-cli-flag": "--schema"},
     )
+
+
+class SchemasWithSelectionQueryRequest(SchemasRequest):
+    """Base request model for endpoints that require a selection query."""
+
+    selection_query: ConfigInput = Field(
+        description="GraphQL query for filtering (path or inline content)",
+        json_schema_extra={"x-property-format": "graphql", "x-cli-flag": "--selection-query"},
+    )
+
+
+class BaseExportRequest(SchemasRequest):
+    """Base request model for all export endpoints with common parameters."""
+
     selection_query: ConfigInput | None = Field(
         default=None,
         description="Optional GraphQL query for filtering (path or inline content)",
@@ -98,6 +125,6 @@ class ApiResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Error response model."""
 
-    error: str = Field(description="Error type or category")
+    error: ErrorCode = Field(description="Error type or category")
     message: str = Field(description="Detailed error message")
     details: dict[str, Any] | None = Field(default=None, description="Additional error context")

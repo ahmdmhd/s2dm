@@ -6,7 +6,7 @@ from s2dm.api.config import COMMON_RESPONSES
 from s2dm.api.models.base import ApiResponse
 from s2dm.api.models.linkml import LinkmlExportRequest
 from s2dm.api.services.response_service import execute_and_respond
-from s2dm.api.services.schema_service import load_and_process_schema_wrapper, validate_schema_or_raise
+from s2dm.api.services.schema_service import load_validated_schema
 from s2dm.exporters.linkml import translate_to_linkml
 
 router = APIRouter(responses=COMMON_RESPONSES)
@@ -21,15 +21,13 @@ def export_linkml(request: LinkmlExportRequest) -> ApiResponse:
     """Export GraphQL schema to LinkML."""
 
     def process_request() -> list[str]:
-        annotated_schema, _ = load_and_process_schema_wrapper(
+        annotated_schema, _ = load_validated_schema(
             schemas=request.schemas,
             naming_config_input=request.naming_config,
             selection_query_input=request.selection_query,
             root_type=request.root_type,
             expanded_instances=request.expanded_instances,
         )
-
-        validate_schema_or_raise(annotated_schema.schema)
 
         linkml_content = translate_to_linkml(
             annotated_schema,

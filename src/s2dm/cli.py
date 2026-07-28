@@ -86,6 +86,11 @@ from s2dm.tools.insights.concepts import compute_concepts
 from s2dm.tools.insights.coverage import compute_coverage
 from s2dm.tools.insights.quality import compute_quality_issues
 from s2dm.tools.insights.relationships import compute_relationships
+from s2dm.tools.insights.summary import (
+    build_concepts_summary,
+    build_quality_summary,
+    build_relationships_summary,
+)
 from s2dm.tools.validators import validate_language_tag, validate_linkml_uri
 from s2dm.units.sync import (
     UNITS_README_FILENAME,
@@ -95,6 +100,7 @@ from s2dm.units.sync import (
     sync_qudt_units,
 )
 from s2dm.utils.download import download_url_to_temp
+from s2dm.utils.json_output import format_json_output
 from s2dm.utils.url import is_url
 
 S2DM_HOME = Path.home() / ".s2dm"
@@ -1565,7 +1571,7 @@ def diff_graphql(
             sys.exit(2)
 
         # Format JSON output as a direct array
-        json_output = json.dumps([change.model_dump() for change in structured_diff], indent=2, ensure_ascii=False)
+        json_output = format_json_output([change.model_dump() for change in structured_diff])
 
         if output is not None:
             log.info(f"writing file to {output=}")
@@ -2130,16 +2136,11 @@ def stats_graphql(schemas: list[Path]) -> None:
 @insights.command(name="concepts")
 @schema_option
 def insights_concepts(schemas: list[Path]) -> None:
-    """Show concept counts, member names, and object-type field composition."""
-    gql_schema = load_schema(schemas)
-    result = compute_concepts(gql_schema)
-
-    log.rule("Schema Concepts")
-    log.print_dict(result.counts.model_dump())
-    log.print_table(
-        [{"type": entry.type, "fields": str(len(entry.fields))} for entry in result.fields_by_type],
-        title="Fields by Type",
-    )
+    """Show a compact concept summary for the schema."""
+    graphql_schema = load_schema(schemas)
+    concepts = compute_concepts(graphql_schema)
+    quality = compute_quality_issues(graphql_schema)
+    click.echo(format_json_output(build_concepts_summary(concepts, quality)))
 
 
 # insights -> relationships
@@ -2147,76 +2148,23 @@ def insights_concepts(schemas: list[Path]) -> None:
 @insights.command(name="relationships")
 @schema_option
 def insights_relationships(schemas: list[Path]) -> None:
-    """Show the deepest object-reference paths reachable from the schema's root."""
-    gql_schema = load_schema(schemas)
-    result = compute_relationships(gql_schema)
-
-    log.rule("Schema Relationships")
-    if result.max_depth:
-        log.key_value("Max depth", result.max_depth.depth)
-    log.print_table(
-        [
-            {"path": " > ".join(segment.label for segment in path.segments), "depth": str(path.depth)}
-            for path in result.paths[:10]
-        ],
-        title="Deepest Paths",
-    )
-
-
-# insights -> coverage
-# ----------
-@insights.command(name="coverage")
-@schema_option
-def insights_coverage(schemas: list[Path]) -> None:
-    """Show documentation coverage across types, fields, enums, and enum values."""
-    gql_schema = load_schema(schemas)
-    result = compute_coverage(gql_schema)
-
-    log.rule("Documentation Coverage")
-    breakdown = result.breakdown
-    categories = [
-        ("Container types", breakdown.types),
-        ("Fields", breakdown.fields),
-        ("Enums", breakdown.enums),
-        ("Enum values", breakdown.enum_values),
-        ("Directives", breakdown.directives),
-    ]
-    documented = sum(count.documented for _, count in categories)
-    total = sum(count.total for _, count in categories)
-    overall = round(documented / total * 100, 1) if total else 0.0
-    summary = {"overall": f"{overall}%"}
-    for label, count in categories:
-        summary[label] = f"{count.documented}/{count.total}"
-    log.print_dict(summary)
-    log.info(f"{len(result.undocumented)} undocumented entities")
-
+    """Show a compact relationships summary for the schema."""
+    graphql_schema = load_schema(schemas)
+    relationships = compute_relationships(graphql_schema)
+    quality = compute_quality_issues(graphql_schema)
+    click.echo(format_json_output(build_relationships_summary(relationships, quality)))
 
 # insights -> quality
 # ----------
 @insights.command(name="quality")
 @schema_option
 def insights_quality(schemas: list[Path]) -> None:
-    """Show quality issues: missing descriptions, deprecated fields, unused enums."""
-    gql_schema = load_schema(schemas)
-    result = compute_quality_issues(gql_schema)
-
-    log.rule("Quality Issues")
-    if not result.issues:
-        log.success("No quality issues found!")
-        return
-
-    log.print_table(
-        [
-            {
-                "target": issue.target,
-                "problem": issue.problem,
-                "severity": issue.severity,
-                "category": issue.category,
-            }
-            for issue in result.issues
-        ],
-        title="Quality Issues",
-    )
+    """Show a compact quality summary for the schema."""
+    graphql_schema = load_schema(schemas)
+    concepts = compute_concepts(graphql_schema)
+    coverage = compute_coverage(graphql_schema)
+    quality = compute_quality_issues(graphql_schema)
+    click.echo(format_json_output(build_quality_summary(coverage, quality, concepts)))
 
 
 # ---------------------------------------------------------------------------
@@ -2274,12 +2222,12 @@ def _output_results(
     """
     if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(results, indent=2), encoding="utf-8")
+        output.write_text(format_json_output(results), encoding="utf-8")
         log.success(f"Query results written to {output}")
         return
 
     if json_output:
-        click.echo(json.dumps(results, indent=2))
+        click.echo(format_json_output(results))
         return
 
     compact = format_results_as_table(results)

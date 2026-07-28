@@ -1,11 +1,7 @@
 """Models for schema validate endpoint."""
 
-from pydantic import BaseModel, Field
-
-from s2dm.api.models.base import SchemaInput
+from s2dm.api.models.base import SchemasRequest
 
 
-class ValidateSchemaRequest(BaseModel):
+class ValidateSchemaRequest(SchemasRequest):
     """Request model for composing and validating schemas."""
-
-    schemas: list[SchemaInput] = Field(..., description="GraphQL schema files to compose and validate")

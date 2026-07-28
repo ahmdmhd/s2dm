@@ -204,9 +204,7 @@ def _reference_counts(schema: GraphQLSchema) -> list[ReferenceCount]:
     """Reference counts for schema-defined types, sorted by count descending then name."""
     countable_names = {named_type.name for named_type in get_all_named_types(schema) if _is_countable_type(named_type)}
     type_counts = _type_reference_counts(schema)
-    entries = [
-        ReferenceCount(name=name, count=count) for name, count in type_counts.items() if name in countable_names
-    ]
+    entries = [ReferenceCount(name=name, count=count) for name, count in type_counts.items() if name in countable_names]
     entries.sort(key=lambda entry: (-entry.count, entry.name))
     return entries
 

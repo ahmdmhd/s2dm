@@ -1,5 +1,6 @@
 """API tests for schema insights routes."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 VEHICLE_SCHEMA_PAYLOAD = {
@@ -22,6 +23,19 @@ VEHICLE_SCHEMA_PAYLOAD = {
             type Query {
               vehicle: Vehicle
             }
+            """,
+        },
+    ],
+}
+
+INVALID_ENUM_DEFAULT_PAYLOAD = {
+    "schemas": [
+        {
+            "type": "content",
+            "content": """
+            enum DriveMode { ECO SPORT }
+            input VehicleFilter { mode: DriveMode = COMFORT }
+            type Query { vehicle(filter: VehicleFilter): String }
             """,
         },
     ],
@@ -237,3 +251,20 @@ class TestInsightsQualityRoute:
         assert response.status_code == 422
         data = response.json()
         assert data["error"] == "ValidationError"
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/api/v1/insights/concepts",
+        "/api/v1/insights/relationships",
+        "/api/v1/insights/coverage",
+        "/api/v1/insights/quality",
+    ],
+)
+def test_insights_endpoints_invalid_enum_default_returns_422(test_client: TestClient, endpoint: str) -> None:
+    """All insights endpoints reject schemas that fail shared correctness checks."""
+    response = test_client.post(endpoint, json=INVALID_ENUM_DEFAULT_PAYLOAD)
+
+    assert response.status_code == 422
+    assert response.json()["error"] == "ValidationError"

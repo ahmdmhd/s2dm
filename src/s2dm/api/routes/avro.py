@@ -9,7 +9,7 @@ from s2dm.api.config import COMMON_RESPONSES
 from s2dm.api.models.avro import AvroProtocolExportRequest, AvroSchemaExportRequest
 from s2dm.api.models.base import ApiResponse
 from s2dm.api.services.response_service import execute_and_respond
-from s2dm.api.services.schema_service import load_and_process_schema_wrapper, validate_schema_or_raise
+from s2dm.api.services.schema_service import load_validated_schema
 from s2dm.exporters.avro import translate_to_avro_protocol, translate_to_avro_schema
 
 router = APIRouter(responses=COMMON_RESPONSES)
@@ -24,15 +24,13 @@ def export_avro_schema(request: AvroSchemaExportRequest) -> ApiResponse:
     """Export GraphQL schema to Avro Schema."""
 
     def process_request() -> list[str]:
-        annotated_schema, query_document = load_and_process_schema_wrapper(
+        annotated_schema, query_document = load_validated_schema(
             schemas=request.schemas,
             naming_config_input=request.naming_config,
             selection_query_input=request.selection_query,
             root_type=request.root_type,
             expanded_instances=request.expanded_instances,
         )
-
-        validate_schema_or_raise(annotated_schema.schema)
 
         avro_schema = translate_to_avro_schema(annotated_schema, request.namespace, cast(DocumentNode, query_document))
         return [avro_schema]
@@ -49,15 +47,13 @@ def export_avro_protocol(request: AvroProtocolExportRequest) -> ApiResponse:
     """Export GraphQL schema to Avro Protocol (IDL)."""
 
     def process_request() -> list[str]:
-        annotated_schema, _ = load_and_process_schema_wrapper(
+        annotated_schema, _ = load_validated_schema(
             schemas=request.schemas,
             naming_config_input=request.naming_config,
             selection_query_input=request.selection_query,
             root_type=request.root_type,
             expanded_instances=request.expanded_instances,
         )
-
-        validate_schema_or_raise(annotated_schema.schema)
 
         protocols = translate_to_avro_protocol(annotated_schema, request.namespace, request.strict)
         return list(protocols.values())

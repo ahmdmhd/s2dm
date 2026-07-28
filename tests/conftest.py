@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from ariadne import gql
@@ -28,6 +28,7 @@ class TestSchemaData:
     """Test schema data paths and constants."""
 
     TESTS_DATA_DIR: Path = Path(__file__).parent / "data"
+    INSIGHTS_SCHEMA: Path = TESTS_DATA_DIR / "insights.graphql"
     SCHEMA1: Path = TESTS_DATA_DIR / "schema1.graphql"
     SCHEMA2: Path = TESTS_DATA_DIR / "schema2.graphql"
     SCHEMA3: Path = TESTS_DATA_DIR / "schema3.graphql"
@@ -82,6 +83,17 @@ def schema_path(spec_directory: Path) -> list[Path]:
     assert TestSchemaData.SCHEMA1.exists(), f"Missing test file: {TestSchemaData.SCHEMA1}"
     assert TestSchemaData.UNITS_SCHEMA_PATH.exists(), f"Missing units folder: {TestSchemaData.UNITS_SCHEMA_PATH}"
     return [spec_directory, TestSchemaData.SCHEMA1, TestSchemaData.UNITS_SCHEMA_PATH]
+
+
+@pytest.fixture(scope="session")
+def insights_schema_path() -> Path:
+    assert TestSchemaData.INSIGHTS_SCHEMA.exists(), f"Missing test file: {TestSchemaData.INSIGHTS_SCHEMA}"
+    return TestSchemaData.INSIGHTS_SCHEMA
+
+
+@pytest.fixture(scope="session")
+def insights_schema_sdl(insights_schema_path: Path) -> str:
+    return insights_schema_path.read_text(encoding="utf-8")
 
 
 @dataclass
@@ -315,7 +327,7 @@ def schema_builder() -> Callable[[str], GraphQLSchema]:
     """Helper to build schemas consistently."""
 
     def _build(schema_str: str) -> GraphQLSchema:
-        return ensure_query(build_schema(schema_str))
+        return cast(GraphQLSchema, ensure_query(build_schema(schema_str)))
 
     return _build
 
@@ -332,7 +344,7 @@ def inspector_path() -> Path | None:
     Returns:
         Path to node_modules directory, or None if not found
     """
-    path = locate_graphql_inspector()
+    path = cast(Path | None, locate_graphql_inspector())
     if path is None:
         pytest.skip("graphql-inspector not found. Run 'npm install' to install dependencies.")
     return path
