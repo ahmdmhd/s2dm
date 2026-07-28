@@ -101,6 +101,7 @@ def test_build_relationships_summary(insights_schema_sdl: str) -> None:
         },
     }
 
+
 def test_build_quality_summary(insights_schema_sdl: str) -> None:
     concepts, _, coverage, quality = _build_results(insights_schema_sdl)
 

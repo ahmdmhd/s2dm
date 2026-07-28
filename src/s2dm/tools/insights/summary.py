@@ -137,13 +137,9 @@ def build_relationships_summary(relationships: RelationshipsResult, quality: Qua
     total_references = sum(entry.count for entry in relationships.reference_counts)
     most_referenced = relationships.reference_counts[0] if relationships.reference_counts else None
     least_referenced = relationships.reference_counts[-1] if relationships.reference_counts else None
-    top_references = [
-        {"name": entry.name, "count": entry.count} for entry in relationships.reference_counts[:5]
-    ]
+    top_references = [{"name": entry.name, "count": entry.count} for entry in relationships.reference_counts[:5]]
     unused_non_enum_count = sum(
-        1
-        for issue in quality.issues
-        if issue.category.startswith("Unused ") and issue.category != "Unused enums"
+        1 for issue in quality.issues if issue.category.startswith("Unused ") and issue.category != "Unused enums"
     )
     shortest_cycle_length = min((cycle.length for cycle in relationships.cyclic_references), default=0)
     depth_distribution = [
@@ -160,8 +156,7 @@ def build_relationships_summary(relationships: RelationshipsResult, quality: Qua
     for cycle in relationships.cyclic_references:
         cycle_length_counts[cycle.length] = cycle_length_counts.get(cycle.length, 0) + 1
     cycle_length_distribution = [
-        {"length": length, "cycle_count": cycle_length_counts[length]}
-        for length in sorted(cycle_length_counts)
+        {"length": length, "cycle_count": cycle_length_counts[length]} for length in sorted(cycle_length_counts)
     ]
     shortest_cycle_example = None
     if relationships.cyclic_references:
@@ -198,6 +193,7 @@ def build_relationships_summary(relationships: RelationshipsResult, quality: Qua
             "shortest_cycle_example": shortest_cycle_example,
         },
     }
+
 
 def build_quality_summary(
     coverage: CoverageResult,
