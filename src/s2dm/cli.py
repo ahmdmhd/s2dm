@@ -84,6 +84,7 @@ from s2dm.tools.diff_parser import DiffChange
 from s2dm.tools.graphql_inspector import GraphQLInspector, requires_graphql_inspector
 from s2dm.tools.insights.concepts import compute_concepts
 from s2dm.tools.insights.coverage import compute_coverage
+from s2dm.tools.insights.models import InsightsBundle
 from s2dm.tools.insights.quality import compute_quality_issues
 from s2dm.tools.insights.relationships import compute_relationships
 from s2dm.tools.insights.summary import (
@@ -2166,6 +2167,29 @@ def insights_quality(schemas: list[Path]) -> None:
     coverage = compute_coverage(graphql_schema)
     quality = compute_quality_issues(graphql_schema)
     click.echo(format_json_output(build_quality_summary(coverage, quality, concepts)))
+
+
+@insights.command(name="export")
+@schema_option
+@click.option(
+    "--output",
+    "-o",
+    required=True,
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Write the full insight result bundle to this JSON file.",
+)
+def insights_export(schemas: list[Path], output: Path) -> None:
+    """Export full schema insight results for static consumers."""
+    graphql_schema = load_schema(schemas)
+    bundle = InsightsBundle(
+        concepts=compute_concepts(graphql_schema),
+        relationships=compute_relationships(graphql_schema),
+        coverage=compute_coverage(graphql_schema),
+        quality=compute_quality_issues(graphql_schema),
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(bundle.model_dump_json(indent=2) + "\n")
+    log.success(f"Insights written to {output}")
 
 
 # ---------------------------------------------------------------------------

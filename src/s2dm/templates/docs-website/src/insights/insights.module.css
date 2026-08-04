@@ -1,0 +1,13 @@
+.content {
+  min-width: 0;
+  width: 100%;
+}
+
+.status {
+  width: min(100%, 54rem);
+  margin: 4rem auto;
+  padding: 2rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 0.75rem;
+  text-align: center;
+}

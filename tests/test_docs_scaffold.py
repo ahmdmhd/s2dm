@@ -39,6 +39,27 @@ def test_scaffold_creates_output_directory(tmp_path: Path) -> None:
     assert (output / "custom-mdx.cjs").exists()
 
 
+def test_scaffold_includes_insights_page_and_generation_pipeline(tmp_path: Path) -> None:
+    """The generated website includes the self-contained Insights feature."""
+    output = tmp_path / "website"
+    runner = CliRunner()
+    result = _run_scaffold(runner, SAMPLE_OPTS + ["--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    assert (output / "src/insights/InsightsPage.tsx").exists()
+    assert (output / "src/insights/insights.module.css").exists()
+    assert (
+        output / "src/components/explore/insights/ConceptsBreakdown.tsx"
+    ).exists()
+    assert (output / "src/components/InsightsDetailsPane.tsx").exists()
+    assert (output / "src/store/insights/insightsSlice.ts").exists()
+    assert (output / "src/store/ui/uiSlice.ts").exists()
+
+    package_json = (output / "package.json").read_text()
+    assert "s2dm insights export" in package_json
+    assert "static/insights.json" in package_json
+
+
 def test_scaffold_substitutes_placeholders(tmp_path: Path) -> None:
     """Placeholder substitution in docusaurus.config.ts produces expected strings."""
     output = tmp_path / "website"
@@ -61,6 +82,12 @@ def test_scaffold_substitutes_placeholders(tmp_path: Path) -> None:
     assert "$pages_origin" not in config
     assert "$pages_base_url" not in config
     assert "$github_repo_url" not in config
+
+    package_json = (output / "package.json").read_text()
+    package_lock = (output / "package-lock.json").read_text()
+    assert '"name": "my-model-website"' in package_json
+    assert '"name": "my-model-website"' in package_lock
+    assert "$project_name" not in package_lock
 
 
 def test_scaffold_refuses_existing_dir_without_force(tmp_path: Path) -> None:

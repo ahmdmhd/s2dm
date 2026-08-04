@@ -27,7 +27,7 @@ export function ConceptsBreakdown() {
 	return (
 		<HighlightableCard selected={selected}>
 			<span className="text-lg font-semibold text-card-foreground">
-				Elements breakdown
+				Elements Breakdown
 			</span>
 			{hasData ? (
 				<>

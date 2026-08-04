@@ -9,6 +9,7 @@
 .cache-loader
 /docs/api/
 /static/introspection.json
+/static/insights.json
 
 # Misc
 .DS_Store

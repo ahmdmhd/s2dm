@@ -59,7 +59,7 @@ function getInsightDetailView(detail: InsightDetail): InsightDetailView {
 	switch (detail.kind) {
 		case "conceptsBreakdown":
 			return {
-				title: "Elements breakdown",
+				title: "Elements Breakdown",
 				key: detail.kind,
 				content: <ConceptsBreakdownDetail />,
 			};

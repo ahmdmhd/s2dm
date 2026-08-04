@@ -190,3 +190,54 @@ def test_insights_relationships_matches_summary_shape(runner: CliRunner, insight
             "shortest_cycle_example": None,
         },
     }
+
+
+def test_insights_export_writes_full_result_bundle(
+    runner: CliRunner,
+    insights_schema_path: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "insights.json"
+
+    result = runner.invoke(
+        cli,
+        ["insights", "export", "-s", str(insights_schema_path), "-o", str(output)],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output.read_text())
+    assert set(payload) == {"concepts", "relationships", "coverage", "quality"}
+    assert set(payload["concepts"]) == {
+        "counts",
+        "members",
+        "fields_by_type",
+        "enum_value_counts",
+        "scalar_usage",
+        "enum_usage",
+    }
+    assert set(payload["relationships"]) == {
+        "paths",
+        "max_depth",
+        "total_paths",
+        "depth_distribution",
+        "cyclic_references",
+        "reference_counts",
+    }
+    assert set(payload["coverage"]) == {"breakdown", "undocumented"}
+    assert set(payload["quality"]) == {"issues"}
+
+
+def test_insights_export_creates_output_parent(
+    runner: CliRunner,
+    insights_schema_path: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "website" / "static" / "insights.json"
+
+    result = runner.invoke(
+        cli,
+        ["insights", "export", "-s", str(insights_schema_path), "-o", str(output)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert output.is_file()
