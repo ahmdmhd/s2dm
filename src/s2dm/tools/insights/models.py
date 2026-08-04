@@ -208,3 +208,12 @@ class QualityResult(BaseModel):
     """Quality issues found in the schema: missing descriptions, deprecated fields, unused enums."""
 
     issues: list[QualityIssue]
+
+
+class InsightsBundle(BaseModel):
+    """Full insight result payload used by static consumers."""
+
+    concepts: ConceptsResult
+    relationships: RelationshipsResult
+    coverage: CoverageResult
+    quality: QualityResult

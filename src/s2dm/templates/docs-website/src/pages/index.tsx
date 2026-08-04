@@ -40,6 +40,12 @@ export default function Home(): ReactNode {
           >
             Visualizer
           </Link>
+          <Link
+            className="button button--secondary button--lg"
+            to="/insights"
+          >
+            Insights
+          </Link>
         </div>
         <ul className={styles.toolList}>
           <li>
@@ -62,6 +68,7 @@ export default function Home(): ReactNode {
               GraphQL Voyager
             </a>
           </li>
+          <li>Insights generated from the composed schema</li>
         </ul>
       </main>
     </Layout>

@@ -25,20 +25,27 @@ All other files are copied verbatim.
 | `package.json` | Dependencies and scripts (`doc`, `build`, `start`) |
 | `custom-mdx.cjs` | GraphQL Markdown formatter hook — injects Mermaid `classDiagram` into every Object type page |
 | `scripts/generate-introspection.js` | Reads `../dist/model.graphql` and writes `static/introspection.json` for the Voyager visualizer |
-| `src/pages/index.tsx` | Homepage: project title (from config), s2dm/COVESA links, Docs + Visualizer buttons |
+| `src/pages/index.tsx` | Homepage: project title (from config), s2dm/COVESA links, Docs + Visualizer + Insights buttons |
 | `src/pages/index.module.css` | Homepage layout styles |
 | `src/pages/visualizer.tsx` | Voyager page — wraps `static/voyager.html` in a full-height iframe |
-| `src/css/custom.css` | Global CSS overrides (light-only color mode) |
+| `src/pages/insights.tsx` | Static schema insights report with card navigation, charts, and details |
+| `src/components/explore/insights/` | Docs-local copies of the playground insight cards and detail views |
+| `src/css/custom.css` | Global CSS overrides and scoped insight component utilities |
 | `static/voyager.html` | Self-contained Voyager HTML — loads library from CDN, fetches `introspection.json` via baseUrl-relative path |
 | `static/.nojekyll` | Prevents GitHub Pages from running Jekyll on the build output |
 | `static/img/` | Default images: `favicon.ico` (site icon), `docusaurus-social-card.jpg` (OG image referenced by name in config) |
 | `docs/.gitkeep` | Ensures `docs/` exists in a fresh git checkout; Docusaurus requires it before `graphql-to-doc` runs |
-| `.gitignore` | Excludes generated outputs: `docs/api/`, `static/introspection.json`, `build/`, `node_modules/` |
+| `.gitignore` | Excludes generated outputs: `docs/api/`, `static/introspection.json`, `static/insights.json`, `build/`, `node_modules/` |
 
 ## How it integrates with an s2dm project
 
 The website expects the stand-alone composed schema (e.g., produced by `s2dm compose`) at `../dist/model.graphql` relative to the `website/` directory.
 Make sure you generate it before starting the docusaurus website.
+
+Running `npm run doc` generates both static schema artifacts before the API documentation:
+
+- `static/introspection.json` for the visualizer
+- `static/insights.json` for the Insights page
 
 ## Using it as GitHub page
 

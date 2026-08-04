@@ -10,7 +10,7 @@ from s2dm import log
 
 TEMPLATE_DIR = Path(__file__).parent / "templates" / "docs-website"
 
-TEMPLATED_FILES = {"docusaurus.config.ts", "package.json"}
+TEMPLATED_FILES = {"docusaurus.config.ts", "package-lock.json", "package.json"}
 
 
 @click.group()

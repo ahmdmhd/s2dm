@@ -1,9 +1,73 @@
 import { themes as prismThemes } from "prism-react-renderer";
-import type { Config } from "@docusaurus/types";
+import type { LoadedContent, PropSidebar, PropSidebarItem } from "@docusaurus/plugin-content-docs";
+import type { Config, LoadContext, Plugin } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
+const sourceDirectory = fileURLToPath(new URL("./src", import.meta.url));
+
+function addBaseUrlToSidebar(items: PropSidebar, baseUrl: string): PropSidebar {
+  const addBaseUrl = (href: string) =>
+    href.startsWith("/") ? `${baseUrl}${href.slice(1)}` : href;
+
+  return items.map((item): PropSidebarItem => {
+    if (item.type === "link") {
+      return { ...item, href: addBaseUrl(item.href) };
+    }
+    if (item.type === "category") {
+      return {
+        ...item,
+        ...(item.href && { href: addBaseUrl(item.href) }),
+        items: addBaseUrlToSidebar(item.items, baseUrl),
+      };
+    }
+    return item;
+  });
+}
+
+function getSidebarLinks(items: PropSidebar): string[] {
+  return items.flatMap((item) => {
+    if (item.type === "link") {
+      return [item.href];
+    }
+    if (item.type === "category") {
+      return getSidebarLinks(item.items);
+    }
+    return [];
+  });
+}
+
+const insightsPlugin = ({ baseUrl }: LoadContext) => ({
+  name: "s2dm-insights",
+  async allContentLoaded({ allContent, actions }) {
+    const docsContent = allContent["docusaurus-plugin-content-docs"]?.default as LoadedContent | undefined;
+    const version = docsContent?.loadedVersions.find((candidate) => candidate.isLast);
+    const sidebarItems = version?.sidebars.insightsSidebar as PropSidebar | undefined;
+    if (!sidebarItems) {
+      throw new Error("The insightsSidebar definition is missing from sidebars.ts");
+    }
+
+    const sidebar = addBaseUrlToSidebar(sidebarItems, baseUrl);
+    const sidebarData = await actions.createData("insights-sidebar.json", sidebar);
+    for (const path of getSidebarLinks(sidebar)) {
+      actions.addRoute({
+        path,
+        component: "@site/src/insights/InsightsPage.tsx",
+        exact: true,
+        modules: { sidebar: sidebarData },
+      });
+    }
+  },
+  configureWebpack() {
+    return { resolve: { alias: { "@": sourceDirectory } } };
+  },
+  configurePostCss(options) {
+    options.plugins.push(require("@tailwindcss/postcss"));
+    return options;
+  },
+}) satisfies Plugin;
 
 const config: Config = {
   title: "$project_title",
@@ -32,6 +96,7 @@ const config: Config = {
       items: [
         { type: "docSidebar", sidebarId: "tutorialSidebar", position: "left", label: "Docs" },
         { to: "/visualizer", label: "Visualizer", position: "left" },
+        { to: "/insights", label: "Insights", position: "left" },
         { href: "$github_repo_url", label: "GitHub", position: "right" },
       ],
     },
@@ -42,7 +107,7 @@ const config: Config = {
     },
     prism: { theme: prismThemes.github, darkTheme: prismThemes.dracula },
   } satisfies Preset.ThemeConfig,
-  plugins: [[
+  plugins: [insightsPlugin, [
     "@graphql-markdown/docusaurus",
     {
       schema: "../dist/model.graphql",
