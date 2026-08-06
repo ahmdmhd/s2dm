@@ -1,3 +1,4 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { EvidenceList } from "@insights-ui/components/EvidenceList";
 import { ExpandableTypePathRow } from "@insights-ui/components/ExpandableTypePathRow";
 import { RootTypesExcludedNote } from "@insights-ui/components/RootTypesExcludedNote";
@@ -5,7 +6,6 @@ import { selectCycleGroups } from "@insights-ui/selectors/relationships";
 import { useInsightsSelector } from "@insights-ui/state/hooks";
 import type { CyclicReference } from "@insights-ui/types/relationships";
 import { formatPathSegments } from "@insights-ui/utils/formatPathSegments";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 
 function CycleRow({ cycle }: { cycle: CyclicReference }) {

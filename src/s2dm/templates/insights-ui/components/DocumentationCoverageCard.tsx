@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { DocumentationCoverageBar } from "@insights-ui/components/DocumentationCoverageBar";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -36,16 +37,16 @@ export function DocumentationCoverageCard() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
+					<CardSummary>
+						<CardSubtitle>
 							<span className="font-semibold">{overallCoverage}%</span> overall
 							coverage
-						</p>
-						<p className="text-sm text-muted-foreground">
+						</CardSubtitle>
+						<CardSubtitle muted>
 							<span className="font-semibold">{documentedElements}</span> of{" "}
 							{totalElements} {pluralize("element", totalElements)} documented
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					<div className="flex flex-col gap-3">
 						{coverageCategories.map((category) => (
 							<DocumentationCoverageBar
@@ -58,9 +59,7 @@ export function DocumentationCoverageCard() {
 					</div>
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No documentation data available
-				</p>
+				<CardSubtitle muted>No documentation data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

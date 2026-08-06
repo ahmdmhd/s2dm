@@ -1,3 +1,4 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { EvidenceList } from "@insights-ui/components/EvidenceList";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
 import { UndocumentedRow } from "@insights-ui/components/UndocumentedListDetail";
@@ -7,7 +8,6 @@ import {
 	useInsightsSelector,
 } from "@insights-ui/state/hooks";
 import { pushInsightDetail } from "@insights-ui/state/insightDetailSlice";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 
 const ELEMENTS_PER_KIND = 3;

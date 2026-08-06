@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -33,14 +34,14 @@ export function FieldsByTypeChart() {
 	const hasData = largestType && stats;
 
 	const topContainerTypes = containerTypeFieldCounts.slice(0, 5);
-	const secondLargestType = containerTypeFieldCounts[1];
 	const tiedForMost = countTiedForTop(
 		containerTypeFieldCounts,
 		(entry) => entry.fieldCount,
 	);
+	const nextLargestType = containerTypeFieldCounts[tiedForMost];
 	let timesMoreLabel: string | null = null;
-	if (secondLargestType && largestType) {
-		const timesMore = largestType.fieldCount / secondLargestType.fieldCount;
+	if (nextLargestType && largestType) {
+		const timesMore = largestType.fieldCount / nextLargestType.fieldCount;
 		timesMoreLabel =
 			timesMore % 1 === 0 ? `${timesMore}` : timesMore.toFixed(1);
 	}
@@ -48,18 +49,18 @@ export function FieldsByTypeChart() {
 	let largestTypeSummary: ReactNode = null;
 	if (largestType && tiedForMost > 1) {
 		largestTypeSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{tiedForMost}</span> types are tied for
 				most fields, with{" "}
 				<span className="font-semibold">{largestType.fieldCount}</span> each
-			</p>
+			</CardSubtitle>
 		);
 	} else if (largestType) {
 		largestTypeSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{largestType.type}</span> has the most
 				fields: <span className="font-semibold">{largestType.fieldCount}</span>
-			</p>
+			</CardSubtitle>
 		);
 	}
 
@@ -70,15 +71,15 @@ export function FieldsByTypeChart() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
+					<CardSummary>
 						{largestTypeSummary}
-						{secondLargestType && tiedForMost === 1 && (
-							<p className="text-sm text-muted-foreground">
+						{nextLargestType && (
+							<CardSubtitle muted>
 								<span className="font-semibold">{timesMoreLabel}×</span> more
-								than {secondLargestType.type}, the second largest type
-							</p>
+								than {nextLargestType.type}, the next largest type
+							</CardSubtitle>
 						)}
-					</div>
+					</CardSummary>
 					<HorizontalMetricBarChart
 						data={topContainerTypes}
 						categoryKey="type"
@@ -102,7 +103,7 @@ export function FieldsByTypeChart() {
 					</div>
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">No field data available</p>
+				<CardSubtitle muted>No field data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

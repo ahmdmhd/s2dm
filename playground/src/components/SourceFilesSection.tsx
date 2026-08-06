@@ -13,9 +13,9 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { useCallback } from "react";
 import { SourceFileEntry } from "@/components/SourceFileEntry";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectSourceFiles, setSourceFiles } from "@/store/schema/schemaSlice";
 

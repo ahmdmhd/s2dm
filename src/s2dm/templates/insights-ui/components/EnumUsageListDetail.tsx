@@ -1,5 +1,6 @@
 import { EvidenceRow } from "@insights-ui/components/EvidenceRow";
 import { PagedList } from "@insights-ui/components/PagedList";
+import { TypePathBreadcrumb } from "@insights-ui/components/TypePathBreadcrumb";
 import { selectEnumUsage } from "@insights-ui/selectors/concepts";
 import { useInsightsSelector } from "@insights-ui/state/hooks";
 import type { EnumUsage } from "@insights-ui/types/concepts";
@@ -8,9 +9,7 @@ export function EnumUsageRow({ name, count }: EnumUsage) {
 	return (
 		<li>
 			<EvidenceRow className="flex items-center justify-between gap-3 text-sm">
-				<span className="min-w-0 truncate font-medium text-card-foreground">
-					{name}
-				</span>
+				<TypePathBreadcrumb segments={[name]} />
 				<span className="shrink-0">
 					<span className="font-bold text-card-foreground">{count}</span>{" "}
 					<span className="text-muted-foreground">usages</span>

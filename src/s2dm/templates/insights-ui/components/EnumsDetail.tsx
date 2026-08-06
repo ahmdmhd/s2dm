@@ -12,19 +12,21 @@ export function EnumRow({
 	rank,
 }: EnumValueCount & { rank?: string }) {
 	return (
-		<EvidenceRow className="flex items-center justify-between gap-3">
-			<div className="flex min-w-0 items-center gap-2">
-				{rank && (
-					<span className="shrink-0 text-xs font-medium text-muted-foreground">
-						({rank})
-					</span>
-				)}
-				<TypePathBreadcrumb segments={[name]} />
-			</div>
-			<span className="shrink-0 font-medium text-card-foreground">
-				{values} {pluralize("value", values)}
-			</span>
-		</EvidenceRow>
+		<li>
+			<EvidenceRow className="flex items-center justify-between gap-3">
+				<div className="flex min-w-0 items-center gap-2">
+					{rank && (
+						<span className="shrink-0 text-xs font-medium text-muted-foreground">
+							({rank})
+						</span>
+					)}
+					<TypePathBreadcrumb segments={[name]} />
+				</div>
+				<span className="shrink-0 font-medium text-card-foreground">
+					{values} {pluralize("value", values)}
+				</span>
+			</EvidenceRow>
+		</li>
 	);
 }
 
@@ -36,7 +38,6 @@ export function EnumsDetail() {
 			items={enums}
 			getKey={(entry) => entry.name}
 			renderItem={(entry) => <EnumRow {...entry} />}
-			as="div"
 		/>
 	);
 }

@@ -1,14 +1,10 @@
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
-export type EvidenceRowLook = "filled" | "outlined";
-
 type InsightsHostDefaultsValue = {
-	evidenceRowLook: EvidenceRowLook;
 	selectableCards: boolean;
 };
 
 const FALLBACK: InsightsHostDefaultsValue = {
-	evidenceRowLook: "filled",
 	selectableCards: false,
 };
 
@@ -21,7 +17,6 @@ type InsightsHostDefaultsProps = Partial<InsightsHostDefaultsValue> & {
 /**
  * Declare how the shared insights components behave in this host.
  *
- * @param evidenceRowLook - Whether evidence rows are filled or outlined.
  * @param selectableCards - True where cards are tiles in a grid, so each highlights
  *   while its own detail is open and offers a "View details" link. False where a card
  *   owns a route and its detail opens by navigation instead.
@@ -29,14 +24,10 @@ type InsightsHostDefaultsProps = Partial<InsightsHostDefaultsValue> & {
  * @returns The subtree, with the host's choices available through context.
  */
 export function InsightsHostDefaults({
-	evidenceRowLook = FALLBACK.evidenceRowLook,
 	selectableCards = FALLBACK.selectableCards,
 	children,
 }: InsightsHostDefaultsProps) {
-	const value = useMemo(
-		() => ({ evidenceRowLook, selectableCards }),
-		[evidenceRowLook, selectableCards],
-	);
+	const value = useMemo(() => ({ selectableCards }), [selectableCards]);
 
 	return (
 		<InsightsHostDefaultsContext.Provider value={value}>

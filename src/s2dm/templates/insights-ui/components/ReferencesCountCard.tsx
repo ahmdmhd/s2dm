@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -45,30 +46,28 @@ export function ReferencesCountCard() {
 
 	let mostReferencedSummary: ReactNode;
 	if (!mostReferenced) {
-		mostReferencedSummary = (
-			<p className="text-sm text-card-foreground">No referenced types</p>
-		);
+		mostReferencedSummary = <CardSubtitle>No referenced types</CardSubtitle>;
 	} else if (tiedForMost > 1) {
 		mostReferencedSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{tiedForMost}</span> types are tied for
 				most referenced, with{" "}
 				<span className="font-semibold">
 					{mostReferenced.count.toLocaleString()}
 				</span>{" "}
 				{pluralize("reference", mostReferenced.count)} each
-			</p>
+			</CardSubtitle>
 		);
 	} else {
 		mostReferencedSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{mostReferenced.name}</span> is the most
 				referenced with{" "}
 				<span className="font-semibold">
 					{mostReferenced.count.toLocaleString()}
 				</span>{" "}
 				{pluralize("reference", mostReferenced.count)}
-			</p>
+			</CardSubtitle>
 		);
 	}
 
@@ -79,15 +78,15 @@ export function ReferencesCountCard() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
+					<CardSummary>
 						{mostReferencedSummary}
-						<p className="text-sm text-muted-foreground">
+						<CardSubtitle muted>
 							<span className="font-semibold">
 								{stats.referencedCount.toLocaleString()}
 							</span>{" "}
 							{pluralize("type", stats.referencedCount)} referenced
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					{mostReferenced && (
 						<HorizontalMetricBarChart
 							data={topReferences}
@@ -107,22 +106,14 @@ export function ReferencesCountCard() {
 								({leastReferenced.count.toLocaleString()})
 							</span>
 						)}
-						<button
-							type="button"
+						<InsightLinkButton
+							label={`Unused: ${unusedCount.toLocaleString()}`}
 							onClick={openUnusedElements}
-							className="cursor-pointer hover:underline"
-						>
-							Unused:{" "}
-							<span className="font-semibold text-card-foreground">
-								{unusedCount.toLocaleString()}
-							</span>
-						</button>
+						/>
 					</div>
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No references data available
-				</p>
+				<CardSubtitle muted>No references data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

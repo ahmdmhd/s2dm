@@ -25,7 +25,7 @@ from s2dm.tools.insights.models import QualityIssue, QualityResult
 _UNUSED_KINDS: list[tuple[type[GraphQLNamedType], str, str]] = [
     (GraphQLObjectType, "Unused object type", "Unused object types"),
     (GraphQLInterfaceType, "Unused interface", "Unused interfaces"),
-    (GraphQLUnionType, "Unused union", "Unused unions"),
+    (GraphQLUnionType, "Unused union type", "Unused union types"),
     (GraphQLEnumType, "Unused enum", "Unused enums"),
     (GraphQLInputObjectType, "Unused input type", "Unused input types"),
     (GraphQLScalarType, "Unused scalar", "Unused scalars"),

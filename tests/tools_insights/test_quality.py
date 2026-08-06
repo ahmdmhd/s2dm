@@ -120,7 +120,7 @@ def test_unused_element_kinds_are_flagged_by_category() -> None:
     }
     assert "Orphan" in targets_by_category["Unused object types"]
     assert targets_by_category["Unused interfaces"] == {"OrphanInterface"}
-    assert targets_by_category["Unused unions"] == {"OrphanUnion"}
+    assert targets_by_category["Unused union types"] == {"OrphanUnion"}
     assert targets_by_category["Unused input types"] == {"OrphanInput"}
     assert targets_by_category["Unused scalars"] == {"OrphanScalar"}
 

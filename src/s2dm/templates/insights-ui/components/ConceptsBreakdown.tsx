@@ -1,4 +1,5 @@
 import { BreakdownGroups } from "@insights-ui/components/BreakdownGroups";
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
 import { useInsightsHostDefaults } from "@insights-ui/hostDefaults";
@@ -39,24 +40,24 @@ export function ConceptsBreakdown() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
+					<CardSummary>
+						<CardSubtitle>
 							The composed model has{" "}
 							<span className="font-semibold">{totalElements}</span>{" "}
 							{pluralize("element", totalElements)}
-						</p>
-						<p className="text-sm text-muted-foreground">
-							<span className="font-semibold">{largestGroup.title}</span> are
-							the most common, with{" "}
-							<span className="font-semibold">{largestGroup.total}</span>
-						</p>
-					</div>
+						</CardSubtitle>
+						<CardSubtitle muted>
+							<span className="font-semibold">
+								{pluralize.singular(largestGroup.title)}
+							</span>{" "}
+							is the most used element kind (
+							<span className="font-semibold">{largestGroup.total}</span>)
+						</CardSubtitle>
+					</CardSummary>
 					<BreakdownGroups groups={elementGroups} />
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No elements found in the model
-				</p>
+				<CardSubtitle muted>No elements found in the model</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

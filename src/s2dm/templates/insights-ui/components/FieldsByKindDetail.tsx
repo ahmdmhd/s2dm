@@ -1,3 +1,4 @@
+import { EvidenceRow } from "@insights-ui/components/EvidenceRow";
 import { PagedList } from "@insights-ui/components/PagedList";
 import { TypePathBreadcrumb } from "@insights-ui/components/TypePathBreadcrumb";
 import {
@@ -17,13 +18,15 @@ export const CONTAINER_KIND_DOT_CLASSES: Record<ContainerKind, string> = {
 
 export function FieldTypeRow({ field, target }: FieldWithType) {
 	return (
-		<div className="flex items-center gap-2">
-			<TypePathBreadcrumb segments={field.split(".")} />
-			<ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-			<span className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-xs text-card-foreground">
-				{target}
-			</span>
-		</div>
+		<li>
+			<EvidenceRow className="flex items-center gap-2">
+				<TypePathBreadcrumb segments={field.split(".")} />
+				<ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				<span className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-xs text-card-foreground">
+					{target}
+				</span>
+			</EvidenceRow>
+		</li>
 	);
 }
 
@@ -41,7 +44,6 @@ export function FieldsByKindDetail({ fieldKind }: FieldsByKindDetailProps) {
 			items={fields}
 			getKey={(entry) => entry.field}
 			renderItem={(entry) => <FieldTypeRow {...entry} />}
-			as="div"
 		/>
 	);
 }

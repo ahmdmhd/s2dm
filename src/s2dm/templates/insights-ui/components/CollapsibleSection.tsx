@@ -10,6 +10,20 @@ interface CollapsibleSectionProps {
 	className?: string;
 }
 
+/**
+ * A titled section whose body collapses behind its header.
+ *
+ * The body animates between `0fr` and `1fr` grid rows rather than a max-height, so
+ * it expands to whatever the content actually needs instead of scrolling past a cap.
+ * The header carries `border-0` because Docusaurus gives a raw button a border that
+ * Tailwind's Preflight would otherwise have removed; it is inert where Preflight runs.
+ *
+ * @param title - Header text, and the click target that toggles the body.
+ * @param defaultCollapsed - Whether the body starts closed.
+ * @param children - The body content.
+ * @param className - Extra classes for the outer element.
+ * @returns The section.
+ */
 export function CollapsibleSection({
 	title,
 	defaultCollapsed = false,
@@ -38,11 +52,11 @@ export function CollapsibleSection({
 			</Button>
 			<div
 				className={cn(
-					"px-2 overflow-hidden transition-all duration-300 ease-in-out",
-					isCollapsed ? "max-h-0" : "max-h-100",
+					"px-2 grid transition-all duration-300 ease-in-out",
+					isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
 				)}
 			>
-				<div className="overflow-y-auto max-h-100">{children}</div>
+				<div className="overflow-hidden">{children}</div>
 			</div>
 		</div>
 	);

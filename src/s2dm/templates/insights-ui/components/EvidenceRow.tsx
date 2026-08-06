@@ -1,20 +1,5 @@
-import { useInsightsHostDefaults } from "@insights-ui/hostDefaults";
-import { cva } from "class-variance-authority";
 import type { ReactNode } from "react";
 import { cn } from "@/utils/cn";
-
-const evidenceRow = cva("rounded-md", {
-	variants: {
-		look: {
-			filled: "bg-muted",
-			outlined: "border border-border",
-		},
-		padded: {
-			true: "px-3 py-2",
-			false: "",
-		},
-	},
-});
 
 type EvidenceRowProps = {
 	children: ReactNode;
@@ -28,11 +13,13 @@ export function EvidenceRow({
 	padded = true,
 	className,
 }: EvidenceRowProps) {
-	const { evidenceRowLook } = useInsightsHostDefaults();
-
 	return (
 		<div
-			className={cn(evidenceRow({ look: evidenceRowLook, padded }), className)}
+			className={cn(
+				"rounded-md border border-border",
+				padded && "px-3 py-2",
+				className,
+			)}
 		>
 			{children}
 		</div>

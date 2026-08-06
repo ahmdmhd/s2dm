@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -43,18 +44,18 @@ export function DeepestPathsChart() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
+					<CardSummary>
+						<CardSubtitle>
 							The deepest path is{" "}
 							<span className="font-semibold">{stats.max}</span>{" "}
 							{pluralize("hop", stats.max)} deep
-						</p>
-						<p className="text-sm text-muted-foreground">
+						</CardSubtitle>
+						<CardSubtitle muted>
 							<span className="font-semibold">{stats.deepestCount}</span>{" "}
 							{pluralize("path", stats.deepestCount)}{" "}
 							{stats.deepestCount === 1 ? "ties" : "tie"} at the maximum depth
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					<HorizontalMetricBarChart
 						data={depthDistribution}
 						categoryKey="depth"
@@ -92,9 +93,7 @@ export function DeepestPathsChart() {
 					)}
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No path depth data available
-				</p>
+				<CardSubtitle muted>No path depth data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

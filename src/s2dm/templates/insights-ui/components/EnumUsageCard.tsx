@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -44,24 +45,22 @@ export function EnumUsageCard() {
 
 	let mostUsedSummary: ReactNode;
 	if (!mostUsed) {
-		mostUsedSummary = (
-			<p className="text-sm text-card-foreground">No enums are used</p>
-		);
+		mostUsedSummary = <CardSubtitle>No enums are used</CardSubtitle>;
 	} else if (tiedForMost > 1) {
 		mostUsedSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{tiedForMost}</span> enums are tied for
 				most used, with <span className="font-semibold">{mostUsed.count}</span>{" "}
 				{pluralize("usage", mostUsed.count)} each
-			</p>
+			</CardSubtitle>
 		);
 	} else {
 		mostUsedSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{mostUsed.name}</span> is the most used
 				enum: <span className="font-semibold">{mostUsed.count}</span>{" "}
 				{pluralize("usage", mostUsed.count)}
-			</p>
+			</CardSubtitle>
 		);
 	}
 
@@ -72,15 +71,15 @@ export function EnumUsageCard() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
+					<CardSummary>
 						{mostUsedSummary}
-						<p className="text-sm text-muted-foreground">
+						<CardSubtitle muted>
 							<span className="font-semibold">{stats.usedCount}</span> used
 							across{" "}
 							<span className="font-semibold">{stats.totalOccurrences}</span>{" "}
 							{pluralize("usage", stats.totalOccurrences)}
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					{mostUsed && (
 						<HorizontalMetricBarChart
 							data={topEnums}
@@ -100,20 +99,14 @@ export function EnumUsageCard() {
 								({leastUsed.count})
 							</span>
 						)}
-						<button
-							type="button"
+						<InsightLinkButton
+							label={`Unused: ${unusedCount}`}
 							onClick={openUnusedEnums}
-							className="cursor-pointer hover:underline"
-						>
-							Unused:{" "}
-							<span className="font-semibold text-card-foreground">
-								{unusedCount}
-							</span>
-						</button>
+						/>
 					</div>
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">No enum data available</p>
+				<CardSubtitle muted>No enum data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

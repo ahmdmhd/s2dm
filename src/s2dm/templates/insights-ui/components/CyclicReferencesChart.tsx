@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -45,24 +46,24 @@ export function CyclicReferencesChart() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
+					<CardSummary>
+						<CardSubtitle>
 							<span className="font-semibold">{cycleCount}</span> cyclic{" "}
 							{pluralize("reference", cycleCount)}{" "}
 							{cycleCount === 1 ? "was" : "were"} detected
-						</p>
+						</CardSubtitle>
 						{stats ? (
-							<p className="text-sm text-muted-foreground">
+							<CardSubtitle muted>
 								The shortest cycle is{" "}
 								<span className="font-semibold">{stats.shortest}</span>{" "}
 								{pluralize("hop", stats.shortest)} long
-							</p>
+							</CardSubtitle>
 						) : (
-							<p className="text-sm text-muted-foreground">
+							<CardSubtitle muted>
 								No reference loops were found in the model
-							</p>
+							</CardSubtitle>
 						)}
-					</div>
+					</CardSummary>
 					{stats && (
 						<>
 							<HorizontalMetricBarChart
@@ -103,9 +104,7 @@ export function CyclicReferencesChart() {
 					)}
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No relationships data available
-				</p>
+				<CardSubtitle muted>No relationships data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

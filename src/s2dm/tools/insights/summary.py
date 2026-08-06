@@ -9,7 +9,7 @@ _UNUSED_CATEGORY_GROUPS: list[tuple[str, str, tuple[str, ...], tuple[str, ...]]]
         (
             "Unused object types",
             "Unused interfaces",
-            "Unused unions",
+            "Unused union types",
             "Unused input types",
             "Unused scalars",
         ),

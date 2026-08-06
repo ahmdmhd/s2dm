@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -48,20 +49,20 @@ export function ScalarDistributionChart() {
 	let topScalarSummary: ReactNode = null;
 	if (topScalar && tiedForMost > 1) {
 		topScalarSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{tiedForMost}</span> datatypes are tied
 				for most used, with{" "}
 				<span className="font-semibold">{topScalar.count}</span>{" "}
 				{pluralize("field", topScalar.count)} each
-			</p>
+			</CardSubtitle>
 		);
 	} else if (topScalar) {
 		topScalarSummary = (
-			<p className="text-sm text-card-foreground">
+			<CardSubtitle>
 				<span className="font-semibold">{topScalar.name}</span> is the most used
 				datatype: <span className="font-semibold">{topScalar.count}</span>{" "}
 				{pluralize("field", topScalar.count)}
-			</p>
+			</CardSubtitle>
 		);
 	}
 
@@ -72,15 +73,15 @@ export function ScalarDistributionChart() {
 			</span>
 			{hasData && topScalar ? (
 				<>
-					<div className="flex flex-col gap-1">
+					<CardSummary>
 						{topScalarSummary}
-						<p className="text-sm text-muted-foreground">
+						<CardSubtitle muted>
 							<span className="font-semibold">{stats.scalarCount}</span>{" "}
 							{pluralize("datatype", stats.scalarCount)} across{" "}
 							<span className="font-semibold">{stats.totalOccurrences}</span>{" "}
 							field {pluralize("usage", stats.totalOccurrences)}
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					<HorizontalMetricBarChart
 						data={topScalars}
 						categoryKey="name"
@@ -105,9 +106,7 @@ export function ScalarDistributionChart() {
 					</div>
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No scalar data available
-				</p>
+				<CardSubtitle muted>No scalar data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton
