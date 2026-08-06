@@ -1,9 +1,9 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { Hammer } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { ConfirmActionDialog } from "@/components/ConfirmActionDialog";
 import { DependencyEntry } from "@/components/DependencyEntry";
 import { BuiltSchemaViewerButton } from "@/components/dependencies/BuiltSchemaViewerButton";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SplitActionButton } from "@/components/ui/split-action-button";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { useDependencyExploration } from "@/hooks/useDependencyExploration";

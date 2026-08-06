@@ -1,4 +1,7 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { EnumRow } from "@insights-ui/components/EnumsDetail";
+import { EvidenceList } from "@insights-ui/components/EvidenceList";
+import { EvidenceRow } from "@insights-ui/components/EvidenceRow";
 import { FieldTypeRow } from "@insights-ui/components/FieldsByKindDetail";
 import type { GraphQLConcept } from "@insights-ui/components/graphqlConceptStyles";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -15,7 +18,6 @@ import {
 } from "@insights-ui/state/hooks";
 import { pushInsightDetail } from "@insights-ui/state/insightDetailSlice";
 import type { ReactNode } from "react";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 
 const SAMPLE_SIZE = 3;
@@ -60,11 +62,15 @@ function ConceptSampleSection({
 
 	return (
 		<EvidenceSubsection title={title}>
-			<div className="flex flex-wrap gap-2">
+			<EvidenceList>
 				{sample.map((name) => (
-					<TypePathBreadcrumb key={name} segments={[name]} truncate={false} />
+					<li key={name}>
+						<EvidenceRow>
+							<TypePathBreadcrumb segments={[name]} truncate={false} />
+						</EvidenceRow>
+					</li>
 				))}
-			</div>
+			</EvidenceList>
 			{totalCount > sample.length && (
 				<InsightLinkButton
 					label={`View all ${totalCount}`}
@@ -205,11 +211,11 @@ export function ConceptsBreakdownDetail() {
 						<EvidenceSubsection title="Leaf fields">
 							{leafFields.length > 0 ? (
 								<>
-									<div className="flex flex-col gap-2">
+									<EvidenceList>
 										{leafSample.map((entry) => (
 											<FieldTypeRow key={entry.field} {...entry} />
 										))}
-									</div>
+									</EvidenceList>
 									{leafFields.length > leafSample.length && (
 										<InsightLinkButton
 											label={`View all ${leafFields.length}`}
@@ -235,11 +241,11 @@ export function ConceptsBreakdownDetail() {
 						<EvidenceSubsection title="Relationship fields">
 							{relationshipFields.length > 0 ? (
 								<>
-									<div className="flex flex-col gap-2">
+									<EvidenceList>
 										{relationshipSample.map((entry) => (
 											<FieldTypeRow key={entry.field} {...entry} />
 										))}
-									</div>
+									</EvidenceList>
 									{relationshipFields.length > relationshipSample.length && (
 										<InsightLinkButton
 											label={`View all ${relationshipFields.length}`}
@@ -268,9 +274,11 @@ export function ConceptsBreakdownDetail() {
 					<div className="flex flex-col gap-2 py-3">
 						{enums.length > 0 ? (
 							<>
-								{enumSample.map((entry) => (
-									<EnumRow key={`${entry.name}:${entry.rank}`} {...entry} />
-								))}
+								<EvidenceList>
+									{enumSample.map((entry) => (
+										<EnumRow key={`${entry.name}:${entry.rank}`} {...entry} />
+									))}
+								</EvidenceList>
 								<InsightLinkButton
 									label={`View all ${enums.length}`}
 									className="mt-1"

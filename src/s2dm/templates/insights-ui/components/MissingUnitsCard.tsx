@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { EvidenceList } from "@insights-ui/components/EvidenceList";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -37,25 +38,25 @@ export function MissingUnitsCard() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
+					<CardSummary>
 						{stats.count > 0 ? (
-							<p className="text-sm text-card-foreground">
+							<CardSubtitle>
 								<span className="font-semibold">
 									{stats.count.toLocaleString()}
 								</span>{" "}
 								scalar {pluralize("field", stats.count)}{" "}
 								{stats.count === 1 ? "declares" : "declare"} no unit
-							</p>
+							</CardSubtitle>
 						) : (
-							<p className="text-sm text-card-foreground">
+							<CardSubtitle>
 								Every measurable field declares a unit
-							</p>
+							</CardSubtitle>
 						)}
-						<p className="text-sm text-muted-foreground">
+						<CardSubtitle muted>
 							Sanity check — units are recommended for measurable fields, not
 							required.
-						</p>
-					</div>
+						</CardSubtitle>
+					</CardSummary>
 					{preview.length > 0 && (
 						<EvidenceList>
 							{preview.map((element) => (
@@ -65,9 +66,7 @@ export function MissingUnitsCard() {
 					)}
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No missing units data available
-				</p>
+				<CardSubtitle muted>No missing units data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

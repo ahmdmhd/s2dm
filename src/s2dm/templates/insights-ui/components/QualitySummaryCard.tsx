@@ -1,4 +1,5 @@
 import { BreakdownGroups } from "@insights-ui/components/BreakdownGroups";
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
 import type { BreakdownGroup } from "@insights-ui/selectors/concepts";
@@ -12,6 +13,7 @@ import {
 	useInsightsSelector,
 } from "@insights-ui/state/hooks";
 import { setInsightsSubTab } from "@insights-ui/state/insightDetailSlice";
+import pluralize from "pluralize";
 
 const UNUSED_COLORS = ["bg-sky-500", "bg-purple-500", "bg-emerald-500"];
 
@@ -22,6 +24,12 @@ export function QualitySummaryCard() {
 	);
 	const unusedCategories = useInsightsSelector(selectUnusedCategories);
 	const missingUnitsStats = useInsightsSelector(selectMissingUnitsStats);
+
+	const totalUnused = unusedCategories.reduce(
+		(sum, category) => sum + category.unused,
+		0,
+	);
+	const missingUnitsCount = missingUnitsStats?.count ?? 0;
 
 	const groups: BreakdownGroup[] = [];
 	if (documentationStats) {
@@ -43,10 +51,6 @@ export function QualitySummaryCard() {
 		});
 	}
 	if (unusedCategories.length > 0) {
-		const totalUnused = unusedCategories.reduce(
-			(sum, category) => sum + category.unused,
-			0,
-		);
 		groups.push({
 			title: "Unused elements",
 			total: totalUnused,
@@ -60,7 +64,7 @@ export function QualitySummaryCard() {
 	if (missingUnitsStats) {
 		groups.push({
 			title: "Missing units",
-			total: missingUnitsStats.count,
+			total: missingUnitsCount,
 		});
 	}
 
@@ -70,11 +74,27 @@ export function QualitySummaryCard() {
 				Quality Summary
 			</span>
 			{groups.length > 0 ? (
-				<BreakdownGroups groups={groups} />
+				<>
+					<CardSummary>
+						{documentationStats && (
+							<CardSubtitle>
+								<span className="font-semibold">
+									{documentationStats.overallCoverage}%
+								</span>{" "}
+								of elements are documented
+							</CardSubtitle>
+						)}
+						<CardSubtitle muted>
+							<span className="font-semibold">{totalUnused}</span> unused{" "}
+							{pluralize("element", totalUnused)} and{" "}
+							<span className="font-semibold">{missingUnitsCount}</span> scalar{" "}
+							{pluralize("field", missingUnitsCount)} missing units
+						</CardSubtitle>
+					</CardSummary>
+					<BreakdownGroups groups={groups} />
+				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No quality data available
-				</p>
+				<CardSubtitle muted>No quality data available</CardSubtitle>
 			)}
 			<InsightLinkButton
 				label="View quality"

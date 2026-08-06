@@ -1,7 +1,7 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { ExternalLink } from "lucide-react";
 import { TextEditor } from "@/components/TextEditor";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { FormLabel } from "@/components/ui/form-label";
 import { Input } from "@/components/ui/input";
 import {

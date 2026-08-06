@@ -1,3 +1,4 @@
+import { CardSubtitle, CardSummary } from "@insights-ui/components/CardSummary";
 import { HighlightableCard } from "@insights-ui/components/HighlightableCard";
 import { HorizontalMetricBarChart } from "@insights-ui/components/HorizontalMetricBarChart";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
@@ -48,22 +49,22 @@ export function UnusedElementsCard() {
 			</span>
 			{hasData ? (
 				<>
-					<div className="flex flex-col gap-1">
-						<p className="text-sm text-card-foreground">
+					<CardSummary>
+						<CardSubtitle>
 							<span className="font-semibold">{totalUnused}</span> unused{" "}
 							{pluralize("element", totalUnused)}
-						</p>
+						</CardSubtitle>
 						{totalUnused > 0 ? (
-							<p className="text-sm text-muted-foreground">
+							<CardSubtitle muted>
 								out of <span className="font-semibold">{totalElements}</span>{" "}
 								{pluralize("element", totalElements)}
-							</p>
+							</CardSubtitle>
 						) : (
-							<p className="text-sm text-muted-foreground">
+							<CardSubtitle muted>
 								No unused elements were found in the model
-							</p>
+							</CardSubtitle>
 						)}
-					</div>
+					</CardSummary>
 					{totalUnused > 0 && (
 						<HorizontalMetricBarChart
 							data={chartCategories}
@@ -76,9 +77,7 @@ export function UnusedElementsCard() {
 					)}
 				</>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No unused elements data available
-				</p>
+				<CardSubtitle muted>No unused elements data available</CardSubtitle>
 			)}
 			{selectableCards && (
 				<InsightLinkButton

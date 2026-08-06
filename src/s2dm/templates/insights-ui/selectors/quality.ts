@@ -34,7 +34,7 @@ const UNUSED_CATEGORIES: {
 		categories: [
 			"Unused object types",
 			"Unused interfaces",
-			"Unused unions",
+			"Unused union types",
 			"Unused input types",
 			"Unused scalars",
 		],

@@ -58,7 +58,7 @@ function AppContent() {
 function App() {
 	return (
 		<Provider store={store}>
-			<InsightsHostDefaults evidenceRowLook="outlined" selectableCards>
+			<InsightsHostDefaults selectableCards>
 				<AppContent />
 			</InsightsHostDefaults>
 		</Provider>

@@ -1,3 +1,4 @@
+import { CollapsibleSection } from "@insights-ui/components/CollapsibleSection";
 import { EvidenceList } from "@insights-ui/components/EvidenceList";
 import { InsightLinkButton } from "@insights-ui/components/InsightLinkButton";
 import { PathRow } from "@insights-ui/components/PathsByDepthDetail";
@@ -9,7 +10,6 @@ import {
 } from "@insights-ui/state/hooks";
 import { pushInsightDetail } from "@insights-ui/state/insightDetailSlice";
 import { formatPathSegments } from "@insights-ui/utils/formatPathSegments";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Heading } from "@/components/ui/heading";
 
 const PATHS_PER_GROUP = 3;

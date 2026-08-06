@@ -226,7 +226,7 @@ export default function InsightsPage({
 	} else {
 		content = (
 			<Provider store={store}>
-				<InsightsHostDefaults evidenceRowLook="filled">
+				<InsightsHostDefaults>
 					<InsightsContent />
 				</InsightsHostDefaults>
 			</Provider>
