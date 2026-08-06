@@ -9,7 +9,8 @@
     "strict": true,
     "noEmit": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@insights-ui/*": ["./src/insights-ui/*", "../insights-ui/*"]
     }
   },
   "exclude": [".docusaurus", "build"]

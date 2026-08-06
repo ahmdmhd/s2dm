@@ -1,3 +1,16 @@
+import {
+	type InsightsSubTab,
+	selectInsightsSubTab,
+	setInsightsSubTab,
+} from "@insights-ui/state/insightDetailSlice";
+import {
+	fetchInsights,
+	selectInsightsConcepts,
+	selectInsightsCoverage,
+	selectInsightsError,
+	selectInsightsRelationships,
+	selectIsLoadingInsights,
+} from "@insights-ui/state/insightsSlice";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { CompositionTab } from "@/components/explore/insights/CompositionTab";
@@ -8,25 +21,12 @@ import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-	fetchInsights,
-	selectInsightsConcepts,
-	selectInsightsCoverage,
-	selectInsightsError,
-	selectInsightsRelationships,
-	selectIsLoadingInsights,
-} from "@/store/insights/insightsSlice";
 import { selectFilteredSchema } from "@/store/schema/schemaSlice";
-import {
-	type InsightsSubTab,
-	selectExploreTab,
-	selectInsightsSubTab,
-	setInsightsSubTab,
-} from "@/store/ui/uiSlice";
+import { selectExploreTab } from "@/store/ui/uiSlice";
 
 export function InsightsTab() {
 	const dispatch = useAppDispatch();
-	const activeSubTab = useAppSelector(selectInsightsSubTab);
+	const activeSubTab = useAppSelector(selectInsightsSubTab) ?? "overview";
 	const activeTab = useAppSelector(selectExploreTab);
 	const filteredSchema = useAppSelector(selectFilteredSchema);
 	const concepts = useAppSelector(selectInsightsConcepts);

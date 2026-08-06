@@ -10,8 +10,22 @@ export default defineConfig({
 		format: "es",
 	},
 	resolve: {
-		alias: [{ find: "@", replacement: path.resolve(__dirname, "./src") }],
+		alias: [
+			{ find: "@", replacement: path.resolve(__dirname, "./src") },
+			{
+				find: "@insights-ui",
+				replacement: path.resolve(
+					__dirname,
+					"../src/s2dm/templates/insights-ui",
+				),
+			},
+		],
 		dedupe: ["monaco-editor"],
+	},
+	server: {
+		fs: {
+			allow: [path.resolve(__dirname, "..")],
+		},
 	},
 	optimizeDeps: {
 		include: ["react-compiler-runtime", "nullthrows"],

@@ -1,3 +1,5 @@
+import type { InsightDetailState } from "@insights-ui/state/insightDetailSlice";
+import type { InsightsState } from "@insights-ui/state/insightsSlice";
 import type { CapabilitiesState } from "@/store/capabilities/capabilitiesSlice";
 import type { DepsComposeState } from "@/store/deps/compose/composeSlice";
 import type { DependencyExplorationState } from "@/store/deps/dependencyExploration/dependencyExplorationSlice";
@@ -5,7 +7,6 @@ import type { DepsState } from "@/store/deps/depsSlice";
 import type { DepsIdentitiesState } from "@/store/deps/identities/identitiesSlice";
 import type { DepsResolveState } from "@/store/deps/resolve/resolveSlice";
 import type { ExportState } from "@/store/export/exportSlice";
-import type { InsightsState } from "@/store/insights/insightsSlice";
 import type { SchemaState } from "@/store/schema/schemaSlice";
 import type { SelectionState } from "@/store/selection/selectionSlice";
 import type { UIState } from "@/store/ui/uiSlice";
@@ -24,4 +25,5 @@ export interface RootState {
 	schemaExport: ExportState;
 	capabilities: CapabilitiesState;
 	insights: InsightsState;
+	insightDetail: InsightDetailState;
 }

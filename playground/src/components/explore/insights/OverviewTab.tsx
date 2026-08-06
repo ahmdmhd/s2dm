@@ -1,6 +1,6 @@
-import { CompositionSummaryCard } from "@/components/explore/insights/CompositionSummaryCard";
-import { ConceptsBreakdown } from "@/components/explore/insights/ConceptsBreakdown";
-import { QualitySummaryCard } from "@/components/explore/insights/QualitySummaryCard";
+import { CompositionSummaryCard } from "@insights-ui/components/CompositionSummaryCard";
+import { ConceptsBreakdown } from "@insights-ui/components/ConceptsBreakdown";
+import { QualitySummaryCard } from "@insights-ui/components/QualitySummaryCard";
 import { TabsContent } from "@/components/ui/tabs";
 
 export function OverviewTab() {

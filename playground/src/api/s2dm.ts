@@ -1,16 +1,16 @@
+import type { ConceptsResponse } from "@insights-ui/types/concepts";
+import type { CoverageResponse } from "@insights-ui/types/coverage";
+import type { QualityResponse } from "@insights-ui/types/quality";
+import type { RelationshipsResponse } from "@insights-ui/types/relationships";
 import { AxiosError } from "axios";
 import { apiClient } from "@/api/client";
 import type {
-	ConceptsResponse,
-	CoverageResponse,
 	DependenciesIdentities,
 	DependenciesStatusResponse,
 	ExportResponse,
 	FilterSchemaRequest,
 	GetDependenciesConfigResponse,
-	QualityResponse,
 	QueryInput,
-	RelationshipsResponse,
 	SaveDependenciesConfigRequest,
 	SchemaInput,
 	ValidateSchemaRequest,

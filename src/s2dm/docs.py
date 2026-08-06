@@ -10,7 +10,46 @@ from s2dm import log
 
 TEMPLATE_DIR = Path(__file__).parent / "templates" / "docs-website"
 
+# Host-agnostic React components shared with the playground. Vendored into the scaffolded
+# website so it stays self-contained, and reachable there through the `@insights-ui` alias.
+INSIGHTS_UI_DIR = Path(__file__).parent / "templates" / "insights-ui"
+
 TEMPLATED_FILES = {"docusaurus.config.ts", "package-lock.json", "package.json"}
+
+# `insights-ui/package.json` only exists to make the directory an npm workspace member of this
+# repository. The scaffolded site reaches the vendored copy through a path alias instead.
+INSIGHTS_UI_EXCLUDED_FILES = {"package.json"}
+
+
+def copy_template_tree(
+    source_dir: Path,
+    destination_dir: Path,
+    substitutions: dict[str, str],
+    excluded_files: set[str] | None = None,
+) -> None:
+    """Copy a template tree, substituting placeholders in the files that carry them.
+
+    Args:
+        source_dir: Template tree to copy from. `node_modules` entries are skipped.
+        destination_dir: Directory the tree is copied into. Created if absent.
+        substitutions: Placeholder values applied to files named in `TEMPLATED_FILES`.
+        excluded_files: File names to leave out of the copy.
+    """
+    skipped_names = excluded_files or set()
+    for source_file in sorted(source_dir.rglob("*")):
+        if source_file.is_dir() or "node_modules" in source_file.parts:
+            continue
+        if source_file.name in skipped_names:
+            continue
+        relative_path = source_file.relative_to(source_dir)
+        destination_file = destination_dir / relative_path
+        destination_file.parent.mkdir(parents=True, exist_ok=True)
+        if source_file.name in TEMPLATED_FILES:
+            content = string.Template(source_file.read_text()).safe_substitute(substitutions)
+            destination_file.write_text(content)
+        else:
+            shutil.copy2(source_file, destination_file)
+        log.info(f"Created {destination_file}")
 
 
 @click.group()
@@ -80,18 +119,13 @@ def scaffold(
         "github_repo_url": github_repo_url,
     }
 
-    for src_file in sorted(TEMPLATE_DIR.rglob("*")):
-        if src_file.is_dir() or "node_modules" in src_file.parts:
-            continue
-        rel = src_file.relative_to(TEMPLATE_DIR)
-        dst_file = output / rel
-        dst_file.parent.mkdir(parents=True, exist_ok=True)
-        if src_file.name in TEMPLATED_FILES:
-            content = string.Template(src_file.read_text()).safe_substitute(substitutions)
-            dst_file.write_text(content)
-        else:
-            shutil.copy2(src_file, dst_file)
-        log.info(f"Created {dst_file}")
+    copy_template_tree(TEMPLATE_DIR, output, substitutions)
+    copy_template_tree(
+        INSIGHTS_UI_DIR,
+        output / "src" / "insights-ui",
+        substitutions,
+        excluded_files=INSIGHTS_UI_EXCLUDED_FILES,
+    )
 
     log.success(
         f"Website scaffolded to '{output}/'.\n"

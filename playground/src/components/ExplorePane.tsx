@@ -1,3 +1,4 @@
+import { closeInsightDetail } from "@insights-ui/state/insightDetailSlice";
 import { ExplorerTab } from "@/components/explore/ExplorerTab";
 import { InsightsTab } from "@/components/explore/InsightsTab";
 import { Pane } from "@/components/Pane";
@@ -23,6 +24,11 @@ export function ExplorePane({
 	const hasSchema = useAppSelector(selectHasSchema);
 	const activeTab = useAppSelector(selectExploreTab);
 
+	const handleTabChange = (value: string) => {
+		dispatch(setExploreTab(value as ExploreTab));
+		dispatch(closeInsightDetail());
+	};
+
 	if (!hasSchema) {
 		return (
 			<Pane className={className} position={position}>
@@ -37,7 +43,7 @@ export function ExplorePane({
 		<Pane className={className} position={position}>
 			<Tabs
 				value={activeTab}
-				onValueChange={(value) => dispatch(setExploreTab(value as ExploreTab))}
+				onValueChange={handleTabChange}
 				className="flex h-full w-full min-h-0 flex-col"
 			>
 				<div className="my-2 px-4 flex items-center justify-center gap-2">

@@ -12,7 +12,8 @@
 		"moduleResolution": "bundler",
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@insights-ui/*": ["../src/s2dm/templates/insights-ui/*"]
 		},
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,

@@ -1,9 +1,9 @@
-import { configureStore } from "@reduxjs/toolkit";
-import type { InsightsBundle } from "@/insights/types";
+import insightDetailReducer from "@insights-ui/state/insightDetailSlice";
 import insightsReducer, {
 	type InsightsState,
-} from "@/store/insights/insightsSlice";
-import uiReducer from "@/store/ui/uiSlice";
+} from "@insights-ui/state/insightsSlice";
+import { configureStore } from "@reduxjs/toolkit";
+import type { InsightsBundle } from "@/insights/types";
 
 export function createInsightsStore(bundle: InsightsBundle) {
 	const insights: InsightsState = {
@@ -15,7 +15,7 @@ export function createInsightsStore(bundle: InsightsBundle) {
 	return configureStore({
 		reducer: {
 			insights: insightsReducer,
-			ui: uiReducer,
+			insightDetail: insightDetailReducer,
 		},
 		preloadedState: { insights },
 	});

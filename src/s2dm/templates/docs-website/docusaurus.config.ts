@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
 const sourceDirectory = fileURLToPath(new URL("./src", import.meta.url));
+const insightsUiDirectory = fileURLToPath(new URL("./src/insights-ui", import.meta.url));
 
 function addBaseUrlToSidebar(items: PropSidebar, baseUrl: string): PropSidebar {
   const addBaseUrl = (href: string) =>
@@ -61,7 +62,7 @@ const insightsPlugin = ({ baseUrl }: LoadContext) => ({
     }
   },
   configureWebpack() {
-    return { resolve: { alias: { "@": sourceDirectory } } };
+    return { resolve: { alias: { "@": sourceDirectory, "@insights-ui": insightsUiDirectory } } };
   },
   configurePostCss(options) {
     options.plugins.push(require("@tailwindcss/postcss"));

@@ -1,7 +1,7 @@
-import type { InsightsState } from "@/store/insights/insightsSlice";
-import type { UIState } from "@/store/ui/uiSlice";
+import type { InsightDetailState } from "@insights-ui/state/insightDetailSlice";
+import type { InsightsState } from "@insights-ui/state/insightsSlice";
 
 export type RootState = {
 	insights: InsightsState;
-	ui: UIState;
+	insightDetail: InsightDetailState;
 };

@@ -1,37 +1,42 @@
-import type { ComponentType, ReactNode } from "react";
-import { useEffect, useState } from "react";
 import type { PropSidebar } from "@docusaurus/plugin-content-docs";
 import { DocsSidebarProvider } from "@docusaurus/plugin-content-docs/client";
 import { useHistory, useLocation } from "@docusaurus/router";
-import { HtmlClassNameProvider, ThemeClassNames } from "@docusaurus/theme-common";
+import {
+	HtmlClassNameProvider,
+	ThemeClassNames,
+} from "@docusaurus/theme-common";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import DocRootLayout from "@theme/DocRoot/Layout";
-import Layout from "@theme/Layout";
-import { Provider } from "react-redux";
-import { CompositionSummaryCard } from "@/components/explore/insights/CompositionSummaryCard";
-import { ConceptsBreakdown } from "@/components/explore/insights/ConceptsBreakdown";
-import { CyclicReferencesChart } from "@/components/explore/insights/CyclicReferencesChart";
-import { DeepestPathsChart } from "@/components/explore/insights/DeepestPathsChart";
-import { DocumentationCoverageCard } from "@/components/explore/insights/DocumentationCoverageCard";
-import { EnumUsageCard } from "@/components/explore/insights/EnumUsageCard";
-import { FieldsByTypeChart } from "@/components/explore/insights/FieldsByTypeChart";
-import { MissingUnitsCard } from "@/components/explore/insights/MissingUnitsCard";
-import { QualitySummaryCard } from "@/components/explore/insights/QualitySummaryCard";
-import { ReferencesCountCard } from "@/components/explore/insights/ReferencesCountCard";
-import { ScalarDistributionChart } from "@/components/explore/insights/ScalarDistributionChart";
-import { UnusedElementsCard } from "@/components/explore/insights/UnusedElementsCard";
-import { InsightsDetailsPane } from "@/components/InsightsDetailsPane";
-import type { InsightsBundle } from "@/insights/types";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createInsightsStore, type InsightsStore } from "@/store/store";
+import { CompositionSummaryCard } from "@insights-ui/components/CompositionSummaryCard";
+import { ConceptsBreakdown } from "@insights-ui/components/ConceptsBreakdown";
+import { CyclicReferencesChart } from "@insights-ui/components/CyclicReferencesChart";
+import { DeepestPathsChart } from "@insights-ui/components/DeepestPathsChart";
+import { DocumentationCoverageCard } from "@insights-ui/components/DocumentationCoverageCard";
+import { EnumUsageCard } from "@insights-ui/components/EnumUsageCard";
+import { FieldsByTypeChart } from "@insights-ui/components/FieldsByTypeChart";
+import { MissingUnitsCard } from "@insights-ui/components/MissingUnitsCard";
+import { QualitySummaryCard } from "@insights-ui/components/QualitySummaryCard";
+import { ReferencesCountCard } from "@insights-ui/components/ReferencesCountCard";
+import { ScalarDistributionChart } from "@insights-ui/components/ScalarDistributionChart";
+import { UnusedElementsCard } from "@insights-ui/components/UnusedElementsCard";
+import { InsightsHostDefaults } from "@insights-ui/hostDefaults";
 import {
 	clearInsightsSubTab,
 	closeInsightDetail,
 	type InsightDetail,
+	type InsightsSubTab,
 	openInsightDetail,
 	selectInsightDetail,
 	selectInsightsSubTab,
-} from "@/store/ui/uiSlice";
+} from "@insights-ui/state/insightDetailSlice";
+import DocRootLayout from "@theme/DocRoot/Layout";
+import Layout from "@theme/Layout";
+import type { ComponentType, ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { Provider } from "react-redux";
+import { InsightsDetailsPane } from "@/components/InsightsDetailsPane";
+import type { InsightsBundle } from "@/insights/types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { createInsightsStore, type InsightsStore } from "@/store/store";
 import styles from "./insights.module.css";
 
 type CardDefinition = {
@@ -93,7 +98,9 @@ function getCardId(pathname: string): CardId {
 	if (!pathSegment || pathSegment === "insights") {
 		return DEFAULT_CARD_ID;
 	}
-	return pathSegment in CARD_DEFINITIONS ? (pathSegment as CardId) : DEFAULT_CARD_ID;
+	return pathSegment in CARD_DEFINITIONS
+		? (pathSegment as CardId)
+		: DEFAULT_CARD_ID;
 }
 
 function getCardPath(cardId: CardId, insightsRootUrl: string): string {
@@ -103,7 +110,7 @@ function getCardPath(cardId: CardId, insightsRootUrl: string): string {
 }
 
 function cardForNavigation(
-	section: "composition" | "relationships" | "quality",
+	section: InsightsSubTab,
 	detail: InsightDetail | null,
 ): CardId {
 	if (detail?.kind === "unused") {
@@ -166,7 +173,10 @@ function InsightsLayout({
 }) {
 	return (
 		<HtmlClassNameProvider className={ThemeClassNames.wrapper.docsPages}>
-			<Layout title="Insights" description="Schema composition and quality insights">
+			<Layout
+				title="Insights"
+				description="Schema composition and quality insights"
+			>
 				<HtmlClassNameProvider className={ThemeClassNames.page.docsDocPage}>
 					<DocsSidebarProvider name="insightsSidebar" items={sidebar}>
 						<DocRootLayout>{children}</DocRootLayout>
@@ -177,7 +187,11 @@ function InsightsLayout({
 	);
 }
 
-export default function InsightsPage({ sidebar }: { sidebar: PropSidebar }): ReactNode {
+export default function InsightsPage({
+	sidebar,
+}: {
+	sidebar: PropSidebar;
+}): ReactNode {
 	const insightsUrl = useBaseUrl("/insights.json");
 	const [store, setStore] = useState<InsightsStore | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -212,7 +226,9 @@ export default function InsightsPage({ sidebar }: { sidebar: PropSidebar }): Rea
 	} else {
 		content = (
 			<Provider store={store}>
-				<InsightsContent />
+				<InsightsHostDefaults evidenceRowLook="filled">
+					<InsightsContent />
+				</InsightsHostDefaults>
 			</Provider>
 		);
 	}
