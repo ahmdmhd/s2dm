@@ -1,6 +1,6 @@
-import { CyclicReferencesChart } from "@/components/explore/insights/CyclicReferencesChart";
-import { DeepestPathsChart } from "@/components/explore/insights/DeepestPathsChart";
-import { ReferencesCountCard } from "@/components/explore/insights/ReferencesCountCard";
+import { CyclicReferencesChart } from "@insights-ui/components/CyclicReferencesChart";
+import { DeepestPathsChart } from "@insights-ui/components/DeepestPathsChart";
+import { ReferencesCountCard } from "@insights-ui/components/ReferencesCountCard";
 import { TabsContent } from "@/components/ui/tabs";
 
 export function RelationshipsTab() {

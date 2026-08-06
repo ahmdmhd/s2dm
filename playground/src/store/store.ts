@@ -1,3 +1,7 @@
+import insightDetailReducer, {
+	type InsightDetailState,
+} from "@insights-ui/state/insightDetailSlice";
+import insightsReducer from "@insights-ui/state/insightsSlice";
 import { configureStore } from "@reduxjs/toolkit";
 import createSagaMiddleware from "redux-saga";
 import { all } from "redux-saga/effects";
@@ -18,7 +22,6 @@ import depsResolveReducer from "@/store/deps/resolve/resolveSlice";
 import { exportSaga } from "@/store/export/exportSaga";
 import exportReducer from "@/store/export/exportSlice";
 import { insightsSaga } from "@/store/insights/insightsSaga";
-import insightsReducer from "@/store/insights/insightsSlice";
 import schemaReducer from "@/store/schema/schemaSlice";
 import { pruneSchemaSaga } from "@/store/selection/pruneSchemaSaga";
 import selectionReducer from "@/store/selection/selectionSlice";
@@ -44,6 +47,11 @@ function* rootSaga() {
 
 const sagaMiddleware = createSagaMiddleware();
 
+const preloadedInsightDetail: InsightDetailState = {
+	insightsSubTab: "overview",
+	insightDetailStack: [],
+};
+
 export const store = configureStore({
 	reducer: {
 		app: appReducer,
@@ -59,7 +67,9 @@ export const store = configureStore({
 		schemaExport: exportReducer,
 		capabilities: capabilitiesReducer,
 		insights: insightsReducer,
+		insightDetail: insightDetailReducer,
 	},
+	preloadedState: { insightDetail: preloadedInsightDetail },
 	middleware: (getDefaultMiddleware) =>
 		getDefaultMiddleware({
 			thunk: false,

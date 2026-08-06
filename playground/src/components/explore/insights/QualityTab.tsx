@@ -1,6 +1,6 @@
-import { DocumentationCoverageCard } from "@/components/explore/insights/DocumentationCoverageCard";
-import { MissingUnitsCard } from "@/components/explore/insights/MissingUnitsCard";
-import { UnusedElementsCard } from "@/components/explore/insights/UnusedElementsCard";
+import { DocumentationCoverageCard } from "@insights-ui/components/DocumentationCoverageCard";
+import { MissingUnitsCard } from "@insights-ui/components/MissingUnitsCard";
+import { UnusedElementsCard } from "@insights-ui/components/UnusedElementsCard";
 import { TabsContent } from "@/components/ui/tabs";
 
 export function QualityTab() {

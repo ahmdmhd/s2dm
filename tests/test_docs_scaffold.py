@@ -48,12 +48,13 @@ def test_scaffold_includes_insights_page_and_generation_pipeline(tmp_path: Path)
     assert result.exit_code == 0, result.output
     assert (output / "src/insights/InsightsPage.tsx").exists()
     assert (output / "src/insights/insights.module.css").exists()
-    assert (
-        output / "src/components/explore/insights/ConceptsBreakdown.tsx"
-    ).exists()
+    assert (output / "src/insights-ui/components/ConceptsBreakdown.tsx").exists()
+    assert (output / "src/insights-ui/hostDefaults.tsx").exists()
     assert (output / "src/components/InsightsDetailsPane.tsx").exists()
-    assert (output / "src/store/insights/insightsSlice.ts").exists()
-    assert (output / "src/store/ui/uiSlice.ts").exists()
+    assert (output / "src/insights-ui/state/insightsSlice.ts").exists()
+    assert (output / "src/insights-ui/selectors/concepts.ts").exists()
+    assert (output / "src/insights-ui/types/concepts.ts").exists()
+    assert (output / "src/insights-ui/state/insightDetailSlice.ts").exists()
 
     package_json = (output / "package.json").read_text()
     assert "s2dm insights export" in package_json

@@ -1,3 +1,4 @@
+import { InsightsHostDefaults } from "@insights-ui/hostDefaults";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { Provider } from "react-redux";
@@ -57,7 +58,9 @@ function AppContent() {
 function App() {
 	return (
 		<Provider store={store}>
-			<AppContent />
+			<InsightsHostDefaults evidenceRowLook="outlined" selectableCards>
+				<AppContent />
+			</InsightsHostDefaults>
 		</Provider>
 	);
 }

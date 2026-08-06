@@ -1,6 +1,6 @@
-import { EnumUsageCard } from "@/components/explore/insights/EnumUsageCard";
-import { FieldsByTypeChart } from "@/components/explore/insights/FieldsByTypeChart";
-import { ScalarDistributionChart } from "@/components/explore/insights/ScalarDistributionChart";
+import { EnumUsageCard } from "@insights-ui/components/EnumUsageCard";
+import { FieldsByTypeChart } from "@insights-ui/components/FieldsByTypeChart";
+import { ScalarDistributionChart } from "@insights-ui/components/ScalarDistributionChart";
 import { TabsContent } from "@/components/ui/tabs";
 
 export function CompositionTab() {

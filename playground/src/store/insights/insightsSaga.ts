@@ -1,3 +1,12 @@
+import {
+	fetchInsights,
+	fetchInsightsFailure,
+	fetchInsightsSuccess,
+} from "@insights-ui/state/insightsSlice";
+import type { ConceptsResponse } from "@insights-ui/types/concepts";
+import type { CoverageResponse } from "@insights-ui/types/coverage";
+import type { QualityResponse } from "@insights-ui/types/quality";
+import type { RelationshipsResponse } from "@insights-ui/types/relationships";
 import { all, call, put, select, takeLatest } from "redux-saga/effects";
 import {
 	getSchemaConcepts,
@@ -5,18 +14,7 @@ import {
 	getSchemaQualityIssues,
 	getSchemaRelationships,
 } from "@/api/s2dm";
-import type {
-	ConceptsResponse,
-	CoverageResponse,
-	QualityResponse,
-	RelationshipsResponse,
-	SchemaInput,
-} from "@/api/types";
-import {
-	fetchInsights,
-	fetchInsightsFailure,
-	fetchInsightsSuccess,
-} from "@/store/insights/insightsSlice";
+import type { SchemaInput } from "@/api/types";
 import { selectFilteredSchema } from "@/store/schema/schemaSlice";
 import { getErrorMessage } from "@/utils/getErrorMessage";
 
