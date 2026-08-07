@@ -8,15 +8,15 @@ import {
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import { CompositionSummaryCard } from "@insights-ui/components/CompositionSummaryCard";
 import { ConceptsBreakdown } from "@insights-ui/components/ConceptsBreakdown";
-import { CyclicReferencesChart } from "@insights-ui/components/CyclicReferencesChart";
-import { DeepestPathsChart } from "@insights-ui/components/DeepestPathsChart";
+import { CyclicReferencesCard } from "@insights-ui/components/CyclicReferencesCard";
+import { DeepestPathsCard } from "@insights-ui/components/DeepestPathsCard";
 import { DocumentationCoverageCard } from "@insights-ui/components/DocumentationCoverageCard";
 import { EnumUsageCard } from "@insights-ui/components/EnumUsageCard";
-import { FieldsByTypeChart } from "@insights-ui/components/FieldsByTypeChart";
+import { FieldsByTypeCard } from "@insights-ui/components/FieldsByTypeCard";
 import { MissingUnitsCard } from "@insights-ui/components/MissingUnitsCard";
 import { QualitySummaryCard } from "@insights-ui/components/QualitySummaryCard";
 import { ReferencesCountCard } from "@insights-ui/components/ReferencesCountCard";
-import { ScalarDistributionChart } from "@insights-ui/components/ScalarDistributionChart";
+import { ScalarDistributionCard } from "@insights-ui/components/ScalarDistributionCard";
 import { UnusedElementsCard } from "@insights-ui/components/UnusedElementsCard";
 import { InsightsHostDefaults } from "@insights-ui/hostDefaults";
 import {
@@ -52,11 +52,11 @@ const CARD_DEFINITIONS = {
 	"composition-summary": { component: CompositionSummaryCard },
 	"quality-summary": { component: QualitySummaryCard },
 	"largest-container-types-by-fields": {
-		component: FieldsByTypeChart,
+		component: FieldsByTypeCard,
 		detail: { kind: "fieldsByType" },
 	},
 	"scalar-distribution": {
-		component: ScalarDistributionChart,
+		component: ScalarDistributionCard,
 		detail: { kind: "scalarDistribution" },
 	},
 	"enum-usage": {
@@ -68,11 +68,11 @@ const CARD_DEFINITIONS = {
 		detail: { kind: "references" },
 	},
 	"deepest-nested-paths": {
-		component: DeepestPathsChart,
+		component: DeepestPathsCard,
 		detail: { kind: "deepestPaths" },
 	},
 	"cyclic-references": {
-		component: CyclicReferencesChart,
+		component: CyclicReferencesCard,
 		detail: { kind: "cyclicReferences" },
 	},
 	"documentation-coverage": {

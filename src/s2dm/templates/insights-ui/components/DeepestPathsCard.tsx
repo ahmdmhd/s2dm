@@ -20,9 +20,7 @@ import {
 import { formatPathSegments } from "@insights-ui/utils/formatPathSegments";
 import pluralize from "pluralize";
 
-const DEPTH_AXIS_WIDTH = 64;
-
-export function DeepestPathsChart() {
+export function DeepestPathsCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
 	const detail = useInsightsSelector(selectInsightDetail);
@@ -61,7 +59,6 @@ export function DeepestPathsChart() {
 						categoryKey="depth"
 						valueKey="pathCount"
 						maxValue={maxPathCount}
-						axisWidth={DEPTH_AXIS_WIDTH}
 						formatCategory={(depth) => `Depth ${depth}`}
 						reversed
 					/>

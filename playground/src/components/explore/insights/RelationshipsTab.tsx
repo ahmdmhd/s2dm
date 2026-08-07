@@ -1,5 +1,5 @@
-import { CyclicReferencesChart } from "@insights-ui/components/CyclicReferencesChart";
-import { DeepestPathsChart } from "@insights-ui/components/DeepestPathsChart";
+import { CyclicReferencesCard } from "@insights-ui/components/CyclicReferencesCard";
+import { DeepestPathsCard } from "@insights-ui/components/DeepestPathsCard";
 import { ReferencesCountCard } from "@insights-ui/components/ReferencesCountCard";
 import { TabsContent } from "@/components/ui/tabs";
 
@@ -11,8 +11,8 @@ export function RelationshipsTab() {
 		>
 			<div className="grid grid-cols-1 gap-4 p-4">
 				<ReferencesCountCard />
-				<DeepestPathsChart />
-				<CyclicReferencesChart />
+				<DeepestPathsCard />
+				<CyclicReferencesCard />
 			</div>
 		</TabsContent>
 	);

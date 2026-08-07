@@ -20,8 +20,6 @@ import { countTiedForTop } from "@insights-ui/utils/countTiedForTop";
 import pluralize from "pluralize";
 import type { ReactNode } from "react";
 
-const REFERENCE_AXIS_WIDTH = 140;
-
 export function ReferencesCountCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
@@ -93,7 +91,6 @@ export function ReferencesCountCard() {
 							categoryKey="name"
 							valueKey="count"
 							maxValue={mostReferenced.count}
-							axisWidth={REFERENCE_AXIS_WIDTH}
 						/>
 					)}
 					<div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
