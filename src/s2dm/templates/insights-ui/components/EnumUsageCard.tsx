@@ -20,8 +20,6 @@ import { countTiedForTop } from "@insights-ui/utils/countTiedForTop";
 import pluralize from "pluralize";
 import type { ReactNode } from "react";
 
-const ENUM_AXIS_WIDTH = 140;
-
 export function EnumUsageCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
@@ -86,7 +84,6 @@ export function EnumUsageCard() {
 							categoryKey="name"
 							valueKey="count"
 							maxValue={mostUsed.count}
-							axisWidth={ENUM_AXIS_WIDTH}
 						/>
 					)}
 					<div className="flex flex-wrap gap-6 text-sm text-muted-foreground">

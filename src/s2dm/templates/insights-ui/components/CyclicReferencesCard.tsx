@@ -21,9 +21,7 @@ import { selectInsightsRelationships } from "@insights-ui/state/insightsSlice";
 import { formatPathSegments } from "@insights-ui/utils/formatPathSegments";
 import pluralize from "pluralize";
 
-const LENGTH_AXIS_WIDTH = 64;
-
-export function CyclicReferencesChart() {
+export function CyclicReferencesCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
 	const detail = useInsightsSelector(selectInsightDetail);
@@ -71,7 +69,6 @@ export function CyclicReferencesChart() {
 								categoryKey="length"
 								valueKey="cycleCount"
 								maxValue={maxCycleCount}
-								axisWidth={LENGTH_AXIS_WIDTH}
 								formatCategory={(length) => `Length ${length}`}
 							/>
 							<div className="flex gap-6 text-sm text-muted-foreground">

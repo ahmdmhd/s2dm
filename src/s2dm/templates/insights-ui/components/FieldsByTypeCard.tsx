@@ -18,9 +18,7 @@ import {
 import { countTiedForTop } from "@insights-ui/utils/countTiedForTop";
 import type { ReactNode } from "react";
 
-const TYPE_AXIS_WIDTH = 140;
-
-export function FieldsByTypeChart() {
+export function FieldsByTypeCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
 	const detail = useInsightsSelector(selectInsightDetail);
@@ -85,7 +83,6 @@ export function FieldsByTypeChart() {
 						categoryKey="type"
 						valueKey="fieldCount"
 						maxValue={largestType.fieldCount}
-						axisWidth={TYPE_AXIS_WIDTH}
 					/>
 					<div className="flex gap-6 text-sm text-muted-foreground">
 						<span>

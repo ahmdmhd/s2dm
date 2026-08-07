@@ -20,9 +20,7 @@ import { countTiedForTop } from "@insights-ui/utils/countTiedForTop";
 import pluralize from "pluralize";
 import type { ReactNode } from "react";
 
-const SCALAR_AXIS_WIDTH = 200;
-
-export function ScalarDistributionChart() {
+export function ScalarDistributionCard() {
 	const { selectableCards } = useInsightsHostDefaults();
 	const dispatch = useInsightsDispatch();
 	const detail = useInsightsSelector(selectInsightDetail);
@@ -87,7 +85,6 @@ export function ScalarDistributionChart() {
 						categoryKey="name"
 						valueKey="count"
 						maxValue={topScalar.count}
-						axisWidth={SCALAR_AXIS_WIDTH}
 						renderCategoryBadge={renderScalarTypeBadge}
 					/>
 					<div className="flex gap-6 text-sm text-muted-foreground">

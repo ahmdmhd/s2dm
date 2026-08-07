@@ -14,7 +14,6 @@ import {
 } from "@insights-ui/state/insightDetailSlice";
 import pluralize from "pluralize";
 
-const CATEGORY_AXIS_WIDTH = 80;
 const ROW_HEIGHT = 44;
 
 export function UnusedElementsCard() {
@@ -71,7 +70,6 @@ export function UnusedElementsCard() {
 							categoryKey="label"
 							valueKey="unused"
 							maxValue={maxUnused}
-							axisWidth={CATEGORY_AXIS_WIDTH}
 							height={chartHeight}
 						/>
 					)}

@@ -1,6 +1,7 @@
+import { CategoryLabelRow } from "@insights-ui/components/CategoryLabelRow";
 import type { ReactNode } from "react";
 
-const LABEL_LEFT_PADDING = 4;
+export const LABEL_LEFT_PADDING = 4;
 const ROW_HEIGHT = 24;
 
 type CategoryTickProps = {
@@ -34,12 +35,6 @@ export function CategoryTick({
 	renderBadge,
 }: CategoryTickProps) {
 	const value = payload?.value ?? "";
-	const label = format ? format(value) : String(value);
-
-	let badge: ReactNode = null;
-	if (renderBadge) {
-		badge = renderBadge(value);
-	}
 
 	return (
 		<foreignObject
@@ -48,12 +43,12 @@ export function CategoryTick({
 			width={width - LABEL_LEFT_PADDING}
 			height={ROW_HEIGHT}
 		>
-			<div className="flex h-full items-center gap-1.5 overflow-hidden">
-				<span className="min-w-0 truncate text-xs text-muted-foreground">
-					{label}
-				</span>
-				{badge}
-			</div>
+			<CategoryLabelRow
+				value={value}
+				format={format}
+				renderBadge={renderBadge}
+				truncate
+			/>
 		</foreignObject>
 	);
 }
