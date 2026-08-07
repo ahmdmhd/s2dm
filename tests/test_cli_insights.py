@@ -20,7 +20,7 @@ def _parse_json_payload(output: str) -> dict[str, object]:
 @pytest.mark.parametrize(
     ("subcommand", "expected_keys"),
     [
-        ("concepts", {"field_container_types", "fields", "enums", "scalars", "enum_usage"}),
+        ("composition", {"field_container_types", "fields", "enums", "scalars", "enum_usage"}),
         ("relationships", {"references_count", "deepest_nested_paths", "cyclic_references"}),
         ("quality", {"coverage", "unused_elements", "missing_units"}),
     ],
@@ -110,8 +110,8 @@ def test_insights_quality_matches_summary_shape(runner: CliRunner, insights_sche
     }
 
 
-def test_insights_concepts_matches_summary_shape(runner: CliRunner, insights_schema_path: Path) -> None:
-    result = runner.invoke(cli, ["insights", "concepts", "-s", str(insights_schema_path)])
+def test_insights_composition_matches_summary_shape(runner: CliRunner, insights_schema_path: Path) -> None:
+    result = runner.invoke(cli, ["insights", "composition", "-s", str(insights_schema_path)])
 
     assert result.exit_code == 0, result.output
 

@@ -6,7 +6,7 @@ from s2dm.tools.insights.models import ConceptsResult, CoverageResult, QualityRe
 from s2dm.tools.insights.quality import compute_quality_issues
 from s2dm.tools.insights.relationships import compute_relationships
 from s2dm.tools.insights.summary import (
-    build_concepts_summary,
+    build_composition_summary,
     build_quality_summary,
     build_relationships_summary,
 )
@@ -22,10 +22,10 @@ def _build_results(schema_sdl: str) -> tuple[ConceptsResult, RelationshipsResult
     )
 
 
-def test_build_concepts_summary(insights_schema_sdl: str) -> None:
+def test_build_composition_summary(insights_schema_sdl: str) -> None:
     concepts, _, _, quality = _build_results(insights_schema_sdl)
 
-    summary = build_concepts_summary(concepts, quality)
+    summary = build_composition_summary(concepts, quality)
 
     assert summary == {
         "field_container_types": {

@@ -91,7 +91,7 @@ def _unused_summary(quality: QualityResult, counts: ConceptCounts) -> dict[str, 
     }
 
 
-def build_concepts_summary(concepts: ConceptsResult, quality: QualityResult) -> dict[str, object]:
+def build_composition_summary(concepts: ConceptsResult, quality: QualityResult) -> dict[str, object]:
     enum_values = [entry.values for entry in concepts.enum_value_counts]
     scalar_count = len(concepts.scalar_usage)
     builtin_count = sum(1 for entry in concepts.scalar_usage if entry.is_builtin)

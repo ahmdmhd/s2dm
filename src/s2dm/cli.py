@@ -88,7 +88,7 @@ from s2dm.tools.insights.models import InsightsBundle
 from s2dm.tools.insights.quality import compute_quality_issues
 from s2dm.tools.insights.relationships import compute_relationships
 from s2dm.tools.insights.summary import (
-    build_concepts_summary,
+    build_composition_summary,
     build_quality_summary,
     build_relationships_summary,
 )
@@ -2132,16 +2132,16 @@ def stats_graphql(schemas: list[Path]) -> None:
     log.print_dict(type_counts)
 
 
-# insights -> concepts
+# insights -> composition
 # ----------
-@insights.command(name="concepts")
+@insights.command(name="composition")
 @schema_option
-def insights_concepts(schemas: list[Path]) -> None:
-    """Show a compact concept summary for the schema."""
+def insights_composition(schemas: list[Path]) -> None:
+    """Show a compact composition summary for the schema."""
     graphql_schema = load_schema(schemas)
     concepts = compute_concepts(graphql_schema)
     quality = compute_quality_issues(graphql_schema)
-    click.echo(format_json_output(build_concepts_summary(concepts, quality)))
+    click.echo(format_json_output(build_composition_summary(concepts, quality)))
 
 
 # insights -> relationships
