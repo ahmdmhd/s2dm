@@ -1,11 +1,12 @@
 import pytest
+from graphql import ObjectTypeDefinitionNode, parse
 
 from s2dm.deps.compose import (
     DependencyCompositionError,
     DependencySchemaBuilder,
     DependencySchemaInput,
 )
-from s2dm.deps.helpers import prepare_dependency_schemas_for_composition
+from s2dm.deps.helpers import compose_dependency_schemas, prepare_dependency_schemas_for_composition
 from s2dm.deps.models import DependencyMetadata
 from s2dm.exporters.utils.schema_loader import compose_schemas_to_string
 from tests.deps.helpers import dependency_identities
@@ -411,3 +412,63 @@ def test_shared_only_dependency_composes_with_auto_prefixed_conflicting_types() 
     assert "directive @metadata(comment: String) on FIELD_DEFINITION" in composed_schema
     assert "type body_Vehicle" in composed_schema
     assert "type powertrain_Vehicle" in composed_schema
+
+
+def _query_type_dependency_schema_contents() -> list[DependencySchemaInput]:
+    body_schema = """
+        type Query {
+            body: Body
+        }
+        type Body {
+            color: String
+        }
+    """
+    powertrain_schema = """
+        type Query {
+            powertrain: Powertrain
+        }
+        type Powertrain {
+            horsepower: Int
+        }
+    """
+    return [
+        DependencySchemaInput(
+            schema_content=body_schema,
+            metadata=DependencyMetadata(name="BodyModel", id="urn:test:body", version="1.0.0"),
+        ),
+        DependencySchemaInput(
+            schema_content=powertrain_schema,
+            metadata=DependencyMetadata(name="PowertrainModel", id="urn:test:powertrain", version="2.0.0"),
+        ),
+    ]
+
+
+def _object_type_definitions_by_name(schema_content: str) -> dict[str, ObjectTypeDefinitionNode]:
+    document = parse(schema_content)
+    return {
+        definition.name.value: definition
+        for definition in document.definitions
+        if isinstance(definition, ObjectTypeDefinitionNode)
+    }
+
+
+def test_compose_dependency_schemas_omits_query_type_by_default() -> None:
+    dependency_schema_contents = _query_type_dependency_schema_contents()
+    schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_contents, auto_prefix=False)
+
+    composed_schema = compose_dependency_schemas(schema_paths, preserve_query_type=False)
+
+    object_type_definitions = _object_type_definitions_by_name(composed_schema)
+    assert set(object_type_definitions) == {"Body", "Powertrain"}
+
+
+def test_compose_dependency_schemas_preserves_merged_query_type() -> None:
+    dependency_schema_contents = _query_type_dependency_schema_contents()
+    schema_paths = prepare_dependency_schemas_for_composition(dependency_schema_contents, auto_prefix=False)
+
+    composed_schema = compose_dependency_schemas(schema_paths, preserve_query_type=True)
+
+    object_type_definitions = _object_type_definitions_by_name(composed_schema)
+    query_field_names = {field.name.value for field in object_type_definitions["Query"].fields}
+    assert set(object_type_definitions) == {"Query", "Body", "Powertrain"}
+    assert query_field_names == {"body", "powertrain"}
