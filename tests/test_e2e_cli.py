@@ -2530,6 +2530,43 @@ def test_deps_build_resolves_relative_dependency_selection_path(runner: CliRunne
         assert "Cabin" not in built_schema.type_map
 
 
+@pytest.mark.parametrize(
+    ("build_arguments", "expected_query_type"),
+    [([], False), (["--preserve-query-type"], True)],
+)
+def test_deps_build_omits_query_type_unless_preserved(
+    runner: CliRunner, build_arguments: list[str], expected_query_type: bool
+) -> None:
+    with runner.isolated_filesystem():
+        working_directory = Path.cwd()
+        source_directory = working_directory / "source"
+        source_directory.mkdir()
+
+        (source_directory / SCHEMA_FILENAME).write_text(
+            "type Query { vehicle: Vehicle }\ntype Vehicle { vin: String }\n",
+            encoding="utf-8",
+        )
+        write_metadata_file(source_directory / METADATA_FILENAME, name="DemoDependency", version="1.0.0")
+        (working_directory / "s2dm.deps.yaml").write_text(
+            "dependencies:\n"
+            "  - name: DemoDependency\n"
+            '    version: "1.0.0"\n'
+            f'    source: "{source_directory.resolve()}"\n'
+            '    artifact: "schema.graphql"\n',
+            encoding="utf-8",
+        )
+
+        resolve_result = runner.invoke(cli, ["deps", "resolve"])
+        output_path = working_directory / "composed.graphql"
+        build_result = runner.invoke(cli, ["deps", "build", "-o", str(output_path), *build_arguments])
+
+        assert resolve_result.exit_code == 0
+        assert build_result.exit_code == 0, build_result.output
+        built_schema = build_schema(output_path.read_text(encoding="utf-8"))
+        assert "Vehicle" in built_schema.type_map
+        assert ("Query" in built_schema.type_map) == expected_query_type
+
+
 def test_deps_build_fails_when_cached_workspace_is_invalid(runner: CliRunner) -> None:
     with runner.isolated_filesystem():
         working_directory = Path.cwd()
